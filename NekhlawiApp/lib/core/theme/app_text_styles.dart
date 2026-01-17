@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
+
 
 class AppTextStyles {
   static const TextStyle headerTitle = TextStyle(
-    fontSize: 22,
+    fontSize: 30,
     fontWeight: FontWeight.bold,
+    color: AppColors.darkBrown,
   );
 
   static const TextStyle title = TextStyle(

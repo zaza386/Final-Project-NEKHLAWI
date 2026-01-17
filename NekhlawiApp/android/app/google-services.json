@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "354622449505",
+    "project_id": "nekhlawi-1cb1f",
+    "storage_bucket": "nekhlawi-1cb1f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:354622449505:android:1ae19a04598f09cb1ac720",
+        "android_client_info": {
+          "package_name": "com.example.flutter_application_1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC1HTryhdtSv5UwlG1RYqSIgmZ9DnHwJc4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

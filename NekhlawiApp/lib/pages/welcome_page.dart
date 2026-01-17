@@ -16,8 +16,8 @@ class WelcomePage extends StatelessWidget {
           children: [
             // ===== الصورة الخلفية =====
             Positioned.fill(
-              child: Image.asset(
-                'assets/images/palm1.jpg',
+              child: Image(
+                image: NetworkImage('https://pbs.twimg.com/media/EUib2z1XgAAqT2V?format=jpg&name=large'),
                 fit: BoxFit.cover,
               ),
             ),

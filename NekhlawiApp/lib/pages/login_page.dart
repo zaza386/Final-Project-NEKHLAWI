@@ -1,8 +1,11 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/theme/app_colors.dart';
 import 'package:flutter_application_1/pages/forgot_password_page(enter_emile).dart';
 import '../core/widgets/header_background.dart';
 import '../core/widgets/custom_input.dart';
 import '../core/widgets/primary_button.dart';
+import 'role_selection_page.dart';
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
@@ -19,14 +22,15 @@ class LoginPage extends StatelessWidget {
             Container(color: Colors.white),
 
             // الهيدر
-            const HeaderBackground(title: 'تسجيل دخول'),
+            const HeaderBackground(title: 'تسجيل دخول',
+            ),
 
             // المحتوى
             Positioned(
               top: 140,
               left: 0,
               right: 0,
-              bottom: 0, // 🔥 مهم لتثبيت الحقوق
+              bottom: 0, 
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   return SingleChildScrollView(
@@ -54,17 +58,18 @@ class LoginPage extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 26,
                                   fontWeight: FontWeight.bold,
+                                  color: AppColors.darkBrown
                                 ),
                               ),
 
                               const SizedBox(height: 8),
 
-                              const Text(
+                              Text(
                                 'سجل دخولك وخلك قريب من نخلك',
-                                style: TextStyle(color: Colors.grey),
+                                style: TextStyle(color: AppColors.darkBrown),
                               ),
 
-                              const SizedBox(height: 30),
+                              const SizedBox(height: 50),
 
                               const CustomInput(
                                 hint: 'البريد الإلكتروني',
@@ -79,17 +84,56 @@ class LoginPage extends StatelessWidget {
                                 isPassword: true,
                               ),
 
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 12),
 
                               const _ForgotPasswordButton(),
 
-                              const SizedBox(height: 24),
+                              const SizedBox(height: 30),
 
                               PrimaryButton(
                                 title: 'تسجيل دخول',
                                 onPressed: () {},
                               ),
+                            
+                              const SizedBox(height: 16),
 
+                              Center(
+                                child: RichText(
+                                  textDirection: TextDirection.rtl,
+                                  text: TextSpan(
+                                    children: [
+                                      const TextSpan(
+                                        text: 'لا أملك حساب، ',
+                                        style: TextStyle(
+                                          color: AppColors.darkBrown,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      TextSpan(
+                                        text: 'إنشاء حساب جديد',
+                                        style: const TextStyle(
+                                          color: AppColors.darkBrown,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          decoration: TextDecoration.underline, // اختياري
+                                        ),
+                                        recognizer: TapGestureRecognizer()
+                                          ..onTap = () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => const RoleSelectionPage(),
+                                              ),
+                                            );
+                                          },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 30),
+                              
                               const Spacer(), // 🔑 هذا يدفّ الحقوق تحت
 
                               const Center(
@@ -117,6 +161,9 @@ class LoginPage extends StatelessWidget {
   }
 }
 
+
+
+
 class _ForgotPasswordButton extends StatelessWidget {
   const _ForgotPasswordButton();
 
@@ -125,14 +172,14 @@ class _ForgotPasswordButton extends StatelessWidget {
     return Directionality(
       textDirection: TextDirection.ltr,
       child: Align(
-        alignment: Alignment.centerLeft,
+        alignment: Alignment.centerRight,
         child: SizedBox(
           width: 150,
           height: 45,
           child: TextButton(
             style: TextButton.styleFrom(
-              foregroundColor: Colors.grey,
-              alignment: Alignment.centerLeft,
+              foregroundColor: AppColors.primary,
+              alignment: Alignment.centerRight,
               padding: const EdgeInsets.symmetric(horizontal: 12),
             ),
             onPressed: () {

@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
@@ -25,17 +26,17 @@ class HeaderBackground extends StatelessWidget {
           bottomRight: Radius.circular(30),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          if (showBack)
-            IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.pop(context),
-            ),
-            Text(title, style: AppTextStyles.headerTitle),
-        ],
-      ),
-    );
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            if (showBack)
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => Navigator.pop(context),
+              ),
+              Text(title, style: AppTextStyles.headerTitle),
+          ],
+        ),
+      );
+    }
   }
-}
