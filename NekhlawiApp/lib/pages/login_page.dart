@@ -1,0 +1,152 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_application_1/pages/forgot_password_page(enter_emile).dart';
+import '../core/widgets/header_background.dart';
+import '../core/widgets/custom_input.dart';
+import '../core/widgets/primary_button.dart';
+
+class LoginPage extends StatelessWidget {
+  const LoginPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: Stack(
+          children: [
+            // الخلفية
+            Container(color: Colors.white),
+
+            // الهيدر
+            const HeaderBackground(title: 'تسجيل دخول'),
+
+            // المحتوى
+            Positioned(
+              top: 140,
+              left: 0,
+              right: 0,
+              bottom: 0, // 🔥 مهم لتثبيت الحقوق
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
+                      child: IntrinsicHeight(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(30),
+                              topRight: Radius.circular(30),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 40),
+
+                              const Text(
+                                'هلا بالنخلاوي 🌴',
+                                style: TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+
+                              const SizedBox(height: 8),
+
+                              const Text(
+                                'سجل دخولك وخلك قريب من نخلك',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+
+                              const SizedBox(height: 30),
+
+                              const CustomInput(
+                                hint: 'البريد الإلكتروني',
+                                icon: Icons.email_outlined,
+                              ),
+
+                              const SizedBox(height: 16),
+
+                              const CustomInput(
+                                hint: 'كلمة المرور',
+                                icon: Icons.lock_outline,
+                                isPassword: true,
+                              ),
+
+                              const SizedBox(height: 8),
+
+                              const _ForgotPasswordButton(),
+
+                              const SizedBox(height: 24),
+
+                              PrimaryButton(
+                                title: 'تسجيل دخول',
+                                onPressed: () {},
+                              ),
+
+                              const Spacer(), // 🔑 هذا يدفّ الحقوق تحت
+
+                              const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.only(bottom: 16),
+                                  child: Text(
+                                    '©️ 2025 - 2026',
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ForgotPasswordButton extends StatelessWidget {
+  const _ForgotPasswordButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: SizedBox(
+          width: 150,
+          height: 45,
+          child: TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.grey,
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ForgotPasswordPage(),
+                ),
+              );
+            },
+            child: const Text('نسيت كلمة المرور؟'),
+          ),
+        ),
+      ),
+    );
+  }
+}
