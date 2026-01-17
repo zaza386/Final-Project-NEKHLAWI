@@ -104,11 +104,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF8A8F3A), // أخضر نخلاوي
+                      color: const Color(0xFF99AD42), // أخضر نخلاوي
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
-                      Icons.arrow_forward,
+                      Icons.arrow_back_ios_new,
                       color: Colors.white,
                     ),
                   ),
