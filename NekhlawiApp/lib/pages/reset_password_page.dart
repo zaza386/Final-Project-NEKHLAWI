@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/pages/password_updated_page.dart';
 import '../core/widgets/header_background.dart';
 import '../core/widgets/custom_input.dart';
 import '../core/widgets/primary_button.dart';
@@ -98,7 +99,12 @@ class ResetPasswordPage extends StatelessWidget {
                               PrimaryButton(
                                 title: 'إعادة التعيين',
                                 onPressed: () {
-                                  // TODO: تنفيذ إعادة التعيين
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const PasswordUpdatedPage(),
+                                    ),
+                                  );
                                 },
                               ),
 

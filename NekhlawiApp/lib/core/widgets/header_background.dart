@@ -33,6 +33,8 @@ class HeaderBackground extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.arrow_back),
                 onPressed: () => Navigator.pop(context),
+                iconSize: 40,
+                color: AppColors.darkBrown,
               ),
               Text(title, style: AppTextStyles.headerTitle),
           ],

@@ -1,10 +1,12 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import '../core/widgets/custom_input.dart';
 import '../core/widgets/primary_button.dart';
 import '../core/widgets/header_background.dart';
+import 'terms_and_conditions_page.dart';
 
-class SignUpPage extends StatelessWidget {
+class SignUpPage extends StatefulWidget {
   final String role; // user | expert
 
   const SignUpPage({
@@ -12,7 +14,14 @@ class SignUpPage extends StatelessWidget {
     required this.role,
   });
 
-  bool get isExpert => role == 'expert';
+  @override
+  State<SignUpPage> createState() => _SignUpPageState();
+}
+
+class _SignUpPageState extends State<SignUpPage> {
+  bool isAccepted = false;
+
+  bool get isExpert => widget.role == 'expert';
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +31,6 @@ class SignUpPage extends StatelessWidget {
         backgroundColor: Colors.white,
         body: Stack(
           children: [
-            // الخلفية
             Container(color: Colors.white),
 
             /// الهيدر
@@ -78,7 +86,6 @@ class SignUpPage extends StatelessWidget {
 
                       const SizedBox(height: 40),
 
-                      /// الاسم
                       const CustomInput(
                         hint: 'الاسم الكريم',
                         icon: Icons.person_outline,
@@ -86,7 +93,6 @@ class SignUpPage extends StatelessWidget {
 
                       const SizedBox(height: 16),
 
-                      /// الإيميل
                       const CustomInput(
                         hint: 'البريد الإلكتروني',
                         icon: Icons.email_outlined,
@@ -94,13 +100,11 @@ class SignUpPage extends StatelessWidget {
 
                       const SizedBox(height: 16),
 
-                      /// الجوال
                       const CustomInput(
                         hint: 'رقم الجوال',
                         icon: Icons.phone_outlined,
                       ),
 
-                      /// حقول إضافية للخبير فقط
                       if (isExpert) ...[
                         const SizedBox(height: 16),
                         const CustomInput(
@@ -116,7 +120,6 @@ class SignUpPage extends StatelessWidget {
 
                       const SizedBox(height: 16),
 
-                      /// كلمة المرور
                       const CustomInput(
                         hint: 'كلمة المرور',
                         icon: Icons.lock_outline,
@@ -125,40 +128,96 @@ class SignUpPage extends StatelessWidget {
 
                       const SizedBox(height: 16),
 
-                      /// تأكيد كلمة المرور
                       const CustomInput(
                         hint: 'تأكيد كلمة المرور',
                         icon: Icons.lock_outline,
                         isPassword: true,
                       ),
 
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 12),
 
-                      /// ملاحظة كلمة المرور
                       const Text(
                         '*يجب أن تحتوي كلمة المرور على 8 أحرف على الأقل، رقم، وحرف كبير ورمز.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
                       ),
 
                       const SizedBox(height: 40),
 
-                      /// زر إنشاء الحساب
+                      /// ✅ المربع + الشروط
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Checkbox(
+                            value: isAccepted,
+                            activeColor: AppColors.primary,
+                            onChanged: (value) {
+                              setState(() {
+                                isAccepted = value ?? false;
+                              });
+                            },
+                          ),
+                          Expanded(
+                            child: RichText(
+                              textDirection: TextDirection.rtl,
+                              text: TextSpan(
+                                children: [
+                                  const TextSpan(
+                                    text:
+                                        'بتسجيلك في التطبيق، أنت توافق على ',
+                                    style: TextStyle(
+                                      color: AppColors.primary,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: 'الشروط والخصوصية',
+                                    style: const TextStyle(
+                                      color: AppColors.primary,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    recognizer: TapGestureRecognizer()
+                                      ..onTap = () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                const TermsAndConditionsPage(),
+                                          ),
+                                        );
+                                      },
+                                  ),
+                                  const TextSpan(
+                                    text:
+                                        ' الخاصة بتطبيق نخلاوي.',
+                                    style: TextStyle(
+                                      color: AppColors.primary,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 30),
+
+                      /// زر إنشاء الحساب (يتفعل فقط عند الموافقة)
                       PrimaryButton(
                         title: 'إنشاء حساب',
                         onPressed: () {
+                          if (!isAccepted) return;
                           // TODO: Firebase SignUp
                         },
                       ),
 
                       const SizedBox(height: 30),
 
-                      /// الحقوق
                       const Center(
                         child: Text(
-                          '© 2025 - 2026',
+                          '©️ 2025 - 2026',
                           style: TextStyle(color: Colors.grey),
                         ),
                       ),

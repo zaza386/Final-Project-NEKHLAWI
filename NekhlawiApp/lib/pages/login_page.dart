@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/theme/app_colors.dart';
+import 'package:flutter_application_1/pages/HomePage.dart';
 import 'package:flutter_application_1/pages/forgot_password_page(enter_emile).dart';
 import '../core/widgets/header_background.dart';
 import '../core/widgets/custom_input.dart';
@@ -92,7 +93,14 @@ class LoginPage extends StatelessWidget {
 
                               PrimaryButton(
                                 title: 'تسجيل دخول',
-                                onPressed: () {},
+                                onPressed: () {
+                                  Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => const HomePage(),
+                                              ),
+                                            );
+                                },
                               ),
                             
                               const SizedBox(height: 16),

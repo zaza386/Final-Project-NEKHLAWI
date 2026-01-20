@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/core/theme/app_colors.dart';
 import 'package:flutter_application_1/pages/login_page.dart';
 
 class OnboardingPage extends StatefulWidget {
@@ -12,37 +13,96 @@ class _OnboardingPageState extends State<OnboardingPage> {
   final PageController _controller = PageController();
   int _currentPage = 0;
 
-  final List<String> images = [
-    'assets/images/image1.jpg',
-    'assets/images/image2.jpg',
-    'assets/images/image3.jpg',
+  /// بيانات كل صفحة
+  final List<Map<String, String>> onboardingData = [
+    {
+      'image': 'images/image1.png',
+      'title': 'استشارة الخبراء',
+      'desc':
+          'احصل على إرشادات دقيقة من خبراء العناية بالنخيل.\nشارك مشكلتك أو صورة النخلة وسيتم توجيهك بخطوات واضحة.',
+    },
+    {
+      'image': 'images/image2.png',
+      'title': 'تشخيص ذكي',
+      'desc':
+          'اكتشف أمراض النخيل باستخدام الذكاء الاصطناعي بطريقة سهلة وسريعة.',
+    },
+    {
+      'image': 'images/image3.png',
+      'title': 'دليل النخيل',
+      'desc': 'مكتبة معرفية تحتوي على مقالات وإرشادات لمساعدتك في العناية بالنخيل وتحسين صحته وإنتاجه',
+    },
   ];
 
-  Widget _Dot({required bool isActive}) {
+  /// المؤشر
+  Widget _dot({required bool isActive}) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      width: isActive ? 24 : 8,
-      height: 8,
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      width: isActive ? 90 : 90,
+      height: 4,
       decoration: BoxDecoration(
-        color: isActive ? const Color(0xFF8A8F3A) : Colors.grey,
-        borderRadius: BorderRadius.circular(4),
+        color: isActive ? const Color(0xFF343434) : Colors.grey.shade300,
+        borderRadius: BorderRadius.circular(6),
       ),
     );
   }
 
-  Widget _OnboardingItem({
+  /// محتوى الصفحة
+  Widget _onboardingItem({
     required String imagePath,
-    required bool showText,
+    required String title,
+    required String description,
   }) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Image.asset(imagePath),
-        if (showText)
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text('Welcome to our app'),
+        const SizedBox(height: 50),
+        /// الصورة
+        Image.asset(
+          imagePath,
+          width: MediaQuery.of(context).size.width * 0.75,
+          height: MediaQuery.of(context).size.height * 0.4,
+          fit: BoxFit.contain,
+        ),
+
+        const SizedBox(height: 50),
+
+        /// العنوان
+        Padding(
+          padding: const EdgeInsets.only(right: 32),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              title,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                fontSize: 30,
+                fontWeight: FontWeight.bold,
+                color: AppColors.darkBrown,
+              ),
+            ),
           ),
+        ),
+        
+
+        const SizedBox(height: 14),
+
+        /// الوصف
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              description,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.darkBrown,
+                height: 1.6,
+              ),
+            ),
+          ),
+        ), 
       ],
     );
   }
@@ -55,61 +115,64 @@ class _OnboardingPageState extends State<OnboardingPage> {
         backgroundColor: Colors.white,
         body: Stack(
           children: [
-            /// ===== الصفحات =====
+            /// الصفحات
             PageView.builder(
               controller: _controller,
-              itemCount: images.length,
+              itemCount: onboardingData.length,
               onPageChanged: (index) {
                 setState(() {
                   _currentPage = index;
                 });
               },
               itemBuilder: (context, index) {
-                return _OnboardingItem(
-                  imagePath: images[index],
-                  showText: index == 0,
+                final item = onboardingData[index];
+                return _onboardingItem(
+                  imagePath: item['image']!,
+                  title: item['title']!,
+                  description: item['desc']!,
                 );
               },
             ),
 
-            /// ===== النقاط (Indicators) =====
+            /// المؤشرات
             Positioned(
-              bottom: 90,
+              top: 90,
               left: 0,
               right: 0,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
-                  images.length,
-                  (index) => _Dot(isActive: index == _currentPage),
+                  onboardingData.length,
+                  (index) => _dot(isActive: index == _currentPage),
                 ),
               ),
             ),
 
-            /// ===== السهم يظهر فقط في آخر صفحة =====
-            if (_currentPage == images.length - 1)
+            /// السهم (آخر صفحة فقط)
+            if (_currentPage == onboardingData.length - 1)
               Positioned(
                 bottom: 32,
-                right: 24, // ⬅️ السهم على اليمين
+                right: 24,
                 child: GestureDetector(
                   onTap: () {
-                    Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const LoginPage(),
-                    ),
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LoginPage(),
+                      ),
                     );
                   },
                   child: Container(
-                    width: 56,
+                    width: 50,
                     height: 56,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF99AD42), // أخضر نخلاوي
+                      color: AppColors.primary,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
                       Icons.arrow_back_ios_new,
                       color: Colors.white,
+                      size: 30,
                     ),
                   ),
                 ),
