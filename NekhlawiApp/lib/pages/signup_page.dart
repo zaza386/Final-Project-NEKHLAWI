@@ -20,8 +20,58 @@ class SignUpPage extends StatefulWidget {
 
 class _SignUpPageState extends State<SignUpPage> {
   bool isAccepted = false;
+  bool submitted = false;
+
+  final nameController = TextEditingController();
+  final emailController = TextEditingController();
+  final phoneController = TextEditingController();
+  final yearsController = TextEditingController();
+  final specialtyController = TextEditingController();
+  final passwordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
+
+  bool isEmailValid = false;
+  bool isPasswordValid = false;
+  bool isConfirmPasswordValid = false;
 
   bool get isExpert => widget.role == 'expert';
+
+  bool get passwordsMatch =>
+      passwordController.text == confirmPasswordController.text;
+
+  bool get canProceed {
+    bool fieldsFilled =
+        nameController.text.isNotEmpty &&
+        emailController.text.isNotEmpty &&
+        phoneController.text.isNotEmpty &&
+        passwordController.text.isNotEmpty &&
+        confirmPasswordController.text.isNotEmpty;
+
+    if (isExpert) {
+      fieldsFilled = fieldsFilled &&
+          yearsController.text.isNotEmpty &&
+          specialtyController.text.isNotEmpty;
+    }
+
+    return fieldsFilled &&
+        isEmailValid &&
+        isPasswordValid &&
+        isConfirmPasswordValid &&
+        passwordsMatch &&
+        isAccepted;
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    phoneController.dispose();
+    yearsController.dispose();
+    specialtyController.dispose();
+    passwordController.dispose();
+    confirmPasswordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,199 +83,199 @@ class _SignUpPageState extends State<SignUpPage> {
           children: [
             Container(color: Colors.white),
 
-            /// الهيدر
             HeaderBackground(
               title: isExpert ? 'حساب خبير' : 'حساب جديد',
               showBack: true,
             ),
 
-            /// المحتوى
             Positioned(
               top: 140,
               left: 0,
               right: 0,
               bottom: 0,
-              child: SingleChildScrollView(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(30),
-                      topRight: Radius.circular(30),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 40),
-
-                      /// العنوان
-                      Text(
-                        isExpert
-                            ? 'مرحبًا خبيرنا 🌴'
-                            : 'يا هلا فيك بنخلاوي 🌴',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.darkBrown,
-                        ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
                       ),
-
-                      const SizedBox(height: 8),
-
-                      Text(
-                        isExpert
-                            ? 'أنشئ حسابك وشارك خبرتك مع مزارعي النخل'
-                            : 'أنشئ حسابك وخلك قريب من نخلك',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey,
-                        ),
-                      ),
-
-                      const SizedBox(height: 40),
-
-                      const CustomInput(
-                        hint: 'الاسم الكريم',
-                        icon: Icons.person_outline,
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      const CustomInput(
-                        hint: 'البريد الإلكتروني',
-                        icon: Icons.email_outlined,
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      const CustomInput(
-                        hint: 'رقم الجوال',
-                        icon: Icons.phone_outlined,
-                      ),
-
-                      if (isExpert) ...[
-                        const SizedBox(height: 16),
-                        const CustomInput(
-                          hint: 'سنوات الخبرة',
-                          icon: Icons.timeline_outlined,
-                        ),
-                        const SizedBox(height: 16),
-                        const CustomInput(
-                          hint: 'التخصص (نخيل، آفات، ري...)',
-                          icon: Icons.agriculture_outlined,
-                        ),
-                      ],
-
-                      const SizedBox(height: 16),
-
-                      const CustomInput(
-                        hint: 'كلمة المرور',
-                        icon: Icons.lock_outline,
-                        isPassword: true,
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      const CustomInput(
-                        hint: 'تأكيد كلمة المرور',
-                        icon: Icons.lock_outline,
-                        isPassword: true,
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      const Text(
-                        '*يجب أن تحتوي كلمة المرور على 8 أحرف على الأقل، رقم، وحرف كبير ورمز.',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-
-                      const SizedBox(height: 40),
-
-                      /// ✅ المربع + الشروط
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Checkbox(
-                            value: isAccepted,
-                            activeColor: AppColors.primary,
-                            onChanged: (value) {
-                              setState(() {
-                                isAccepted = value ?? false;
-                              });
-                            },
+                      child: IntrinsicHeight(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(30),
+                              topRight: Radius.circular(30),
+                            ),
                           ),
-                          Expanded(
-                            child: RichText(
-                              textDirection: TextDirection.rtl,
-                              text: TextSpan(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 40),
+
+                              /// الاسم
+                              CustomInput(
+                                hint: 'الاسم الكريم',
+                                icon: Icons.person_outline,
+                                controller: nameController,
+                                showError: submitted,
+                                onChanged: (_) => setState(() {}),
+                              ),
+
+                              const SizedBox(height: 16),
+
+                              /// البريد الإلكتروني (فالديشن)
+                              CustomInput(
+                                hint: 'البريد الإلكتروني',
+                                icon: Icons.email_outlined,
+                                controller: emailController,
+                                showError: submitted,
+                                onValidationChanged: (v) {
+                                  setState(() => isEmailValid = v);
+                                },
+                                onChanged: (_) => setState(() {}),
+                              ),
+
+                              const SizedBox(height: 16),
+
+                              /// الجوال
+                              CustomInput(
+                                hint: 'رقم الجوال',
+                                icon: Icons.phone_outlined,
+                                controller: phoneController,
+                                showError: submitted,
+                                onChanged: (_) => setState(() {}),
+                              ),
+
+                              if (isExpert) ...[
+                                const SizedBox(height: 16),
+                                CustomInput(
+                                  hint: 'سنوات الخبرة',
+                                  icon: Icons.timeline_outlined,
+                                  controller: yearsController,
+                                  showError: submitted,
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                                const SizedBox(height: 16),
+                                CustomInput(
+                                  hint: 'التخصص',
+                                  icon: Icons.agriculture_outlined,
+                                  controller: specialtyController,
+                                  showError: submitted,
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                              ],
+
+                              const SizedBox(height: 16),
+
+                              /// كلمة المرور
+                              CustomInput(
+                                hint: 'كلمة المرور',
+                                icon: Icons.lock_outline,
+                                isPassword: true,
+                                controller: passwordController,
+                                showError: submitted,
+                                onValidationChanged: (v) {
+                                  setState(() => isPasswordValid = v);
+                                },
+                                onChanged: (_) => setState(() {}),
+                              ),
+
+                              const SizedBox(height: 16),
+
+                              /// تأكيد كلمة المرور
+                              CustomInput(
+                                hint: 'تأكيد كلمة المرور',
+                                icon: Icons.lock_outline,
+                                isPassword: true,
+                                controller: confirmPasswordController,
+                                showError: submitted || !passwordsMatch,
+                                onValidationChanged: (v) {
+                                  setState(() => isConfirmPasswordValid = v);
+                                },
+                                onChanged: (_) => setState(() {}),
+                              ),
+
+                              const SizedBox(height: 20),
+
+                              /// الشروط
+                              Row(
                                 children: [
-                                  const TextSpan(
-                                    text:
-                                        'بتسجيلك في التطبيق، أنت توافق على ',
-                                    style: TextStyle(
-                                      color: AppColors.primary,
-                                      fontSize: 13,
-                                    ),
+                                  Checkbox(
+                                    value: isAccepted,
+                                    activeColor: AppColors.primary,
+                                    onChanged: (v) {
+                                      setState(
+                                          () => isAccepted = v ?? false);
+                                    },
                                   ),
-                                  TextSpan(
-                                    text: 'الشروط والخصوصية',
-                                    style: const TextStyle(
-                                      color: AppColors.primary,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    recognizer: TapGestureRecognizer()
-                                      ..onTap = () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                const TermsAndConditionsPage(),
+                                  Expanded(
+                                    child: RichText(
+                                      text: TextSpan(
+                                        children: [
+                                          const TextSpan(
+                                            text: 'أوافق على ',
+                                            style: TextStyle(
+                                                color: AppColors.primary),
                                           ),
-                                        );
-                                      },
-                                  ),
-                                  const TextSpan(
-                                    text:
-                                        ' الخاصة بتطبيق نخلاوي.',
-                                    style: TextStyle(
-                                      color: AppColors.primary,
-                                      fontSize: 13,
+                                          TextSpan(
+                                            text: 'الشروط والخصوصية',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.primary,
+                                            ),
+                                            recognizer:
+                                                TapGestureRecognizer()
+                                                  ..onTap = () {
+                                                    Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (_) =>
+                                                            const TermsAndConditionsPage(),
+                                                      ),
+                                                    );
+                                                  },
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
+
+                              const SizedBox(height: 30),
+
+                              /// زر إنشاء حساب
+                              PrimaryButton(
+                                title: 'إنشاء حساب',
+                                onPressed: () {
+                                  setState(() => submitted = true);
+                                  if (!canProceed) return;
+
+                                  // TODO Firebase SignUp
+                                },
+                              ),
+
+                              const Spacer(),
+
+                              const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.only(bottom: 16),
+                                  child: Text(
+                                    '©️ 2025 - 2026',
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 30),
-
-                      /// زر إنشاء الحساب (يتفعل فقط عند الموافقة)
-                      PrimaryButton(
-                        title: 'إنشاء حساب',
-                        onPressed: () {
-                          if (!isAccepted) return;
-                          // TODO: Firebase SignUp
-                        },
-                      ),
-
-                      const SizedBox(height: 30),
-
-                      const Center(
-                        child: Text(
-                          '©️ 2025 - 2026',
-                          style: TextStyle(color: Colors.grey),
                         ),
                       ),
-
-                      const SizedBox(height: 20),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               ),
             ),
           ],

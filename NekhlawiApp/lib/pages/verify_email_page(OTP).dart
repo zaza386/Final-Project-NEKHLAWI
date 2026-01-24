@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_application_1/pages/reset_password_page.dart';
 import '../core/widgets/header_background.dart';
 import '../core/widgets/primary_button.dart';
@@ -66,7 +67,7 @@ class EmailVerificationPage extends StatelessWidget {
                                 style: TextStyle(color: Colors.grey),
                               ),
 
-                              const SizedBox(height: 30),
+                              const SizedBox(height: 50),
 
                               // ===== OTP =====
                               Row(
@@ -134,16 +135,51 @@ class EmailVerificationPage extends StatelessWidget {
 }
 
 /// مربع OTP واحد
-class _OtpBox extends StatelessWidget {
+class _OtpBox extends StatefulWidget {
+  final Function(String)? onChanged;
+  final Function(String)? onSubmitted;
+
+  const _OtpBox({
+    this.onChanged,
+    this.onSubmitted,
+  });
+
+  @override
+  State<_OtpBox> createState() => _OtpBoxState();
+}
+
+class _OtpBoxState extends State<_OtpBox> {
+  late TextEditingController _controller;
+  late FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+    _focusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: 60,
       height: 60,
       child: TextField(
+        controller: _controller,
+        focusNode: _focusNode,
         keyboardType: TextInputType.number,
         textAlign: TextAlign.center,
         maxLength: 1,
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+        ],
         decoration: InputDecoration(
           counterText: '',
           border: OutlineInputBorder(
@@ -154,6 +190,14 @@ class _OtpBox extends StatelessWidget {
             borderSide: const BorderSide(color: Colors.grey),
           ),
         ),
+        onChanged: (value) {
+          if (value.isNotEmpty) {
+            widget.onChanged?.call(value);
+          }
+        },
+        onSubmitted: (value) {
+          widget.onSubmitted?.call(value);
+        },
       ),
     );
   }

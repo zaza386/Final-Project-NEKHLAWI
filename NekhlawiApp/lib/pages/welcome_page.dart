@@ -17,24 +17,8 @@ class WelcomePage extends StatelessWidget {
             // ===== الصورة الخلفية =====
             Positioned.fill(
               child: Image(
-                image: NetworkImage('https://pbs.twimg.com/media/EUib2z1XgAAqT2V?format=jpg&name=large'),
+                image: const AssetImage('images/welcome.png'),
                 fit: BoxFit.cover,
-              ),
-            ),
-
-            // ===== تدرج غامق أسفل الصورة =====
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withOpacity(0.65),
-                    ],
-                  ),
-                ),
               ),
             ),
 
@@ -51,7 +35,7 @@ class WelcomePage extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text(
-                      'حيّاك الله من جانا\nنخلاوي يرحب فيك',
+                      'حيّا الله من جانا\nنخلاوي يرحب فيك',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white,

@@ -4,8 +4,20 @@ import '../core/widgets/header_background.dart';
 import '../core/widgets/custom_input.dart';
 import '../core/widgets/primary_button.dart';
 
-class ResetPasswordPage extends StatelessWidget {
+class ResetPasswordPage extends StatefulWidget {
   const ResetPasswordPage({super.key});
+
+  @override
+  State<ResetPasswordPage> createState() => _ResetPasswordPageState();
+}
+
+class _ResetPasswordPageState extends State<ResetPasswordPage> {
+  bool submitted = false;
+  final passwordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
+
+  bool get passwordsMatch =>
+      passwordController.text == confirmPasswordController.text;
 
   @override
   Widget build(BuildContext context) {
@@ -69,24 +81,28 @@ class ResetPasswordPage extends StatelessWidget {
 
                               const SizedBox(height: 30),
 
-                              const CustomInput(
+                              CustomInput(
                                 hint: 'كلمة المرور',
                                 icon: Icons.lock_outline,
                                 isPassword: true,
+                                controller: passwordController,
+                                showError: submitted,
                               ),
 
                               const SizedBox(height: 16),
 
-                              const CustomInput(
+                              CustomInput(
                                 hint: 'تأكيد كلمة المرور',
                                 icon: Icons.lock_outline,
                                 isPassword: true,
+                                controller: confirmPasswordController,
+                                showError: submitted || !passwordsMatch,
                               ),
 
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 15),
 
                               const Text(
-                                'يجب أن تحتوي كلمة المرور على 8 أحرف على الأقل\n'
+                                'يجب أن تتكون كلمة المرور من 8 خانات و أن تحتوي على 5 أحرف على الأقل*\n'
                                 'ورقم، وحرف كبير، ورمز',
                                 style: TextStyle(
                                   color: Colors.grey,

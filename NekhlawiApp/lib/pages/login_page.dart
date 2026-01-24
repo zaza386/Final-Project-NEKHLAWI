@@ -8,8 +8,36 @@ import '../core/widgets/custom_input.dart';
 import '../core/widgets/primary_button.dart';
 import 'role_selection_page.dart';
 
-class LoginPage extends StatelessWidget {
+class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+
+  bool submitted = false;
+  bool isPasswordValid = false;
+  bool isEmailValid = false;
+  
+  
+ 
+
+  bool get canProceed =>
+      emailController.text.isNotEmpty &&
+      isEmailValid &&
+      passwordController.text.isNotEmpty &&
+      isPasswordValid;
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,19 +47,16 @@ class LoginPage extends StatelessWidget {
         backgroundColor: Colors.white,
         body: Stack(
           children: [
-            // الخلفية
             Container(color: Colors.white),
-
-            // الهيدر
-            const HeaderBackground(title: 'تسجيل دخول',
+            const HeaderBackground(
+              title: 'تسجيل دخول',
             ),
 
-            // المحتوى
             Positioned(
               top: 140,
               left: 0,
               right: 0,
-              bottom: 0, 
+              bottom: 0,
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   return SingleChildScrollView(
@@ -59,90 +84,78 @@ class LoginPage extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 26,
                                   fontWeight: FontWeight.bold,
-                                  color: AppColors.darkBrown
+                                  color: AppColors.darkBrown,
                                 ),
                               ),
 
                               const SizedBox(height: 8),
 
-                              Text(
+                              const Text(
                                 'سجل دخولك وخلك قريب من نخلك',
-                                style: TextStyle(color: AppColors.darkBrown),
+                                style: TextStyle(
+                                  color: AppColors.darkBrown,
+                                ),
                               ),
 
                               const SizedBox(height: 50),
 
-                              const CustomInput(
+                              /// البريد الإلكتروني
+                              CustomInput(
                                 hint: 'البريد الإلكتروني',
                                 icon: Icons.email_outlined,
+                                controller: emailController,
+                                showError: submitted,
+                                onValidationChanged: (v) {
+                                  setState(() => isEmailValid = v);
+                                },
+                                onChanged: (_) => setState(() {}),
                               ),
 
                               const SizedBox(height: 16),
 
-                              const CustomInput(
+                              /// كلمة المرور
+                              CustomInput(
                                 hint: 'كلمة المرور',
                                 icon: Icons.lock_outline,
                                 isPassword: true,
+                                controller: passwordController,
+                                showError: submitted,
+                                onValidationChanged: (v) {
+                                  setState(() => isPasswordValid = v);
+                                },
+                                onChanged: (_) => setState(() {}),
                               ),
 
                               const SizedBox(height: 12),
 
-                              const _ForgotPasswordButton(),
+                              const ForgotPasswordButton(),
 
                               const SizedBox(height: 30),
 
+                              /// زر تسجيل الدخول
                               PrimaryButton(
                                 title: 'تسجيل دخول',
                                 onPressed: () {
+                                  setState(() => submitted = true);
+
+                                  if (!canProceed) return;
+
                                   Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) => const HomePage(),
-                                              ),
-                                            );
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const HomePage(),
+                                    ),
+                                  );
                                 },
                               ),
-                            
+
                               const SizedBox(height: 16),
 
-                              Center(
-                                child: RichText(
-                                  textDirection: TextDirection.rtl,
-                                  text: TextSpan(
-                                    children: [
-                                      const TextSpan(
-                                        text: 'لا أملك حساب، ',
-                                        style: TextStyle(
-                                          color: AppColors.darkBrown,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      TextSpan(
-                                        text: 'إنشاء حساب جديد',
-                                        style: const TextStyle(
-                                          color: AppColors.darkBrown,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          decoration: TextDecoration.underline, // اختياري
-                                        ),
-                                        recognizer: TapGestureRecognizer()
-                                          ..onTap = () {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(
-                                                builder: (context) => const RoleSelectionPage(),
-                                              ),
-                                            );
-                                          },
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                              const Center(
+                                child: SignUpLinkText(),
                               ),
 
-                              const SizedBox(height: 30),
-                              
-                              const Spacer(), // 🔑 هذا يدفّ الحقوق تحت
+                              const Spacer(),
 
                               const Center(
                                 child: Padding(
@@ -168,12 +181,60 @@ class LoginPage extends StatelessWidget {
     );
   }
 }
+class SignUpLinkText extends StatefulWidget {
+  const SignUpLinkText({super.key});
 
+  @override
+  State<SignUpLinkText> createState() => _SignUpLinkTextState();
+}
 
+class _SignUpLinkTextState extends State<SignUpLinkText> {
+  bool _isHovered = false;
 
-
-class _ForgotPasswordButton extends StatelessWidget {
-  const _ForgotPasswordButton();
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: RichText(
+        textDirection: TextDirection.rtl,
+        text: TextSpan(
+          children: [
+            const TextSpan(
+              text: 'لا أملك حساب، ',
+              style: TextStyle(
+                color: AppColors.darkBrown,
+                fontSize: 14,
+              ),
+            ),
+            TextSpan(
+              text: 'إنشاء حساب جديد',
+              style: TextStyle(
+                color: AppColors.darkBrown,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                decoration: _isHovered
+                    ? TextDecoration.underline
+                    : TextDecoration.none,
+              ),
+              recognizer: TapGestureRecognizer()
+                ..onTap = () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const RoleSelectionPage(),
+                    ),
+                  );
+                },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+class ForgotPasswordButton extends StatelessWidget {
+  const ForgotPasswordButton({super.key});
 
   @override
   Widget build(BuildContext context) {
