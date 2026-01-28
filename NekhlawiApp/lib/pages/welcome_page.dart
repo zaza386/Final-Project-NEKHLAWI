@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/pages/welcome_page2.dart';
+import 'package:nekhlawi_app/pages/welcome_page2.dart';
 import '../core/widgets/primary_button.dart';
 
 

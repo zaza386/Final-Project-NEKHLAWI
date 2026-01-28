@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_application_1/pages/reset_password_page.dart';
+import 'package:nekhlawi_app/pages/reset_password_page.dart';
 import '../core/widgets/header_background.dart';
 import '../core/widgets/primary_button.dart';
 

@@ -5,6 +5,7 @@ import '../core/widgets/custom_input.dart';
 import '../core/widgets/primary_button.dart';
 import '../core/widgets/header_background.dart';
 import 'terms_and_conditions_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class SignUpPage extends StatefulWidget {
   final String role; // user | expert
@@ -60,6 +61,49 @@ class _SignUpPageState extends State<SignUpPage> {
         passwordsMatch &&
         isAccepted;
   }
+
+Future<void> _signUpWithFirebase(BuildContext context) async {
+  try {
+    await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      email: emailController.text.trim(),
+      password: passwordController.text.trim(),
+    );
+
+    // بعد النجاح، نرجع للصفحة السابقة (Login)
+    Navigator.pop(context);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('تم إنشاء الحساب بنجاح، سجّل دخولك الآن'),
+      ),
+    );
+  } on FirebaseAuthException catch (e) {
+    String message;
+
+    switch (e.code) {
+      case 'email-already-in-use':
+        message = 'البريد الإلكتروني مستخدم مسبقًا';
+        break;
+      case 'invalid-email':
+        message = 'صيغة البريد الإلكتروني غير صحيحة';
+        break;
+      case 'weak-password':
+        message = 'كلمة المرور ضعيفة';
+        break;
+      default:
+        message = 'حدث خطأ غير متوقع';
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+}
 
   @override
   void dispose() {
@@ -254,7 +298,7 @@ class _SignUpPageState extends State<SignUpPage> {
                                   setState(() => submitted = true);
                                   if (!canProceed) return;
 
-                                  // TODO Firebase SignUp
+                                  _signUpWithFirebase(context);
                                 },
                               ),
 

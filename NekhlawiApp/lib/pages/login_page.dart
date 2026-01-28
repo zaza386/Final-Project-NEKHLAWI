@@ -1,12 +1,13 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/core/theme/app_colors.dart';
-import 'package:flutter_application_1/pages/HomePage.dart';
-import 'package:flutter_application_1/pages/forgot_password_page(enter_emile).dart';
+import 'package:nekhlawi_app/core/theme/app_colors.dart';
+import 'package:nekhlawi_app/pages/home_page.dart';
+import 'package:nekhlawi_app/pages/forgot_password_page.dart';
 import '../core/widgets/header_background.dart';
 import '../core/widgets/custom_input.dart';
 import '../core/widgets/primary_button.dart';
 import 'role_selection_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -31,6 +32,53 @@ class _LoginPageState extends State<LoginPage> {
       isEmailValid &&
       passwordController.text.isNotEmpty &&
       isPasswordValid;
+ 
+
+ 
+  Future<void> _signInWithFirebase(BuildContext context) async {
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+      );
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HomePage()),
+      );
+    } 
+    on FirebaseAuthException catch (e) {
+      String message;
+      switch (e.code) {
+        case 'user-not-found':
+          message = 'الحساب غير موجود';
+          break;
+        case 'wrong-password':
+          message = 'كلمة المرور غير صحيحة';
+          break;
+        case 'invalid-email':
+          message = 'صيغة البريد الإلكتروني غير صحيحة';
+          break;
+        case 'user-disabled':
+          message = 'تم تعطيل هذا الحساب';
+          break;
+        case 'invalid-credential':
+          message = 'بيانات الدخول غير صحيحة';
+          break;
+        default:
+          message = e.message ?? 'حدث خطأ غير متوقع';
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    }
+  }
+
 
   @override
   void dispose() {
@@ -140,12 +188,7 @@ class _LoginPageState extends State<LoginPage> {
 
                                   if (!canProceed) return;
 
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const HomePage(),
-                                    ),
-                                  );
+                                  _signInWithFirebase(context);
                                 },
                               ),
 

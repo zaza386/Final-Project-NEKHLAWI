@@ -1,4 +1,4 @@
-name: flutter_application_1
+name: nekhlawi_app
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -36,6 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   firebase_core: ^4.3.0
   firebase_auth: ^6.1.3
+  get: ^4.7.3
 
 dev_dependencies:
   flutter_test:

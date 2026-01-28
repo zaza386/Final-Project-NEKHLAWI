@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter_application_1/pages/role_card.dart';
+import 'package:nekhlawi_app/core/widgets/role_card.dart';
 import '../core/theme/app_colors.dart';
 import 'signup_page.dart';
 import 'login_page.dart';

@@ -1,23 +1,67 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/pages/password_updated_page.dart';
+import 'package:nekhlawi_app/core/theme/app_colors.dart';
+import 'package:nekhlawi_app/pages/password_updated_page.dart';
 import '../core/widgets/header_background.dart';
 import '../core/widgets/custom_input.dart';
 import '../core/widgets/primary_button.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class ResetPasswordPage extends StatefulWidget {
-  const ResetPasswordPage({super.key});
+class ForgotPasswordPage extends StatefulWidget {
+  const ForgotPasswordPage({super.key});
 
   @override
-  State<ResetPasswordPage> createState() => _ResetPasswordPageState();
+  State<ForgotPasswordPage> createState() => _ForgotPasswordPageState();
 }
 
-class _ResetPasswordPageState extends State<ResetPasswordPage> {
-  bool submitted = false;
-  final passwordController = TextEditingController();
-  final confirmPasswordController = TextEditingController();
+class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
+  final emailController = TextEditingController();
 
-  bool get passwordsMatch =>
-      passwordController.text == confirmPasswordController.text;
+  bool submitted = false;
+  bool isEmailValid = false;
+
+  bool get canProceed =>
+      emailController.text.isNotEmpty && isEmailValid;
+
+  Future<void> _sendResetLink() async {
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(
+        email: emailController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      // بعد الإرسال نودّي المستخدم لصفحة تأكيد
+      Navigator.pushReplacement(
+        context,
+      MaterialPageRoute(
+        builder: (_) => const PasswordUpdatedPage(),
+      ),
+    );
+  } on FirebaseAuthException catch (e) {
+    String message = 'حدث خطأ غير متوقع';
+
+    if (e.code == 'invalid-email') {
+      message = 'صيغة البريد الإلكتروني غير صحيحة';
+    } else if (e.code == 'user-not-found') {
+      message = 'لا يوجد حساب بهذا البريد';
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+}    
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,21 +71,17 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
         backgroundColor: Colors.white,
         body: Stack(
           children: [
-            // الخلفية
             Container(color: Colors.white),
 
-            // الهيدر (السهم على اليمين تلقائيًا مع RTL)
             const HeaderBackground(
-              title: 'إعادة تعيين كلمة المرور',
-              showBack: true,
+              title: 'نسيت كلمة المرور',
             ),
 
-            // المحتوى
             Positioned(
               top: 140,
               left: 0,
               right: 0,
-              bottom: 0, // 🔑 لتثبيت الحقوق
+              bottom: 0,
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   return SingleChildScrollView(
@@ -65,66 +105,51 @@ class _ResetPasswordPageState extends State<ResetPasswordPage> {
                               const SizedBox(height: 40),
 
                               const Text(
-                                'هلا بالنخلاوي 🌴',
+                                'مو مشكلة 🌱',
                                 style: TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
+                                  color: AppColors.darkBrown,
                                 ),
                               ),
 
                               const SizedBox(height: 8),
 
                               const Text(
-                                'وصلنا لآخر خطوة، دخل كلمة مرور جديدة',
-                                style: TextStyle(color: Colors.grey),
-                              ),
-
-                              const SizedBox(height: 30),
-
-                              CustomInput(
-                                hint: 'كلمة المرور',
-                                icon: Icons.lock_outline,
-                                isPassword: true,
-                                controller: passwordController,
-                                showError: submitted,
-                              ),
-
-                              const SizedBox(height: 16),
-
-                              CustomInput(
-                                hint: 'تأكيد كلمة المرور',
-                                icon: Icons.lock_outline,
-                                isPassword: true,
-                                controller: confirmPasswordController,
-                                showError: submitted || !passwordsMatch,
-                              ),
-
-                              const SizedBox(height: 15),
-
-                              const Text(
-                                'يجب أن تتكون كلمة المرور من 8 خانات و أن تحتوي على 5 أحرف على الأقل*\n'
-                                'ورقم، وحرف كبير، ورمز',
+                                'دخل بريدك الإلكتروني وبنساعدك تسترجع حسابك',
                                 style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 12,
+                                  color: AppColors.darkBrown,
                                 ),
+                              ),
+
+                              const SizedBox(height: 50),
+
+                              /// البريد الإلكتروني (مع فالديشن)
+                              CustomInput(
+                                hint: 'البريد الإلكتروني',
+                                icon: Icons.email_outlined,
+                                controller: emailController,
+                                showError: submitted,
+                                onValidationChanged: (v) {
+                                  setState(() => isEmailValid = v);
+                                },
+                                onChanged: (_) => setState(() {}),
                               ),
 
                               const SizedBox(height: 30),
 
                               PrimaryButton(
-                                title: 'إعادة التعيين',
+                                title: 'إعادة تعيين كلمة المرور',
                                 onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => const PasswordUpdatedPage(),
-                                    ),
-                                  );
+                                  setState(() => submitted = true);
+
+                                  if (!canProceed) return;
+
+                                  _sendResetLink();
                                 },
                               ),
 
-                              const Spacer(), // 🔥 يدفّ الحقوق تحت
+                              const Spacer(),
 
                               const Center(
                                 child: Padding(

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/core/theme/app_colors.dart';
-import 'package:flutter_application_1/pages/login_page.dart';
+import 'package:nekhlawi_app/core/theme/app_colors.dart';
+import 'package:nekhlawi_app/pages/login_page.dart';
 
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});

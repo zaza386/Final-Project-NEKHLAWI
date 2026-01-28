@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../core/theme/app_colors.dart';
+import '../theme/app_colors.dart';
 
 class RoleCard extends StatelessWidget {
   final String title;
@@ -26,6 +26,7 @@ class RoleCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected
+              // ignore: deprecated_member_use
               ? AppColors.primary.withOpacity(0.15)
               : Colors.white,
           borderRadius: BorderRadius.circular(20),

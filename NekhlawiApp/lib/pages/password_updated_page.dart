@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/core/theme/app_colors.dart';
-import 'package:flutter_application_1/pages/login_page.dart';
+import 'package:nekhlawi_app/core/theme/app_colors.dart';
+import 'package:nekhlawi_app/pages/login_page.dart';
 import '../core/widgets/header_background.dart';
 import '../core/widgets/primary_button.dart';
 
@@ -20,7 +20,7 @@ class PasswordUpdatedPage extends StatelessWidget {
 
             /// الهيدر
             const HeaderBackground(
-              title: 'تم تحديث كلمة المرور',
+              title: 'يمكنك الان تحديث كلمة المرور'
             ),
 
             /// المحتوى
@@ -84,7 +84,7 @@ class PasswordUpdatedPage extends StatelessWidget {
                               const Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 16),
                                 child: Text(
-                                  'حدثنا كلمة المرور، الآن تقدر\nتسجل دخولك لحسابك.',
+                                  'تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني.\n يرجى التحقق من بريدك واتبع التعليمات لتحديث كلمة المرور الخاصة بك\n بعد التغيير، سجّل دخولك مرة أخرى.',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: 15,

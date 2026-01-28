@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_application_1/pages/TODO.dart';
+import 'package:nekhlawi_app/pages/mini_wiki.dart';
+import 'package:nekhlawi_app/pages/to_do_page.dart';
 import '../core/theme/app_colors.dart';
 import '../core/widgets/header_background.dart';
 
@@ -124,7 +125,12 @@ class HomePage extends StatelessWidget {
                           _HomeCard(
                             icon: Icons.menu_book_outlined,
                             title: 'مقالات عن النخل',
-                            onTap: () => _goTodo(context, 'مقالات عن النخل'),
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const MiniWiki(),
+                              ),
+                            ),
                           ),
                           _HomeCard(
                             icon: Icons.chat_outlined,
