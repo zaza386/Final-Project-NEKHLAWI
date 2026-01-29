@@ -45,7 +45,7 @@ class MiniWiki extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 children: [
                   ArticleCard(
-                    image: 'assets/images/palm_growth.png',
+                    image: 'images/palm_growth.jpg',
                     title: 'هل تعرف سر ارتفاعها؟ خارطة الجذع والسعف',
                     description:
                         'تبدأ رحلة النخلة من الجذور العميقة التي تضمن الثبات والعطاء...',
