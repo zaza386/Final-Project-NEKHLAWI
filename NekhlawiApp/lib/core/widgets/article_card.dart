@@ -20,7 +20,7 @@ class ArticleCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: AppColors.header,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -36,6 +36,36 @@ class ArticleCard extends StatelessWidget {
             ),
           ),
 
+          Stack(
+            clipBehavior: Clip.none, // ⭐ مهم عشان تطلع فوق الكارد
+            children: [
+              /// الخط
+              const Divider(
+                thickness: 3,
+                color: AppColors.primary,
+              ),
+
+              /// أيقونة نخلاوي (نص فوق + يمين شوي)
+              Positioned(
+                top: -18, // 👈 يطلع نصها فوق المربع
+                left: 35,  // 👈 تحريك لليمين (عدّل الرقم على مزاجك)
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: AppColors.header,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const CircleAvatar(
+                    radius: 25,
+                    backgroundImage: AssetImage(
+                      'images/nekhlawi_icon.png',
+                    ),
+                    backgroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
           Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
@@ -46,6 +76,7 @@ class ArticleCard extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
+                    color: AppColors.darkBrown,
                   ),
                 ),
 
@@ -55,19 +86,23 @@ class ArticleCard extends StatelessWidget {
                   description,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 14),
+                  style: const TextStyle(
+                      fontSize: 14,
+                      color: AppColors.darkBrown,
+                  ),
                 ),
 
                 const SizedBox(height: 10),
 
                 Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: onReadMore,
                     child: const Text(
                       'اقرأ المزيد',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
+                        color: AppColors.darkBrown,
                       ),
                     ),
                   ),

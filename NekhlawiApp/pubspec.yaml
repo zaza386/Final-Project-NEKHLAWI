@@ -67,6 +67,9 @@ flutter:
     - images/image3.png
     - images/welcome.png
     - images/palm_growth.jpg
+    - images/seedling.jpg
+    - images/pests.png
+    - images/nekhlawi_icon.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -23,18 +23,18 @@ class _LoginPageState extends State<LoginPage> {
   bool submitted = false;
   bool isPasswordValid = false;
   bool isEmailValid = false;
-  
-  
- 
+
+
+
 
   bool get canProceed =>
       emailController.text.isNotEmpty &&
-      isEmailValid &&
-      passwordController.text.isNotEmpty &&
-      isPasswordValid;
- 
+          isEmailValid &&
+          passwordController.text.isNotEmpty &&
+          isPasswordValid;
 
- 
+
+
   Future<void> _signInWithFirebase(BuildContext context) async {
     try {
       await FirebaseAuth.instance.signInWithEmailAndPassword(
@@ -46,7 +46,7 @@ class _LoginPageState extends State<LoginPage> {
         context,
         MaterialPageRoute(builder: (_) => const HomePage()),
       );
-    } 
+    }
     on FirebaseAuthException catch (e) {
       String message;
       switch (e.code) {

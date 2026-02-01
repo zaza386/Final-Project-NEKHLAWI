@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
@@ -26,19 +25,29 @@ class HeaderBackground extends StatelessWidget {
           bottomRight: Radius.circular(30),
         ),
       ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            if (showBack)
-              IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.pop(context),
-                iconSize: 40,
-                color: AppColors.darkBrown,
-              ),
-              Text(title, style: AppTextStyles.headerTitle),
-          ],
-        ),
-      );
-    }
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          if (showBack)
+            IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => Navigator.pop(context),
+              iconSize: 40,
+              color: AppColors.darkBrown,
+            ),
+
+          /// ⭐ العنوان (الحل هنا)
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              softWrap: true,
+              style: AppTextStyles.headerTitle,
+            ),
+          ),
+        ],
+      ),
+    );
   }
+}

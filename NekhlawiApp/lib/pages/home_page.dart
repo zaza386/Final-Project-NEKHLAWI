@@ -3,6 +3,7 @@ import 'package:nekhlawi_app/pages/mini_wiki.dart';
 import 'package:nekhlawi_app/pages/to_do_page.dart';
 import '../core/theme/app_colors.dart';
 import '../core/widgets/header_background.dart';
+import 'package:nekhlawi_app/pages/consultations_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -140,7 +141,12 @@ class HomePage extends StatelessWidget {
                           _HomeCard(
                             icon: Icons.history,
                             title: 'سجلك',
-                            onTap: () => _goTodo(context, 'السجل'),
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const ConsultationsPage(),
+                              ),
+                            ),
                           ),
                         ],
                       ),

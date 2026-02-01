@@ -14,9 +14,7 @@ class TodoPage extends StatelessWidget {
       child: Scaffold(
         body: Stack(
           children: [
-            // الخلفية
             Container(color: Colors.white),
-            // الهيدر
             HeaderBackground(title: title),
 
             Positioned(
