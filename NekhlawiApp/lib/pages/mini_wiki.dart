@@ -3,8 +3,6 @@ import 'package:nekhlawi_app/core/widgets/article_card.dart';
 import '../core/widgets/header_background.dart';
 import '../core/theme/app_colors.dart';
 import 'wiki_article_details_page.dart';
-
-// ✅ عدّل المسارات حسب مكان ملفاتك الحقيقي
 import '../core/data/wiki_article_repo.dart';
 
 class MiniWiki extends StatefulWidget {
@@ -125,17 +123,17 @@ class _MiniWikiState extends State<MiniWiki> {
                               return ArticleCard(
                                 image: a.imageUrl.isNotEmpty
                                     ? a.imageUrl
-                                    : 'images/palm_growth.jpg',
+                                    : 'images/nekhlawi_icon2.png',
                                 title: a.title,
                                 description: a.description,
                                 onReadMore: () {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => WikiArticleDetailsPage(article: a),
-    ),
-  );
-},
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => WikiArticleDetailsPage(article: a),
+                                    ),
+                                  );
+                                },
                               );
                             },
                           );

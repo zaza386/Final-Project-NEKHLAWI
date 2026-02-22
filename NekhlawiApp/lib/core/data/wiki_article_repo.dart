@@ -5,7 +5,6 @@ class WikiArticleItem {
   final String description;
   final String imageUrl;
 
-  // ✅ الجديد
   final String content;
   final String category;
   final String authorName;
@@ -84,7 +83,6 @@ class WikiArticleRepo {
         .toList();
   }
 
-  // (اختياري) لو تبغى تجيب واحد بالعنوان
   Future<WikiArticleItem?> fetchByTitle(String title) async {
     final res = await _client
         .from('WikiArticle')

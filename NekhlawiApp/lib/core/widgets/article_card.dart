@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 
 class ArticleCard extends StatelessWidget {
-  final String image; // ممكن URL أو asset path
+  final String image;
   final String title;
   final String description;
   final VoidCallback onReadMore;
