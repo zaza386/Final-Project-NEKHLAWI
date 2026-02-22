@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 
 class ArticleCard extends StatelessWidget {
-  final String image;
+  final String image; // ممكن URL أو asset path
   final String title;
   final String description;
   final VoidCallback onReadMore;
@@ -14,6 +14,8 @@ class ArticleCard extends StatelessWidget {
     required this.description,
     required this.onReadMore,
   });
+
+  bool get _isNetwork => image.trim().toLowerCase().startsWith('http');
 
   @override
   Widget build(BuildContext context) {
@@ -28,27 +30,36 @@ class ArticleCard extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: Image.asset(
-              image,
-              height: 160,
-              width: double.infinity,
-              fit: BoxFit.cover,
-            ),
+            child: _isNetwork
+                ? Image.network(
+                    image,
+                    height: 160,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 160,
+                      width: double.infinity,
+                      color: Colors.grey.shade200,
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.broken_image),
+                    ),
+                  )
+                : Image.asset(
+                    image,
+                    height: 160,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
           ),
 
           Stack(
-            clipBehavior: Clip.none, // ⭐ مهم عشان تطلع فوق الكارد
+            clipBehavior: Clip.none,
             children: [
-              /// الخط
-              const Divider(
-                thickness: 3,
-                color: AppColors.primary,
-              ),
+              const Divider(thickness: 3, color: AppColors.primary),
 
-              /// أيقونة نخلاوي (نص فوق + يمين شوي)
               Positioned(
-                top: -18, // 👈 يطلع نصها فوق المربع
-                left: 35,  // 👈 تحريك لليمين (عدّل الرقم على مزاجك)
+                top: -18,
+                left: 35,
                 child: Container(
                   decoration: const BoxDecoration(
                     color: AppColors.header,
@@ -56,9 +67,7 @@ class ArticleCard extends StatelessWidget {
                   ),
                   child: const CircleAvatar(
                     radius: 25,
-                    backgroundImage: AssetImage(
-                      'images/nekhlawi_icon.png',
-                    ),
+                    backgroundImage: AssetImage('images/nekhlawi_icon.png'),
                     backgroundColor: Colors.white,
                   ),
                 ),
@@ -79,21 +88,17 @@ class ArticleCard extends StatelessWidget {
                     color: AppColors.darkBrown,
                   ),
                 ),
-
                 const SizedBox(height: 8),
-
                 Text(
                   description,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                      fontSize: 14,
-                      color: AppColors.darkBrown,
+                    fontSize: 14,
+                    color: AppColors.darkBrown,
                   ),
                 ),
-
                 const SizedBox(height: 10),
-
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(

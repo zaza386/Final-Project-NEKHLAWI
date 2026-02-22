@@ -1,11 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:nekhlawi_app/core/widgets/article_card.dart';
-import 'package:nekhlawi_app/pages/to_do_page.dart';
 import '../core/widgets/header_background.dart';
 import '../core/theme/app_colors.dart';
+import 'wiki_article_details_page.dart';
 
-class MiniWiki extends StatelessWidget {
+// ✅ عدّل المسارات حسب مكان ملفاتك الحقيقي
+import '../core/data/wiki_article_repo.dart';
+
+class MiniWiki extends StatefulWidget {
   const MiniWiki({super.key});
+
+  @override
+  State<MiniWiki> createState() => _MiniWikiState();
+}
+
+class _MiniWikiState extends State<MiniWiki> {
+  final _repo = WikiArticleRepo();
+  final _searchController = TextEditingController();
+
+  Future<List<WikiArticleItem>>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _repo.fetchArticles();
+  }
+
+  void _runSearch(String value) {
+    setState(() {
+      _future = _repo.fetchArticles(query: value);
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +47,7 @@ class MiniWiki extends StatelessWidget {
           children: [
             Container(color: Colors.white),
 
-            HeaderBackground(
+            const HeaderBackground(
               title: 'اكتشف واملأ فضولك \nحتى القمة',
             ),
 
@@ -39,8 +70,10 @@ class MiniWiki extends StatelessWidget {
                   children: [
                     const SizedBox(height: 40),
 
-                    /// 🔍 البحث (ثابت)
+                    /// 🔍 البحث
                     TextField(
+                      controller: _searchController,
+                      onChanged: _runSearch,
                       decoration: InputDecoration(
                         hintText: 'ابحث عن مقال...',
                         prefixIcon: const Icon(Icons.search),
@@ -55,68 +88,58 @@ class MiniWiki extends StatelessWidget {
 
                     const SizedBox(height: 20),
 
-                    /// ⬇️ السكرول يبدأ من هنا
                     Expanded(
-                      child: ListView(
-                        physics: const BouncingScrollPhysics(),
-                        children: [
-                          ArticleCard(
-                            image: 'images/palm_growth.jpg',
-                            title:
-                            'هل تعرف سر ارتفاعها؟ خارطة الجذع والسعف',
-                            description:
-                            'تبدأ رحلة النخلة من الجذور العميقة التي تضمن الثبات والعطاء...',
-                            onReadMore: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const TodoPage(
-                                    title:
-                                    'هل تعرف سر ارتفاعها؟ خارطة الجذع والسعف',
-                                  ),
-                                ),
+                      child: FutureBuilder<List<WikiArticleItem>>(
+                        future: _future,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(child: CircularProgressIndicator());
+                          }
+
+                          if (snapshot.hasError) {
+                            return Center(
+                              child: Text(
+                                'صار خطأ في تحميل المقالات:\n${snapshot.error}',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                            );
+                          }
+
+                          final articles = snapshot.data ?? [];
+
+                          if (articles.isEmpty) {
+                            return const Center(child: Text('ما فيه مقالات حالياً'));
+                          }
+
+                          return ListView.builder(
+                            physics: const BouncingScrollPhysics(),
+                            itemCount: articles.length + 1,
+                            itemBuilder: (context, index) {
+                              if (index == articles.length) {
+                                return const SizedBox(height: 24);
+                              }
+
+                              final a = articles[index];
+
+                              return ArticleCard(
+                                image: a.imageUrl.isNotEmpty
+                                    ? a.imageUrl
+                                    : 'images/palm_growth.jpg',
+                                title: a.title,
+                                description: a.description,
+                                onReadMore: () {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => WikiArticleDetailsPage(article: a),
+    ),
+  );
+},
                               );
                             },
-                          ),
-
-                          ArticleCard(
-                            image: 'images/seedling.jpg',
-                            title:
-                            'من "الفسيلة الصغيرة" إلى "عملاقة الصحراء"',
-                            description:
-                            'النخلة كائن حي مذهل، تمر بمراحل دقيقة حتى تصل لمرحلة الإنتاج...',
-                            onReadMore: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const TodoPage(
-                                    title:
-                                    'من "الفسيلة الصغيرة" إلى "عملاقة الصحراء"',
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-
-                          ArticleCard(
-                            image: 'images/pests.png',
-                            title: 'الأعداء تحت السطح!',
-                            description:
-                            'تعرف على أخطر الآفات التي تهدد النخيل وكيفية اكتشافها مبكرًا...',
-                            onReadMore: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const TodoPage(
-                                    title: 'الأعداء تحت السطح!',
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-
-                          const SizedBox(height: 24),
-                        ],
+                          );
+                        },
                       ),
                     ),
                   ],

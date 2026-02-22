@@ -1,5 +1,5 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:nekhlawi_app/pages/home_page.dart';
 import 'package:nekhlawi_app/pages/welcome_page.dart';
 
@@ -8,19 +8,14 @@ class Wrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    final session = Supabase.instance.client.auth.currentSession;
 
-        if (snapshot.hasData) {
-          return const HomePage();
-        } else {
-          return const WelcomePage();
-        }
-      },
-    );
+    if (session != null) {
+      // المستخدم مسجل دخول
+      return const HomePage();
+    } else {
+      // المستخدم غير مسجل
+      return const WelcomePage();
+    }
   }
 }

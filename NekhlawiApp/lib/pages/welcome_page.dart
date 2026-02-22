@@ -35,7 +35,7 @@ class WelcomePage extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text(
-                      'حيّا الله من جانا\nنخلاوي يرحب فيك',
+                      'حيّا الله من جانا .\nنخلاوي يرحب فيك',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white,

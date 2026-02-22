@@ -5,7 +5,7 @@ import '../core/widgets/custom_input.dart';
 import '../core/widgets/primary_button.dart';
 import '../core/widgets/header_background.dart';
 import 'terms_and_conditions_page.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SignUpPage extends StatefulWidget {
   final String role; // user | expert
@@ -62,36 +62,37 @@ class _SignUpPageState extends State<SignUpPage> {
         isAccepted;
   }
 
-Future<void> _signUpWithFirebase(BuildContext context) async {
+Future<void> _signUpWithSupabase(BuildContext context) async {
   try {
-    await FirebaseAuth.instance.createUserWithEmailAndPassword(
+    final response =
+        await Supabase.instance.client.auth.signUp(
       email: emailController.text.trim(),
       password: passwordController.text.trim(),
     );
 
-    // بعد النجاح، نرجع للصفحة السابقة (Login)
-    Navigator.pop(context);
+    if (response.user != null) {
+      // نجاح إنشاء الحساب
+      if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('تم إنشاء الحساب بنجاح، سجّل دخولك الآن'),
-      ),
-    );
-  } on FirebaseAuthException catch (e) {
-    String message;
+      Navigator.pop(context);
 
-    switch (e.code) {
-      case 'email-already-in-use':
-        message = 'البريد الإلكتروني مستخدم مسبقًا';
-        break;
-      case 'invalid-email':
-        message = 'صيغة البريد الإلكتروني غير صحيحة';
-        break;
-      case 'weak-password':
-        message = 'كلمة المرور ضعيفة';
-        break;
-      default:
-        message = 'حدث خطأ غير متوقع';
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم إنشاء الحساب بنجاح، سجّل دخولك الآن'),
+        ),
+      );
+    }
+  } on AuthException catch (e) {
+    String message = 'حدث خطأ غير متوقع';
+
+    final error = e.message.toLowerCase();
+
+    if (error.contains('already')) {
+      message = 'البريد الإلكتروني مستخدم مسبقًا';
+    } else if (error.contains('email')) {
+      message = 'صيغة البريد الإلكتروني غير صحيحة';
+    } else if (error.contains('password')) {
+      message = 'كلمة المرور ضعيفة';
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -220,10 +221,8 @@ Future<void> _signUpWithFirebase(BuildContext context) async {
                                 icon: Icons.lock_outline,
                                 isPassword: true,
                                 controller: passwordController,
-                                showError: submitted,
-                                onValidationChanged: (v) {
-                                  setState(() => isPasswordValid = v);
-                                },
+                                enabled: true,
+                                validateRules: true,
                                 onChanged: (_) => setState(() {}),
                               ),
 
@@ -235,10 +234,9 @@ Future<void> _signUpWithFirebase(BuildContext context) async {
                                 icon: Icons.lock_outline,
                                 isPassword: true,
                                 controller: confirmPasswordController,
-                                showError: submitted || !passwordsMatch,
-                                onValidationChanged: (v) {
-                                  setState(() => isConfirmPasswordValid = v);
-                                },
+                                matchWith: passwordController,
+                                validateRules: false, 
+                                enabled: true,
                                 onChanged: (_) => setState(() {}),
                               ),
 
@@ -298,7 +296,7 @@ Future<void> _signUpWithFirebase(BuildContext context) async {
                                   setState(() => submitted = true);
                                   if (!canProceed) return;
 
-                                  _signUpWithFirebase(context);
+                                  _signUpWithSupabase(context);
                                 },
                               ),
 

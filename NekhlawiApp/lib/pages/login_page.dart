@@ -2,12 +2,13 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:nekhlawi_app/core/theme/app_colors.dart';
 import 'package:nekhlawi_app/pages/home_page.dart';
+import 'package:nekhlawi_app/pages/role_selection_page.dart';
+//import 'package:nekhlawi_app/pages/OTP.dart'; 
 import 'package:nekhlawi_app/pages/forgot_password_page.dart';
 import '../core/widgets/header_background.dart';
 import '../core/widgets/custom_input.dart';
 import '../core/widgets/primary_button.dart';
-import 'role_selection_page.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -24,61 +25,9 @@ class _LoginPageState extends State<LoginPage> {
   bool isPasswordValid = false;
   bool isEmailValid = false;
 
-
-
-
   bool get canProceed =>
       emailController.text.isNotEmpty &&
-          isEmailValid &&
-          passwordController.text.isNotEmpty &&
-          isPasswordValid;
-
-
-
-  Future<void> _signInWithFirebase(BuildContext context) async {
-    try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-      );
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
-      );
-    }
-    on FirebaseAuthException catch (e) {
-      String message;
-      switch (e.code) {
-        case 'user-not-found':
-          message = 'الحساب غير موجود';
-          break;
-        case 'wrong-password':
-          message = 'كلمة المرور غير صحيحة';
-          break;
-        case 'invalid-email':
-          message = 'صيغة البريد الإلكتروني غير صحيحة';
-          break;
-        case 'user-disabled':
-          message = 'تم تعطيل هذا الحساب';
-          break;
-        case 'invalid-credential':
-          message = 'بيانات الدخول غير صحيحة';
-          break;
-        default:
-          message = e.message ?? 'حدث خطأ غير متوقع';
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(16),
-        ),
-      );
-    }
-  }
-
+      isEmailValid;
 
   @override
   void dispose() {
@@ -86,6 +35,59 @@ class _LoginPageState extends State<LoginPage> {
     passwordController.dispose();
     super.dispose();
   }
+
+Future<void> _sendOtp(BuildContext context) async {
+  final email = emailController.text.trim();
+  if (email.isEmpty) return;
+
+  setState(() => submitted = true);
+
+  if (!canProceed) return;
+
+  try {
+    // 🔹 إرسال OTP
+    await Supabase.instance.client.auth.signInWithOtp(
+      email: email,
+    );
+
+    // لو وصلنا هنا بدون Exception، نعتبر العملية نجحت
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('تم إرسال الرمز إلى بريدك الإلكتروني'),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.all(16),
+      ),
+    );
+
+    // الانتقال لصفحة OTP
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const HomePage()),
+    );
+  } on AuthException catch (e) {
+    // أي خطأ من Supabase
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(e.message),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  } catch (e) {
+    // أي خطأ غير متوقع
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('حدث خطأ غير متوقع: $e'),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -96,10 +98,7 @@ class _LoginPageState extends State<LoginPage> {
         body: Stack(
           children: [
             Container(color: Colors.white),
-            const HeaderBackground(
-              title: 'تسجيل دخول',
-            ),
-
+            const HeaderBackground(title: 'تسجيل دخول'),
             Positioned(
               top: 140,
               left: 0,
@@ -126,7 +125,6 @@ class _LoginPageState extends State<LoginPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const SizedBox(height: 40),
-
                               const Text(
                                 'هلا بالنخلاوي 🌴',
                                 style: TextStyle(
@@ -135,16 +133,13 @@ class _LoginPageState extends State<LoginPage> {
                                   color: AppColors.darkBrown,
                                 ),
                               ),
-
                               const SizedBox(height: 8),
-
                               const Text(
                                 'سجل دخولك وخلك قريب من نخلك',
                                 style: TextStyle(
                                   color: AppColors.darkBrown,
                                 ),
                               ),
-
                               const SizedBox(height: 50),
 
                               /// البريد الإلكتروني
@@ -175,7 +170,6 @@ class _LoginPageState extends State<LoginPage> {
                               ),
 
                               const SizedBox(height: 12),
-
                               const ForgotPasswordButton(),
 
                               const SizedBox(height: 30),
@@ -183,20 +177,11 @@ class _LoginPageState extends State<LoginPage> {
                               /// زر تسجيل الدخول
                               PrimaryButton(
                                 title: 'تسجيل دخول',
-                                onPressed: () {
-                                  setState(() => submitted = true);
-
-                                  if (!canProceed) return;
-
-                                  _signInWithFirebase(context);
-                                },
+                                onPressed: () => _sendOtp(context),
                               ),
 
                               const SizedBox(height: 16),
-
-                              const Center(
-                                child: SignUpLinkText(),
-                              ),
+                              const Center(child: SignUpLinkText()),
 
                               const Spacer(),
 
@@ -224,6 +209,8 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 }
+
+/// باقي الكلاسات بدون تغيير
 class SignUpLinkText extends StatefulWidget {
   const SignUpLinkText({super.key});
 
@@ -276,6 +263,7 @@ class _SignUpLinkTextState extends State<SignUpLinkText> {
     );
   }
 }
+
 class ForgotPasswordButton extends StatelessWidget {
   const ForgotPasswordButton({super.key});
 

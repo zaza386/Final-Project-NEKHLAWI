@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:nekhlawi_app/core/theme/app_colors.dart';
 import 'package:nekhlawi_app/pages/password_updated_page.dart';
 import '../core/widgets/header_background.dart';
 import '../core/widgets/custom_input.dart';
 import '../core/widgets/primary_button.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
@@ -18,44 +18,44 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   bool submitted = false;
   bool isEmailValid = false;
+  bool isLoading = false;
 
   bool get canProceed =>
-      emailController.text.isNotEmpty && isEmailValid;
+      emailController.text.isNotEmpty && isEmailValid && !isLoading;
 
   Future<void> _sendResetLink() async {
+    setState(() => isLoading = true);
+
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(
-        email: emailController.text.trim(),
+      await Supabase.instance.client.auth.resetPasswordForEmail(
+        emailController.text.trim(),
       );
 
       if (!mounted) return;
 
-      // بعد الإرسال نودّي المستخدم لصفحة تأكيد
       Navigator.pushReplacement(
         context,
-      MaterialPageRoute(
-        builder: (_) => const PasswordUpdatedPage(),
-      ),
-    );
-  } on FirebaseAuthException catch (e) {
-    String message = 'حدث خطأ غير متوقع';
+        MaterialPageRoute(
+          builder: (_) => const PasswordUpdatedPage(),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
 
-    if (e.code == 'invalid-email') {
-      message = 'صيغة البريد الإلكتروني غير صحيحة';
-    } else if (e.code == 'user-not-found') {
-      message = 'لا يوجد حساب بهذا البريد';
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تعذر إرسال رابط إعادة التعيين'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.all(16),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(16),
-      ),
-    );
   }
-}    
 
   @override
   void dispose() {
@@ -116,7 +116,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                               const SizedBox(height: 8),
 
                               const Text(
-                                'دخل بريدك الإلكتروني وبنساعدك تسترجع حسابك',
+                                'دخل بريدك الإلكتروني وبنرسل لك رابط إعادة التعيين',
                                 style: TextStyle(
                                   color: AppColors.darkBrown,
                                 ),
@@ -124,7 +124,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
                               const SizedBox(height: 50),
 
-                              /// البريد الإلكتروني (مع فالديشن)
                               CustomInput(
                                 hint: 'البريد الإلكتروني',
                                 icon: Icons.email_outlined,
@@ -139,14 +138,15 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                               const SizedBox(height: 30),
 
                               PrimaryButton(
-                                title: 'إعادة تعيين كلمة المرور',
-                                onPressed: () {
-                                  setState(() => submitted = true);
-
-                                  if (!canProceed) return;
-
-                                  _sendResetLink();
-                                },
+                                title: isLoading
+                                    ? 'جاري الإرسال...'
+                                    : 'إعادة تعيين كلمة المرور',
+                                onPressed: canProceed
+                                    ? () {
+                                        setState(() => submitted = true);
+                                        _sendResetLink();
+                                      }
+                                    : () {},
                               ),
 
                               const Spacer(),
