@@ -85,7 +85,7 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
                 /// زر المتابعة
                 SizedBox(
                   width: double.infinity,
-                  height: 52,
+                  height: 60,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
@@ -147,6 +147,16 @@ class _RoleSelectionPageState extends State<RoleSelectionPage> {
                 ),
 
                 const SizedBox(height: 20),
+
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: 16),
+                    child: Text(
+                      '©️ 2025 - 2026',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                 ),
+                ),
               ],
             ),
           ),

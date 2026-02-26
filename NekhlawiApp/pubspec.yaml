@@ -36,6 +36,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   get: ^4.7.3
   supabase_flutter: ^2.12.0
+  timeago: ^3.1.0
+
 
 dev_dependencies:
   flutter_test:
@@ -73,10 +75,6 @@ flutter:
     - images/welcome.png
     - images/nekhlawi_icon2.png
     - images/nekhlawi_icon.png
-    - images/profile/header4.jpg
-    - images/profile/header3.jpg
-    - images/profile/header2.jpg
-    - images/profile/header1.jpg
     
 
   # An image asset can refer to one or more resolution-specific "variants", see

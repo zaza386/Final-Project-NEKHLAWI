@@ -62,8 +62,8 @@ class RoleCard extends StatelessWidget {
               ),
             ),
             Container(
-              width: 44,
-              height: 44,
+              width: 70,
+              height: 70,
               decoration: BoxDecoration(
                 color: isSelected
                     ? AppColors.primary
