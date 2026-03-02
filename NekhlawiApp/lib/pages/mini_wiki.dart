@@ -69,8 +69,7 @@ class _MiniWikiState extends State<MiniWiki> {
                     const SizedBox(height: 40),
 
                     /// 🔍 البحث
-                    TextField(
-                      controller: _searchController,
+                    TextField(                     controller: _searchController,
                       onChanged: _runSearch,
                       decoration: InputDecoration(
                         hintText: 'ابحث عن مقال...',

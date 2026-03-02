@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nekhlawi_app/pages/booking_experts_page.dart';
 import 'package:nekhlawi_app/pages/mini_wiki.dart';
 import 'package:nekhlawi_app/pages/to_do_page.dart';
 import '../core/theme/app_colors.dart';
@@ -110,7 +111,6 @@ class HomePage extends StatelessWidget {
 
                       const SizedBox(height: 24),
 
-                      /// شبكة الأزرار (كلها TODO)
                       GridView.count(
                         crossAxisCount: 2,
                         shrinkWrap: true,
@@ -136,7 +136,12 @@ class HomePage extends StatelessWidget {
                           _HomeCard(
                             icon: Icons.chat_outlined,
                             title: 'بحجز مع خبير',
-                            onTap: () => _goTodo(context, 'بحجز مع خبير'),
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const BookingExpertsPage(),
+                              ),
+                            ),
                           ),
                           _HomeCard(
                             icon: Icons.history,

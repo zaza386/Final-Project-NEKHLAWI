@@ -75,7 +75,7 @@ class WikiArticleRepo {
     final res = q.isEmpty
         ? await base.order('CreatedAt', ascending: false)
         : await base
-            .or('Title.ilike.%$q%,Description.ilike.%$q%')
+            .or('Title.ilike.%$q%,Description.ilike.%$q%,Category.ilike.%$q%')
             .order('CreatedAt', ascending: false);
 
     return (res as List)
