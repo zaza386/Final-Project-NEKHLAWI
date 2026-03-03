@@ -6,6 +6,8 @@ import '../core/theme/app_colors.dart';
 import '../core/widgets/header_background.dart';
 import 'package:nekhlawi_app/pages/History_page.dart';
 import 'package:nekhlawi_app/pages/user_profile.dart';
+import 'package:nekhlawi_app/core/widgets/upcoming_sessions_carousel.dart';
+
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
@@ -67,6 +69,14 @@ class HomePage extends StatelessWidget {
 
                       const SizedBox(height: 24),
 
+                      UserSessionsCarousel(
+                      userId: '3f155ab7-60b2-4f12-9271-8881a128659b',
+                      statuses: const ['لم تبدأ', 'بدأت'], // أو خلها فقط ['لم تبدأ']
+                      iconAssetPath: 'assets/images/home_brown_icon.png',
+                      ),
+
+                      const SizedBox(height: 30),
+
                       /// كرت الترحيب (زر)
                     InkWell(
                       borderRadius: BorderRadius.circular(20),
@@ -79,35 +89,35 @@ class HomePage extends StatelessWidget {
                         );
                       },
                       child: Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: AppColors.header.withOpacity(0.5),
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'صباح الخير أحمد',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: AppColors.darkBrown,
-          ),
-        ),
-        SizedBox(height: 4),
-        Text(
-          'الدور: مزارع\nعدل معلوماتك الشخصية',
-          style: TextStyle(
-            fontSize: 13,
-            color: AppColors.darkBrown,
-          ),
-        ),
-      ],
-    ),
-  ),
-),
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.header.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(20),
+                          ),
+                        child: const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'صباح الخير أحمد',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.darkBrown,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'الدور: مزارع\nعدل معلوماتك الشخصية',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: AppColors.darkBrown,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
 
                       const SizedBox(height: 24),
 
@@ -209,13 +219,13 @@ class _HomeCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 40, color: AppColors.darkBrown),
+            Icon(icon, size: 60, color: AppColors.darkBrown),
             const SizedBox(height: 12),
             Text(
               title,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 19,
                 fontWeight: FontWeight.w600,
                 color: AppColors.darkBrown,
               ),

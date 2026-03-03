@@ -75,6 +75,7 @@ flutter:
     - images/welcome.png
     - images/nekhlawi_icon2.png
     - images/nekhlawi_icon.png
+    - images/home_brown_icon.png
     
 
   # An image asset can refer to one or more resolution-specific "variants", see
