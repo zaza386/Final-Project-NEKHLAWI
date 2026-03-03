@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:nekhlawi_app/pages/booking_experts_page.dart';
 import 'package:nekhlawi_app/pages/mini_wiki.dart';
-import 'package:nekhlawi_app/pages/to_do_page.dart';
+// استبدل to_do_page بالصفحة الجديدة
+import 'package:nekhlawi_app/pages/ai_consultation_details_page.dart'; 
 import '../core/theme/app_colors.dart';
 import '../core/widgets/header_background.dart';
 import 'package:nekhlawi_app/pages/History_page.dart';
@@ -19,16 +20,13 @@ class HomePage extends StatelessWidget {
         backgroundColor: Colors.white,
         body: Stack(
           children: [
-            // الخلفية البيضاء الأساسية
             Container(color: Colors.white),
 
-            /// الهيدر الأخضر الثابت
             const HeaderBackground(
               title: 'حياك الله يا النخلاوي',
               showBack: false,
             ),
 
-            /// الطبقة البيضاء التي تحتوي المحتوى
             Positioned(
               top: 140,
               left: 0,
@@ -46,8 +44,7 @@ class HomePage extends StatelessWidget {
                   top: false,
                   child: Column(
                     children: [
-                      /// 1. شريط البحث الثابت
-                      /// وضعناه هنا خارج الـ SingleChildScrollView ليبقى ظاهراً دائماً
+                      // شريط البحث
                       Padding(
                         padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
                         child: Container(
@@ -56,13 +53,6 @@ class HomePage extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: Colors.grey.shade100,
                             borderRadius: BorderRadius.circular(15),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.03),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
                           ),
                           child: const Row(
                             children: [
@@ -77,8 +67,6 @@ class HomePage extends StatelessWidget {
                         ),
                       ),
 
-                      /// 2. الجزء القابل للتمرير
-                      /// استخدمنا Expanded ليأخذ كل المساحة المتبقية تحت شريط البحث
                       Expanded(
                         child: SingleChildScrollView(
                           physics: const BouncingScrollPhysics(),
@@ -87,7 +75,6 @@ class HomePage extends StatelessWidget {
                             children: [
                               const SizedBox(height: 10),
 
-                              /// قسم الجلسات القادمة
                               UserSessionsCarousel(
                                 userId: '3f155ab7-60b2-4f12-9271-8881a128659b',
                                 statuses: const ['لم تبدأ', 'بدأت'],
@@ -96,12 +83,11 @@ class HomePage extends StatelessWidget {
 
                               const SizedBox(height: 24),
 
-                              /// كرت الترحيب
                               _buildWelcomeCard(context),
 
                               const SizedBox(height: 24),
 
-                              /// شبكة الخدمات
+                              /// شبكة الخدمات - تم تعديل OnTap لـ تشخيص النخل
                               GridView.count(
                                 crossAxisCount: 2,
                                 shrinkWrap: true,
@@ -113,7 +99,8 @@ class HomePage extends StatelessWidget {
                                   _HomeCard(
                                     icon: Icons.camera_alt_outlined,
                                     title: 'تشخيص النخل',
-                                    onTap: () => _goTodo(context, 'تشخيص النخل'),
+                                    // تم التغيير هنا لفتح صفحة التشخيص مباشرة
+                                    onTap: () => _goToAiDiagnosis(context, 'تشخيص النخل'),
                                   ),
                                   _HomeCard(
                                     icon: Icons.menu_book_outlined,
@@ -143,8 +130,6 @@ class HomePage extends StatelessWidget {
                               ),
 
                               const SizedBox(height: 40),
-
-                              /// التذييل
                               const Center(
                                 child: Text(
                                   '©️ 2025 - 2026 نخلاوي',
@@ -167,25 +152,16 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  /// ويدجت كرت الترحيب
   Widget _buildWelcomeCard(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(20),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const UserProfilePage()),
-        );
-      },
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const UserProfilePage())),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              AppColors.header.withOpacity(0.6),
-              AppColors.header.withOpacity(0.3),
-            ],
+            colors: [AppColors.header.withOpacity(0.6), AppColors.header.withOpacity(0.3)],
             begin: Alignment.topRight,
             end: Alignment.bottomLeft,
           ),
@@ -198,22 +174,9 @@ class HomePage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'صباح الخير يا أحمد 👋',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.darkBrown,
-                    ),
-                  ),
+                  const Text('صباح الخير يا أحمد 👋', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.darkBrown)),
                   const SizedBox(height: 6),
-                  Text(
-                    'الدور: مزارع • اضغط لتعديل ملفك',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.darkBrown.withOpacity(0.8),
-                    ),
-                  ),
+                  Text('الدور: مزارع • اضغط لتعديل ملفك', style: TextStyle(fontSize: 14, color: AppColors.darkBrown.withOpacity(0.8))),
                 ],
               ),
             ),
@@ -224,27 +187,23 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  static void _goTodo(BuildContext context, String title) {
+  /// الدالة الجديدة التي تفتح صفحة التشخيص بدلاً من صفحة الـ TODO
+  void _goToAiDiagnosis(BuildContext context, String title) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => TodoPage(title: title),
+        builder: (context) => AiConsultationDetailsPage(title: title),
       ),
     );
   }
 }
 
-/// ويدجت كرت الخدمات في الشبكة
 class _HomeCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final VoidCallback onTap;
 
-  const _HomeCard({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-  });
+  const _HomeCard({required this.icon, required this.title, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -264,22 +223,11 @@ class _HomeCard extends StatelessWidget {
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.5),
-                  shape: BoxShape.circle,
-                ),
+                decoration: BoxDecoration(color: Colors.white.withOpacity(0.5), shape: BoxShape.circle),
                 child: Icon(icon, size: 35, color: AppColors.darkBrown),
               ),
               const SizedBox(height: 12),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.darkBrown,
-                ),
-              ),
+              Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.darkBrown)),
             ],
           ),
         ),
