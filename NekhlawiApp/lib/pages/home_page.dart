@@ -19,166 +19,205 @@ class HomePage extends StatelessWidget {
         backgroundColor: Colors.white,
         body: Stack(
           children: [
-            // الخلفية
+            // الخلفية البيضاء الأساسية
             Container(color: Colors.white),
-            /// الهيدر
+
+            /// الهيدر الأخضر الثابت
             const HeaderBackground(
               title: 'حياك الله يا النخلاوي',
               showBack: false,
             ),
 
-            /// المحتوى
+            /// الطبقة البيضاء التي تحتوي المحتوى
             Positioned(
               top: 140,
               left: 0,
               right: 0,
               bottom: 0,
-              child: SingleChildScrollView(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(30),
-                      topRight: Radius.circular(30),
-                    ),
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(30),
+                    topRight: Radius.circular(30),
                   ),
+                ),
+                child: SafeArea(
+                  top: false,
                   child: Column(
                     children: [
-                      const SizedBox(height: 16),
-
-                      /// شريط البحث (شكلي فقط)
-                      Container(
-                        height: 48,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.search, color: Colors.grey),
-                            SizedBox(width: 8),
-                            Text(
-                              'ابحث...',
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      UserSessionsCarousel(
-                      userId: '3f155ab7-60b2-4f12-9271-8881a128659b',
-                      statuses: const ['لم تبدأ', 'بدأت'], // أو خلها فقط ['لم تبدأ']
-                      iconAssetPath: 'assets/images/home_brown_icon.png',
-                      ),
-
-                      const SizedBox(height: 30),
-
-                      /// كرت الترحيب (زر)
-                    InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const UserProfilePage(),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppColors.header.withOpacity(0.5),
-                          borderRadius: BorderRadius.circular(20),
-                          ),
-                        child: const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'صباح الخير أحمد',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.darkBrown,
+                      /// 1. شريط البحث الثابت
+                      /// وضعناه هنا خارج الـ SingleChildScrollView ليبقى ظاهراً دائماً
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
+                        child: Container(
+                          height: 52,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(15),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.03),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
                               ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'الدور: مزارع\nعدل معلوماتك الشخصية',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: AppColors.darkBrown,
+                            ],
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.search, color: Colors.grey, size: 22),
+                              SizedBox(width: 12),
+                              Text(
+                                'ابحث عن أمراض، خبراء، أو مقالات...',
+                                style: TextStyle(color: Colors.grey, fontSize: 14),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
 
-                      const SizedBox(height: 24),
+                      /// 2. الجزء القابل للتمرير
+                      /// استخدمنا Expanded ليأخذ كل المساحة المتبقية تحت شريط البحث
+                      Expanded(
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 10),
 
-                      GridView.count(
-                        crossAxisCount: 2,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        children: [
-                          _HomeCard(
-                            icon: Icons.camera_alt_outlined,
-                            title: 'تشخيص النخل',
-                            onTap: () => _goTodo(context, 'تشخيص النخل'),
-                          ),
-                          _HomeCard(
-                            icon: Icons.menu_book_outlined,
-                            title: 'مقالات عن النخل',
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const MiniWiki(),
+                              /// قسم الجلسات القادمة
+                              UserSessionsCarousel(
+                                userId: '3f155ab7-60b2-4f12-9271-8881a128659b',
+                                statuses: const ['لم تبدأ', 'بدأت'],
+                                iconAssetPath: 'assets/images/home_brown_icon.png',
                               ),
-                            ),
-                          ),
-                          _HomeCard(
-                            icon: Icons.chat_outlined,
-                            title: 'بحجز مع خبير',
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const BookingExpertsPage(),
+
+                              const SizedBox(height: 24),
+
+                              /// كرت الترحيب
+                              _buildWelcomeCard(context),
+
+                              const SizedBox(height: 24),
+
+                              /// شبكة الخدمات
+                              GridView.count(
+                                crossAxisCount: 2,
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                crossAxisSpacing: 16,
+                                mainAxisSpacing: 16,
+                                childAspectRatio: 1.1,
+                                children: [
+                                  _HomeCard(
+                                    icon: Icons.camera_alt_outlined,
+                                    title: 'تشخيص النخل',
+                                    onTap: () => _goTodo(context, 'تشخيص النخل'),
+                                  ),
+                                  _HomeCard(
+                                    icon: Icons.menu_book_outlined,
+                                    title: 'مقالات عن النخل',
+                                    onTap: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => const MiniWiki()),
+                                    ),
+                                  ),
+                                  _HomeCard(
+                                    icon: Icons.chat_outlined,
+                                    title: 'حجز مع خبير',
+                                    onTap: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => const BookingExpertsPage()),
+                                    ),
+                                  ),
+                                  _HomeCard(
+                                    icon: Icons.history,
+                                    title: 'سجلك الزراعي',
+                                    onTap: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => const ConsultationsPage()),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ),
-                          _HomeCard(
-                            icon: Icons.history,
-                            title: 'سجلك',
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const ConsultationsPage(),
+
+                              const SizedBox(height: 40),
+
+                              /// التذييل
+                              const Center(
+                                child: Text(
+                                  '©️ 2025 - 2026 نخلاوي',
+                                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: 20),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-
-                      const SizedBox(height: 30),
-
-                      const Text(
-                        '©️ 2025 - 2026',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-
-                      const SizedBox(height: 20),
                     ],
                   ),
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// ويدجت كرت الترحيب
+  Widget _buildWelcomeCard(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const UserProfilePage()),
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AppColors.header.withOpacity(0.6),
+              AppColors.header.withOpacity(0.3),
+            ],
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.header.withOpacity(0.5)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'صباح الخير يا أحمد 👋',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.darkBrown,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'الدور: مزارع • اضغط لتعديل ملفك',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.darkBrown.withOpacity(0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.darkBrown),
           ],
         ),
       ),
@@ -195,6 +234,7 @@ class HomePage extends StatelessWidget {
   }
 }
 
+/// ويدجت كرت الخدمات في الشبكة
 class _HomeCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -208,29 +248,40 @@ class _HomeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.header.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 60, color: AppColors.darkBrown),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.w600,
-                color: AppColors.darkBrown,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.header.withOpacity(0.4),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.header.withOpacity(0.2)),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 35, color: AppColors.darkBrown),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.darkBrown,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
