@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:nekhlawi_app/pages/to_do_page.dart';
 import '../core/theme/app_colors.dart';
 import '../core/widgets/header_background.dart';
 import '../core/widgets/consultation_card.dart';
 import 'ai_consultation_details_page.dart';
-import 'expert_consultation_details_page.dart';
 
 class ConsultationsPage extends StatefulWidget {
   const ConsultationsPage({super.key});
@@ -133,7 +133,7 @@ class _ConsultationsPageState extends State<ConsultationsPage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => const ExpertConsultationDetailsPage(
+                builder: (_) => const TodoPage(
                   title: 'استشارة تسميد النخيل',
                 ),
               ),
@@ -150,7 +150,7 @@ class _ConsultationsPageState extends State<ConsultationsPage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => const ExpertConsultationDetailsPage(
+                builder: (_) => const TodoPage(
                   title: 'مشاكل الري الحديثة',
                 ),
               ),

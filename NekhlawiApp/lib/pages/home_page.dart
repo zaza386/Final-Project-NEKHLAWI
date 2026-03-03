@@ -4,7 +4,7 @@ import 'package:nekhlawi_app/pages/mini_wiki.dart';
 import 'package:nekhlawi_app/pages/to_do_page.dart';
 import '../core/theme/app_colors.dart';
 import '../core/widgets/header_background.dart';
-import 'package:nekhlawi_app/pages/consultations_page.dart';
+import 'package:nekhlawi_app/pages/History_page.dart';
 import 'package:nekhlawi_app/pages/user_profile.dart';
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
