@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:nekhlawi_app/core/theme/app_colors.dart';
 import 'package:nekhlawi_app/pages/home_page.dart';
 import 'package:nekhlawi_app/pages/role_selection_page.dart';
-//import 'package:nekhlawi_app/pages/OTP.dart'; 
+//import 'package:nekhlawi_app/pages/OTP.dart';
 import 'package:nekhlawi_app/pages/forgot_password_page.dart';
 import '../core/widgets/header_background.dart';
 import '../core/widgets/custom_input.dart';
@@ -25,9 +25,7 @@ class _LoginPageState extends State<LoginPage> {
   bool isPasswordValid = false;
   bool isEmailValid = false;
 
-  bool get canProceed =>
-      emailController.text.isNotEmpty &&
-      isEmailValid;
+  bool get canProceed => emailController.text.isNotEmpty && isEmailValid;
 
   @override
   void dispose() {
@@ -36,58 +34,96 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-Future<void> _sendOtp(BuildContext context) async {
-  final email = emailController.text.trim();
-  if (email.isEmpty) return;
+  final supabase = Supabase.instance.client;
 
-  setState(() => submitted = true);
-
-  if (!canProceed) return;
-
-  try {
-    // 🔹 إرسال OTP
-    await Supabase.instance.client.auth.signInWithOtp(
-      email: email,
-    );
-
-    // لو وصلنا هنا بدون Exception، نعتبر العملية نجحت
+  Future<void> signInWithMagicLink(TextEditingController emailAddress) async {
+    String emailAddress2 = emailAddress.text;
+     if (emailAddress2.isEmpty) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('تم إرسال الرمز إلى بريدك الإلكتروني'),
+      SnackBar(
+        content: Text('الرجاء إدخال البريد الإلكتروني'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+  
+    try {
+      await supabase.auth.signInWithOtp(
+        email: emailAddress2,
+        shouldCreateUser: false,
+        emailRedirectTo: 'io.supabase.flutter://login-callback/',
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('✅ تم إرسال الرابط السحري إلى بريدك!'),
         backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        margin: EdgeInsets.all(16),
+        duration: Duration(seconds: 4), 
       ),
     );
+    
+    emailController.clear(); 
+    
+  } catch (error) {
 
-    // الانتقال لصفحة OTP
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const HomePage()),
-    );
-  } on AuthException catch (e) {
-    // أي خطأ من Supabase
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(e.message),
+        content: Text('❌ حدث خطأ: $error'),
         backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(16),
-      ),
-    );
-  } catch (e) {
-    // أي خطأ غير متوقع
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('حدث خطأ غير متوقع: $e'),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(16),
       ),
     );
   }
-}
+  }
+
+  Future<void> _sendOtp(BuildContext context) async {
+    final email = emailController.text.trim();
+    if (email.isEmpty) return;
+
+    setState(() => submitted = true);
+
+    if (!canProceed) return;
+
+    try {
+      // 🔹 إرسال OTP
+      await Supabase.instance.client.auth.signInWithOtp(email: email);
+
+      // لو وصلنا هنا بدون Exception، نعتبر العملية نجحت
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم إرسال الرمز إلى بريدك الإلكتروني'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.all(16),
+        ),
+      );
+
+      // الانتقال لصفحة OTP
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const HomePage()),
+      );
+    } on AuthException catch (e) {
+      // أي خطأ من Supabase
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    } catch (e) {
+      // أي خطأ غير متوقع
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('حدث خطأ غير متوقع: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -136,9 +172,7 @@ Future<void> _sendOtp(BuildContext context) async {
                               const SizedBox(height: 8),
                               const Text(
                                 'سجل دخولك وخلك قريب من نخلك',
-                                style: TextStyle(
-                                  color: AppColors.darkBrown,
-                                ),
+                                style: TextStyle(color: AppColors.darkBrown),
                               ),
                               const SizedBox(height: 50),
 
@@ -179,7 +213,12 @@ Future<void> _sendOtp(BuildContext context) async {
                                 title: 'تسجيل دخول',
                                 onPressed: () => _sendOtp(context),
                               ),
-
+                              const SizedBox(height: 12),
+                              PrimaryButton(
+                                title: 'تسجيل الدخول باستخدام البريد',
+                                onPressed: () =>
+                                    signInWithMagicLink(emailController),
+                              ),
                               const SizedBox(height: 16),
                               const Center(child: SignUpLinkText()),
 
@@ -232,10 +271,7 @@ class _SignUpLinkTextState extends State<SignUpLinkText> {
           children: [
             const TextSpan(
               text: 'لا أملك حساب، ',
-              style: TextStyle(
-                color: AppColors.darkBrown,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: AppColors.darkBrown, fontSize: 14),
             ),
             TextSpan(
               text: 'إنشاء حساب جديد',

@@ -83,6 +83,47 @@ class _SignUpPageState extends State<SignUpPage> {
     _showError(msg);
   }
 
+    final supabase = Supabase.instance.client;
+
+    Future<void> signUpWithMagicLink(TextEditingController emailAddress) async {
+    String emailAddress2 = emailAddress.text;
+     if (emailAddress2.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('الرجاء إدخال البريد الإلكتروني'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+  
+    try {
+      await supabase.auth.signInWithOtp(
+        email: emailAddress2,
+        shouldCreateUser: true,
+        emailRedirectTo: 'io.supabase.flutter://signup-callback/',
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('✅ تم إرسال الرابط إلى بريدك!'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 4), 
+      ),
+    );
+    
+    emailController.clear(); 
+    
+  } catch (error) {
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('❌ حدث خطأ: $error'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+  }
+
   Future<void> _signUpWithSupabase() async {
     if (isLoading) return;
 
@@ -341,6 +382,12 @@ class _SignUpPageState extends State<SignUpPage> {
                             }
                           },
                         ),
+                        const SizedBox(height: 12),
+                              PrimaryButton(
+                                title: 'انشاء حساب باستخدام البريد',
+                                onPressed: () =>
+                                    signUpWithMagicLink(emailController),
+                              ),
 
                         const SizedBox(height: 40),
 
