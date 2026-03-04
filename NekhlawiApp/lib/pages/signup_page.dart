@@ -7,9 +7,10 @@ import '../core/widgets/custom_input.dart';
 import '../core/widgets/primary_button.dart';
 import '../core/widgets/header_background.dart';
 import 'terms_and_conditions_page.dart';
+import 'login_page.dart';
 
 class SignUpPage extends StatefulWidget {
-  final String role; // user | expert
+  final String role; 
 
   const SignUpPage({
     super.key,
@@ -82,6 +83,47 @@ class _SignUpPageState extends State<SignUpPage> {
     _showError(msg);
   }
 
+    final supabase = Supabase.instance.client;
+
+    Future<void> signUpWithMagicLink(TextEditingController emailAddress) async {
+    String emailAddress2 = emailAddress.text;
+     if (emailAddress2.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('الرجاء إدخال البريد الإلكتروني'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
+  }
+  
+    try {
+      await supabase.auth.signInWithOtp(
+        email: emailAddress2,
+        shouldCreateUser: true,
+        emailRedirectTo: 'io.supabase.flutter://signup-callback/',
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('✅ تم إرسال الرابط إلى بريدك!'),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 4), 
+      ),
+    );
+    
+    emailController.clear(); 
+    
+  } catch (error) {
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('❌ حدث خطأ: $error'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+  }
+
   Future<void> _signUpWithSupabase() async {
     if (isLoading) return;
 
@@ -152,17 +194,26 @@ class _SignUpPageState extends State<SignUpPage> {
       }
 
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, '/login');
+      Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const LoginPage(),
+                              ),
+                            );
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('تم إنشاء الحساب بنجاح، سجّل دخولك الآن')),
       );
-    } on AuthException catch (e) {
+    }
+    on AuthException catch (e) {
       _showError(e.message);
-    } on PostgrestException catch (e) {
+    } 
+    on PostgrestException catch (e) {
       _showError('Database error: ${e.message}');
-    } catch (e) {
+    } 
+    catch (e) {
       _showError('Error: $e');
-    } finally {
+    }
+    finally {
       if (mounted) setState(() => isLoading = false);
     }
   }
@@ -173,20 +224,16 @@ class _SignUpPageState extends State<SignUpPage> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: Colors.white,
-        // لضمان استجابة الواجهة عند فتح لوحة المفاتيح
         resizeToAvoidBottomInset: true,
         body: Stack(
           children: [
-            // الخلفية الأساسية
             Container(color: Colors.white),
 
-            // الهيدر
             HeaderBackground(
               title: isExpert ? 'حساب خبير' : 'حساب جديد',
               showBack: true,
             ),
 
-            // المحتوى الرئيسي
             Positioned(
               top: 140,
               left: 0,
@@ -283,7 +330,6 @@ class _SignUpPageState extends State<SignUpPage> {
 
                         const SizedBox(height: 20),
 
-                        // الشروط والخصوصية
                         Row(
                           children: [
                             Checkbox(
@@ -328,7 +374,6 @@ class _SignUpPageState extends State<SignUpPage> {
 
                         const SizedBox(height: 30),
 
-                        // زر إنشاء الحساب
                         PrimaryButton(
                           title: isLoading ? 'جاري إنشاء الحساب...' : 'إنشاء حساب',
                           onPressed: () {
@@ -337,6 +382,12 @@ class _SignUpPageState extends State<SignUpPage> {
                             }
                           },
                         ),
+                        const SizedBox(height: 12),
+                              PrimaryButton(
+                                title: 'انشاء حساب باستخدام البريد',
+                                onPressed: () =>
+                                    signUpWithMagicLink(emailController),
+                              ),
 
                         const SizedBox(height: 40),
 
