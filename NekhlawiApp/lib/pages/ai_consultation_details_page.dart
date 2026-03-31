@@ -1,7 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:camera/camera.dart';
+import 'package:image_picker/image_picker.dart';
 
 class AiConsultationDetailsPage extends StatefulWidget {
   final String title;
+  // أزلنا متطلب تمرير الكاميرا من هنا ليتوقف الخطأ في صفحة History
   const AiConsultationDetailsPage({super.key, required this.title});
 
   @override
@@ -9,86 +13,171 @@ class AiConsultationDetailsPage extends StatefulWidget {
 }
 
 class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
-  
+  CameraController? _cameraController;
+  Future<void>? _initializeControllerFuture;
+  final ImagePicker _imagePicker = ImagePicker();
+  bool _isCameraInitialized = false;
+
   @override
   void initState() {
     super.initState();
-    // تظهر نافذة التعليمات تلقائياً بعد بناء الصفحة بـ 500 ملي ثانية
+    // استدعاء تهيئة الكاميرا داخلياً
+    _initCamera();
+
+    // إظهار نافذة التعليمات تلقائياً
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showInstructionsDialog(context);
     });
   }
 
+  // دالة البحث عن الكاميرا وتهيئتها (الحل الذاتي)
+  Future<void> _initCamera() async {
+    try {
+      final cameras = await availableCameras();
+      if (cameras.isNotEmpty) {
+        _cameraController = CameraController(
+          cameras.first, // الكاميرا الخلفية تلقائياً
+          ResolutionPreset.high,
+        );
+        _initializeControllerFuture = _cameraController!.initialize();
+        await _initializeControllerFuture;
+        if (mounted) {
+          setState(() {
+            _isCameraInitialized = true;
+          });
+        }
+      }
+    } catch (e) {
+      print("خطأ في تهيئة الكاميرا: $e");
+    }
+  }
+
+  @override
+  void dispose() {
+    _cameraController?.dispose();
+    super.dispose();
+  }
+
+  // فتح ألبوم الصور
+  Future<void> _openGallery() async {
+    final XFile? image = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (image != null) {
+      print("تم اختيار صورة من الألبوم: ${image.path}");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    const Color primaryColor = Color(0xFFC7C7A3); // لون شريط الأدوات
+    const Color darkColor = Color(0xFF43321A);    // لون الأيقونات والنص
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
+        backgroundColor: Colors.black, // خلفية سوداء لبث الكاميرا
         body: Stack(
           children: [
-            Container(color: Colors.white),
-            // HeaderBackground(title: widget.title), // تأكد من تفعيلها في مشروعك
+            // 1. عرض الكاميرا الحية
+            Positioned.fill(
+              child: _isCameraInitialized
+                  ? CameraPreview(_cameraController!)
+                  : Container(
+                color: primaryColor.withOpacity(0.5),
+                child: const Center(child: CircularProgressIndicator(color: darkColor)),
+              ),
+            ),
 
+            // 2. الشريط العلوي (تصميم الصورة الجديدة)
             Positioned(
-              top: 140,
+              top: 0,
               left: 0,
               right: 0,
-              bottom: 0,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(30),
-                    topRight: Radius.circular(30),
-                  ),
+                padding: EdgeInsets.only(
+                  top: MediaQuery.of(context).padding.top + 10,
+                  bottom: 15,
+                  left: 20,
+                  right: 20,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                color: primaryColor,
+                child: Row(
                   children: [
-                    const SizedBox(height: 16),
-                    Expanded(
-                      child: ListView(
-                        physics: const BouncingScrollPhysics(),
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: Image.asset(
-                              'images/image5.jpg',
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => 
-                                  Container(height: 200, color: Colors.grey[300], child: Icon(Icons.image_not_supported)),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          
-                          // كارت النتيجة (AiResultCard)
-                          _buildAiResultPlaceholder(), 
-
-                          const SizedBox(height: 16),
-                          const Text(
-                            '''الأدلة البصرية قاطعة: جميع السعف جاف تماماً (بني اللون)، والقمة النامية (القلب) منهارة...''',
-                            style: TextStyle(height: 1.8, fontSize: 15),
-                          ),
-                          const SizedBox(height: 24),
-                          const Text(
-                            'الإجراءات المقترحة:',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(child: _buildActionBtn(Icons.local_fire_department, 'التخلص الآمن')),
-                              const SizedBox(width: 12),
-                              Expanded(child: _buildActionBtn(Icons.hardware, 'الإزالة الفورية')),
-                            ],
-                          ),
-                          const SizedBox(height: 32),
-                        ],
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back, color: darkColor, size: 28),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    const Text(
+                      'العودة',
+                      style: TextStyle(
+                        color: darkColor,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
                       ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        color: darkColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.flash_on, color: Colors.white, size: 20),
                     ),
                   ],
                 ),
+              ),
+            ),
+
+            // 3. أزرار التحكم السفلية (تصميم الصورة الجديدة)
+            Positioned(
+              bottom: 40,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  // زر المعرض
+                  GestureDetector(
+                    onTap: _openGallery,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: primaryColor.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(color: darkColor, width: 2),
+                      ),
+                      child: const Icon(Icons.photo_library_outlined, color: darkColor, size: 32),
+                    ),
+                  ),
+
+                  // زر التصوير الرئيسي (الدائرة الغامقة)
+                  GestureDetector(
+                    onTap: () async {
+                      if (_isCameraInitialized) {
+                        final image = await _cameraController!.takePicture();
+                        print("تم التقاط الصورة: ${image.path}");
+                      }
+                    },
+                    child: Container(
+                      height: 85,
+                      width: 85,
+                      decoration: BoxDecoration(
+                        color: darkColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 4),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black26, blurRadius: 10, spreadRadius: 2)
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // أيقونة تبديل الكاميرا (لإكمال التوازن البصري)
+                  const SizedBox(width: 60),
+                ],
               ),
             ),
           ],
@@ -97,11 +186,11 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
     );
   }
 
-  // دالة إظهار نافذة التعليمات (التي طلبتها في السؤال السابق)
+  // نافذة التعليمات (Pop-up)
   void _showInstructionsDialog(BuildContext context) {
     showDialog(
       context: context,
-      barrierDismissible: false, // لا يغلق عند الضغط خارج النافذة
+      barrierDismissible: false,
       builder: (BuildContext context) {
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -148,17 +237,4 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
       },
     );
   }
-
-  // أجزاء تجريبية لتعويض الكلاسات المفقودة لديك
-  Widget _buildActionBtn(IconData icon, String label) => Container(
-    padding: EdgeInsets.all(12),
-    decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(12)),
-    child: Column(children: [Icon(icon, color: Colors.orange), Text(label)]),
-  );
-
-  Widget _buildAiResultPlaceholder() => Container(
-    padding: EdgeInsets.all(16),
-    decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
-    child: Text("نتيجة الذكاء الاصطناعي: إصابة متقدمة", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-  );
 }
