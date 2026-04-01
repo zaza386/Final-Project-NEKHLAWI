@@ -4,6 +4,7 @@ import '../core/theme/app_colors.dart';
 import '../core/widgets/header_background.dart';
 import '../core/widgets/consultation_card.dart';
 import 'ai_consultation_details_page.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ConsultationsPage extends StatefulWidget {
   const ConsultationsPage({super.key});
@@ -14,6 +15,7 @@ class ConsultationsPage extends StatefulWidget {
 
 class _ConsultationsPageState extends State<ConsultationsPage> {
   int selectedTab = 0; // 0 = خبير | 1 = AI
+  final supabase = Supabase.instance.client;
 
   @override
   Widget build(BuildContext context) {
@@ -23,11 +25,7 @@ class _ConsultationsPageState extends State<ConsultationsPage> {
         body: Stack(
           children: [
             Container(color: AppColors.background),
-
-            /// Header
             const HeaderBackground(title: 'الاستشارات'),
-
-            /// Content
             Positioned(
               top: 140,
               left: 0,
@@ -44,8 +42,7 @@ class _ConsultationsPageState extends State<ConsultationsPage> {
                 ),
                 child: Column(
                   children: [
-
-                    /// Tabs (خبير | AI)
+                    /// Tabs
                     Container(
                       height: 46,
                       decoration: BoxDecoration(
@@ -59,30 +56,13 @@ class _ConsultationsPageState extends State<ConsultationsPage> {
                         ],
                       ),
                     ),
-
-                    const SizedBox(height: 16),
-
-                    /// Search
-                    TextField(
-                      decoration: InputDecoration(
-                        hintText: 'ابحث عن استشارة...',
-                        prefixIcon: const Icon(Icons.search),
-                        filled: true,
-                        fillColor: AppColors.background,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-
                     const SizedBox(height: 20),
 
-                    /// Content
+                    /// Content (سحب البيانات بناءً على التاب المختار)
                     Expanded(
                       child: selectedTab == 0
-                          ? _expertConsultations(context)
-                          : _aiConsultations(context),
+                          ? _buildExpertList()
+                          : _buildAiList(),
                     ),
                   ],
                 ),
@@ -94,10 +74,8 @@ class _ConsultationsPageState extends State<ConsultationsPage> {
     );
   }
 
-  /// Tab button
   Widget _buildTab(String text, int index) {
     final isSelected = selectedTab == index;
-
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => selectedTab = index),
@@ -119,87 +97,98 @@ class _ConsultationsPageState extends State<ConsultationsPage> {
     );
   }
 
-  /// Expert consultations
-  Widget _expertConsultations(BuildContext context) {
-    return ListView(
-      children: [
-        ConsultationCard(
-          title: 'استشارة تسميد النخيل',
-          subtitle: 'م. أحمد العتيبي',
-          date: '25 يناير 2026',
-          time: '11:15 - 11:30 ص',
-          isAi: false,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const TodoPage(
-                  title: 'استشارة تسميد النخيل',
-                ),
-              ),
+  /// جلب استشارات الخبراء من جدول (مثلاً: ExpertConsultations)
+  Widget _buildExpertList() {
+    return FutureBuilder(
+      future: supabase.from('ExpertConsultations').select().order('created_at'),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text("لا توجد استشارات خبراء حالياً"));
+        }
+
+        final data = snapshot.data as List<dynamic>;
+
+        return ListView.builder(
+          itemCount: data.length,
+          itemBuilder: (context, index) {
+            final item = data[index];
+            return ConsultationCard(
+              title: item['Title'] ?? 'استشارة خبير',
+              subtitle: item['ExpertName'] ?? 'مختص زراعي',
+              date: item['Date'] ?? '',
+              time: item['Time'] ?? '',
+              isAi: false,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TodoPage(title: item['Title']),
+                  ),
+                );
+              },
             );
           },
-        ),
-        ConsultationCard(
-          title: 'مشاكل الري الحديثة',
-          subtitle: 'م. خالد السبيعي',
-          date: '18 نوفمبر 2025',
-          time: '09:00 - 09:15 ص',
-          isAi: false,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const TodoPage(
-                  title: 'مشاكل الري الحديثة',
-                ),
-              ),
-            );
-          },
-        ),
-      ],
+        );
+      },
     );
   }
 
-  /// AI consultations
-  Widget _aiConsultations(BuildContext context) {
-    return ListView(
-      children: [
-        ConsultationCard(
-          title: 'تشخيص اصفرار الأوراق',
-          subtitle: 'تحليل ذكي',
-          date: '06 نوفمبر 2025',
-          time: '08:15 ص',
-          isAi: true,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const AiConsultationDetailsPage(
-                  title: 'تشخيص اصفرار الأوراق',
-                ),
-              ),
+  /// جلب استشارات AI من جدول (AISession)
+  Widget _buildAiList() {
+    final user = supabase.auth.currentUser;
+
+    return FutureBuilder(
+      // نجلب فقط الجلسات الخاصة بالمستخدم الحالي
+      future: supabase
+          .from('AISession')
+          .select()
+          .eq('UserID', user?.id ?? '')
+          .order('created_at', ascending: false),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text("حدث خطأ: ${snapshot.error}"));
+        }
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text("لا توجد استشارات ذكاء اصطناعي"));
+        }
+
+        final data = snapshot.data as List<dynamic>;
+
+        return ListView.builder(
+          itemCount: data.length,
+          itemBuilder: (context, index) {
+            final item = data[index];
+            // تحويل الوقت من format قاعدة البيانات لشكل مقروء
+            DateTime createdAt = DateTime.parse(item['created_at']);
+            String formattedDate = "${createdAt.day}/${createdAt.month}/${createdAt.year}";
+
+            return ConsultationCard(
+              title: 'تحليل نخلة #${item['AISessionID'].toString().substring(0, 5)}',
+              subtitle: 'تحليل ذكي',
+              date: formattedDate,
+              time: "${createdAt.hour}:${createdAt.minute}",
+              isAi: true,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AiConsultationDetailsPage(
+                      title: 'تفاصيل التشخيص',
+                      sessionId: item['AISessionID'].toString(),
+                    ),
+                  ),
+                );
+              },
             );
           },
-        ),
-        ConsultationCard(
-          title: 'توقع مرض فطري',
-          subtitle: 'تحليل ذكي',
-          date: '02 نوفمبر 2025',
-          time: '10:40 ص',
-          isAi: true,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const AiConsultationDetailsPage(
-                  title: 'توقع مرض فطري',
-                ),
-              ),
-            );
-          },
-        ),
-      ],
+        );
+      },
     );
   }
 }

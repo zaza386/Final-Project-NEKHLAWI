@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:nekhlawi_app/core/theme/app_colors.dart';
 import 'package:nekhlawi_app/pages/home_page.dart';
 import 'package:nekhlawi_app/pages/role_selection_page.dart';
-//import 'package:nekhlawi_app/pages/OTP.dart';
 import 'package:nekhlawi_app/pages/forgot_password_page.dart';
 import '../core/widgets/header_background.dart';
 import '../core/widgets/custom_input.dart';
@@ -25,7 +24,8 @@ class _LoginPageState extends State<LoginPage> {
   bool isPasswordValid = false;
   bool isEmailValid = false;
 
-  bool get canProceed => emailController.text.isNotEmpty && isEmailValid;
+  // التحقق من إمكانية المتابعة بناءً على البريد وكلمة المرور
+  bool get canProceed => emailController.text.isNotEmpty && isEmailValid && passwordController.text.isNotEmpty;
 
   @override
   void dispose() {
@@ -36,92 +36,112 @@ class _LoginPageState extends State<LoginPage> {
 
   final supabase = Supabase.instance.client;
 
+  // دالة تسجيل الدخول بكلمة المرور المعدلة لحل مشكلة الـ Foreign Key
+  Future<void> _loginWithPassword(BuildContext context) async {
+    final email = emailController.text.trim();
+    final password = passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) return;
+
+    setState(() => submitted = true);
+
+    try {
+      // 1. تسجيل الدخول في نظام سوبابيس (Authentication)
+      final AuthResponse res = await supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+
+      final user = res.user;
+
+      if (user != null) {
+        // 2. خطوة أمان إضافية لضمان وجود المستخدم في جدولك (User)
+        // لكي لا يظهر خطأ "Key is not present in table User" عند بدء الجلسة
+        try {
+          await supabase.from('User').upsert({
+            'UserID': user.id,
+            'Email': user.email,
+          });
+        } catch (dbError) {
+          // إذا فشل الـ upsert (مثلاً بسبب RLS)، سنكمل الدخول
+          // ولكن الأفضل حذف علاقة Foreign Key من سوبابيس كما شرحنا سابقاً
+          debugPrint("Note: Database sync error: $dbError");
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ تم تسجيل الدخول بنجاح'),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          // 3. الانتقال للهوم وحذف الصفحات السابقة من الذاكرة
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const HomePage()),
+                (route) => false,
+          );
+        }
+      }
+    } on AuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('حدث خطأ غير متوقع: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> signInWithMagicLink(TextEditingController emailAddress) async {
     String emailAddress2 = emailAddress.text;
-     if (emailAddress2.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('الرجاء إدخال البريد الإلكتروني'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    return;
-  }
-  
+    if (emailAddress2.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('الرجاء إدخال البريد الإلكتروني'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     try {
       await supabase.auth.signInWithOtp(
         email: emailAddress2,
         shouldCreateUser: false,
         emailRedirectTo: 'io.supabase.flutter://login-callback/',
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('✅ تم إرسال الرابط السحري إلى بريدك!'),
-        backgroundColor: Colors.green,
-        duration: Duration(seconds: 4), 
-      ),
-    );
-    
-    emailController.clear(); 
-    
-  } catch (error) {
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('❌ حدث خطأ: $error'),
-        backgroundColor: Colors.red,
-      ),
-    );
-  }
-  }
-
-  Future<void> _sendOtp(BuildContext context) async {
-    final email = emailController.text.trim();
-    if (email.isEmpty) return;
-
-    setState(() => submitted = true);
-
-    if (!canProceed) return;
-
-    try {
-      // 🔹 إرسال OTP
-      await Supabase.instance.client.auth.signInWithOtp(email: email);
-
-      // لو وصلنا هنا بدون Exception، نعتبر العملية نجحت
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم إرسال الرمز إلى بريدك الإلكتروني'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-          margin: EdgeInsets.all(16),
-        ),
-      );
-
-      // الانتقال لصفحة OTP
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
-      );
-    } on AuthException catch (e) {
-      // أي خطأ من Supabase
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.message),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(16),
-        ),
-      );
-    } catch (e) {
-      // أي خطأ غير متوقع
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('حدث خطأ غير متوقع: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.all(16),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ تم إرسال الرابط السحري إلى بريدك!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+      emailController.clear();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ حدث خطأ: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -176,30 +196,24 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               const SizedBox(height: 50),
 
-                              /// البريد الإلكتروني
                               CustomInput(
                                 hint: 'البريد الإلكتروني',
                                 icon: Icons.email_outlined,
                                 controller: emailController,
                                 showError: submitted,
-                                onValidationChanged: (v) {
-                                  setState(() => isEmailValid = v);
-                                },
+                                onValidationChanged: (v) => setState(() => isEmailValid = v),
                                 onChanged: (_) => setState(() {}),
                               ),
 
                               const SizedBox(height: 16),
 
-                              /// كلمة المرور
                               CustomInput(
                                 hint: 'كلمة المرور',
                                 icon: Icons.lock_outline,
                                 isPassword: true,
                                 controller: passwordController,
                                 showError: submitted,
-                                onValidationChanged: (v) {
-                                  setState(() => isPasswordValid = v);
-                                },
+                                onValidationChanged: (v) => setState(() => isPasswordValid = v),
                                 onChanged: (_) => setState(() {}),
                               ),
 
@@ -208,16 +222,14 @@ class _LoginPageState extends State<LoginPage> {
 
                               const SizedBox(height: 30),
 
-                              /// زر تسجيل الدخول
                               PrimaryButton(
                                 title: 'تسجيل دخول',
-                                onPressed: () => _sendOtp(context),
+                                onPressed: () => _loginWithPassword(context),
                               ),
                               const SizedBox(height: 12),
                               PrimaryButton(
                                 title: 'تسجيل الدخول باستخدام البريد',
-                                onPressed: () =>
-                                    signInWithMagicLink(emailController),
+                                onPressed: () => signInWithMagicLink(emailController),
                               ),
                               const SizedBox(height: 16),
                               const Center(child: SignUpLinkText()),
@@ -249,7 +261,6 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-/// باقي الكلاسات بدون تغيير
 class SignUpLinkText extends StatefulWidget {
   const SignUpLinkText({super.key});
 
@@ -279,17 +290,13 @@ class _SignUpLinkTextState extends State<SignUpLinkText> {
                 color: AppColors.darkBrown,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                decoration: _isHovered
-                    ? TextDecoration.underline
-                    : TextDecoration.none,
+                decoration: _isHovered ? TextDecoration.underline : TextDecoration.none,
               ),
               recognizer: TapGestureRecognizer()
                 ..onTap = () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => const RoleSelectionPage(),
-                    ),
+                    MaterialPageRoute(builder: (context) => const RoleSelectionPage()),
                   );
                 },
             ),
@@ -321,9 +328,7 @@ class ForgotPasswordButton extends StatelessWidget {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const ForgotPasswordPage(),
-                ),
+                MaterialPageRoute(builder: (context) => const ForgotPasswordPage()),
               );
             },
             child: const Text('نسيت كلمة المرور؟'),
