@@ -2,10 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AiConsultationDetailsPage extends StatefulWidget {
   final String title;
-  // أزلنا متطلب تمرير الكاميرا من هنا ليتوقف الخطأ في صفحة History
   const AiConsultationDetailsPage({super.key, required this.title});
 
   @override
@@ -18,25 +18,27 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
   final ImagePicker _imagePicker = ImagePicker();
   bool _isCameraInitialized = false;
 
+  // تعريف عميل سوبابيس للتعامل مع قاعدة البيانات والتخزين
+  final supabase = Supabase.instance.client;
+
   @override
   void initState() {
     super.initState();
-    // استدعاء تهيئة الكاميرا داخلياً
     _initCamera();
 
-    // إظهار نافذة التعليمات تلقائياً
+    // إظهار نافذة التعليمات تلقائياً عند فتح الصفحة
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showInstructionsDialog(context);
     });
   }
 
-  // دالة البحث عن الكاميرا وتهيئتها (الحل الذاتي)
+  // تهيئة الكاميرا داخلياً
   Future<void> _initCamera() async {
     try {
       final cameras = await availableCameras();
       if (cameras.isNotEmpty) {
         _cameraController = CameraController(
-          cameras.first, // الكاميرا الخلفية تلقائياً
+          cameras.first,
           ResolutionPreset.high,
         );
         _initializeControllerFuture = _cameraController!.initialize();
@@ -48,7 +50,81 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
         }
       }
     } catch (e) {
-      print("خطأ في تهيئة الكاميرا: $e");
+      debugPrint("خطأ في تهيئة الكاميرا: $e");
+    }
+  }
+
+  // الدالة الأساسية: التحقق من المستخدم، إنشاء الجلسة، ورفع الصورة
+  Future<void> _processAndSaveImage(File imageFile) async {
+    // 1. التحقق من وجود مستخدم مسجل قبل البدء
+    final user = supabase.auth.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('انتهت جلستك، يرجى تسجيل الدخول مجدداً'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    try {
+      // إظهار مؤشر تحميل (Loading)
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(color: Color(0xFF43321A)),
+        ),
+      );
+
+      // 2. إنشاء جلسة جديدة (AISession) مرتبطة باليوزر الحالي
+      final sessionResponse = await supabase
+          .from('AISession')
+          .insert({
+        'UserID': user.id, // التأكد من مطابقة اسم الحقل في سوبابيس
+        'created_at': DateTime.now().toIso8601String(),
+      })
+          .select('AISessionID')
+          .single();
+
+      final String realSessionId = sessionResponse['AISessionID'];
+
+      // 3. معالجة أبعاد الصورة
+      final decodedImage = await decodeImageFromList(imageFile.readAsBytesSync());
+      final int width = decodedImage.width;
+      final int height = decodedImage.height;
+
+      // 4. رفع الصورة إلى بكت pic
+      final String fileName = 'palm_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      await supabase.storage
+          .from('pic')
+          .upload(fileName, imageFile);
+
+      // 5. الحصول على الرابط العام (FileURL)
+      final String publicUrl = supabase.storage.from('pic').getPublicUrl(fileName);
+
+      // 6. حفظ البيانات في جدول AISessionPicture
+      await supabase.from('AISessionPicture').insert({
+        'AISessionID': realSessionId,
+        'FileURL': publicUrl,
+        'Width': width,
+        'Height': height,
+        'EXIFJson': {},
+      });
+
+      if (mounted) {
+        Navigator.pop(context); // إغلاق الـ Loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم رفع الصورة وحفظ الاستشارة بنجاح')),
+        );
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context); // إغلاق الـ Loading في حال الخطأ
+      debugPrint("خطأ سوبابيس: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('حدث خطأ أثناء الحفظ: $e')),
+      );
     }
   }
 
@@ -58,29 +134,29 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
     super.dispose();
   }
 
-  // فتح ألبوم الصور
+  // فتح الألبوم واختيار صورة
   Future<void> _openGallery() async {
     final XFile? image = await _imagePicker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 85,
+      imageQuality: 80,
     );
     if (image != null) {
-      print("تم اختيار صورة من الألبوم: ${image.path}");
+      _processAndSaveImage(File(image.path));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFFC7C7A3); // لون شريط الأدوات
-    const Color darkColor = Color(0xFF43321A);    // لون الأيقونات والنص
+    const Color primaryColor = Color(0xFFC7C7A3);
+    const Color darkColor = Color(0xFF43321A);
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: Colors.black, // خلفية سوداء لبث الكاميرا
+        backgroundColor: Colors.black,
         body: Stack(
           children: [
-            // 1. عرض الكاميرا الحية
+            // عرض الكاميرا الحية في الخلفية
             Positioned.fill(
               child: _isCameraInitialized
                   ? CameraPreview(_cameraController!)
@@ -90,17 +166,13 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
               ),
             ),
 
-            // 2. الشريط العلوي (تصميم الصورة الجديدة)
+            // الشريط العلوي (تصميم العودة والفلاش)
             Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
+              top: 0, left: 0, right: 0,
               child: Container(
                 padding: EdgeInsets.only(
-                  top: MediaQuery.of(context).padding.top + 10,
-                  bottom: 15,
-                  left: 20,
-                  right: 20,
+                    top: MediaQuery.of(context).padding.top + 10,
+                    bottom: 15, left: 20, right: 20
                 ),
                 color: primaryColor,
                 child: Row(
@@ -111,19 +183,12 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
                     ),
                     const Text(
                       'العودة',
-                      style: TextStyle(
-                        color: darkColor,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(color: darkColor, fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     const Spacer(),
                     Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: darkColor,
-                        shape: BoxShape.circle,
-                      ),
+                      decoration: const BoxDecoration(color: darkColor, shape: BoxShape.circle),
                       child: const Icon(Icons.flash_on, color: Colors.white, size: 20),
                     ),
                   ],
@@ -131,15 +196,12 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
               ),
             ),
 
-            // 3. أزرار التحكم السفلية (تصميم الصورة الجديدة)
+            // أزرار التحكم السفلية (المعرض والتصوير)
             Positioned(
-              bottom: 40,
-              left: 0,
-              right: 0,
+              bottom: 40, left: 0, right: 0,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  // زر المعرض
                   GestureDetector(
                     onTap: _openGallery,
                     child: Container(
@@ -152,30 +214,29 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
                       child: const Icon(Icons.photo_library_outlined, color: darkColor, size: 32),
                     ),
                   ),
-
-                  // زر التصوير الرئيسي (الدائرة الغامقة)
                   GestureDetector(
                     onTap: () async {
                       if (_isCameraInitialized) {
-                        final image = await _cameraController!.takePicture();
-                        print("تم التقاط الصورة: ${image.path}");
+                        try {
+                          final image = await _cameraController!.takePicture();
+                          _processAndSaveImage(File(image.path));
+                        } catch (e) {
+                          debugPrint("خطأ عند التصوير: $e");
+                        }
                       }
                     },
                     child: Container(
-                      height: 85,
-                      width: 85,
+                      height: 85, width: 85,
                       decoration: BoxDecoration(
                         color: darkColor,
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 4),
-                        boxShadow: [
+                        boxShadow: const [
                           BoxShadow(color: Colors.black26, blurRadius: 10, spreadRadius: 2)
                         ],
                       ),
                     ),
                   ),
-
-                  // أيقونة تبديل الكاميرا (لإكمال التوازن البصري)
                   const SizedBox(width: 60),
                 ],
               ),
@@ -186,7 +247,7 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
     );
   }
 
-  // نافذة التعليمات (Pop-up)
+  // نافذة التعليمات المنبثقة (Pop-up)
   void _showInstructionsDialog(BuildContext context) {
     showDialog(
       context: context,
