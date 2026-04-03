@@ -4,6 +4,7 @@ import 'package:nekhlawi_app/core/widgets/header_background.dart';
 import 'package:nekhlawi_app/core/widgets/expert_card.dart';
 import '../core/data/expert_repo.dart';
 import '../core/models/expert_item.dart';
+import '../pages/booking_page.dart';
 
 class BookingExpertsPage extends StatefulWidget {
   const BookingExpertsPage({super.key});
@@ -49,7 +50,9 @@ class _BookingExpertsPageState extends State<BookingExpertsPage> {
   void _goToBooking(String expertId) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => AppointmentBookingPage(expertId: expertId)),
+      MaterialPageRoute(
+        builder: (_) => BookingPage(expertId: expertId),
+      ),
     );
   }
 
@@ -111,8 +114,11 @@ class _BookingExpertsPageState extends State<BookingExpertsPage> {
                       child: FutureBuilder<List<ExpertItem>>(
                         future: _future,
                         builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const Center(child: CircularProgressIndicator());
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
                           }
 
                           if (snapshot.hasError) {
@@ -128,14 +134,18 @@ class _BookingExpertsPageState extends State<BookingExpertsPage> {
                           final experts = snapshot.data ?? [];
 
                           if (experts.isEmpty) {
-  final isSearching = _searchController.text.trim().isNotEmpty;
-  return Center(
-    child: Text(
-      isSearching ? 'لا يوجد ما تبحث عنه' : 'ما فيه خبراء حالياً',
-      style: const TextStyle(color: Colors.grey),
-    ),
-  );
-}
+                            final isSearching = _searchController.text
+                                .trim()
+                                .isNotEmpty;
+                            return Center(
+                              child: Text(
+                                isSearching
+                                    ? 'لا يوجد ما تبحث عنه'
+                                    : 'ما فيه خبراء حالياً',
+                                style: const TextStyle(color: Colors.grey),
+                              ),
+                            );
+                          }
 
                           return ListView.builder(
                             physics: const BouncingScrollPhysics(),
@@ -145,8 +155,10 @@ class _BookingExpertsPageState extends State<BookingExpertsPage> {
                                 return const Padding(
                                   padding: EdgeInsets.only(top: 10, bottom: 16),
                                   child: Center(
-                                    child: Text('©️ 2025 - 2026',
-                                        style: TextStyle(color: Colors.grey)),
+                                    child: Text(
+                                      '©️ 2025 - 2026',
+                                      style: TextStyle(color: Colors.grey),
+                                    ),
                                   ),
                                 );
                               }
@@ -154,11 +166,12 @@ class _BookingExpertsPageState extends State<BookingExpertsPage> {
                               final e = experts[index];
 
                               return ExpertCard(
-  name: e.name,
-  specialization: e.specialization,
-  pricePerHour: 100,
-  onOpenProfile: () => _goToExpertProfile(e.expertId),
-);
+                                name: e.name,
+                                specialization: e.specialization,
+                                pricePerHour: 100,
+                                onOpenProfile: () =>
+                                    _goToExpertProfile(e.expertId),
+                              );
                             },
                           );
                         },
@@ -192,18 +205,18 @@ class ExpertProfilePage extends StatelessWidget {
   }
 }
 
-class AppointmentBookingPage extends StatelessWidget {
-  final String expertId;
-  const AppointmentBookingPage({super.key, required this.expertId});
+// class AppointmentBookingPage extends StatelessWidget {
+//   final String expertId;
+//   const AppointmentBookingPage({super.key, required this.expertId});
 
-  @override
-  Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        appBar: AppBar(title: const Text('حجز موعد')),
-        body: Center(child: Text('Expert ID: $expertId\n(صفحة الحجز لسه)')),
-      ),
-    );
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return Directionality(
+//       textDirection: TextDirection.rtl,
+//       child: Scaffold(
+//         appBar: AppBar(title: const Text('حجز موعد')),
+//         body: Center(child: Text('Expert ID: $expertId\n(صفحة الحجز لسه)')),
+//       ),
+//     );
+//   }
+// }
