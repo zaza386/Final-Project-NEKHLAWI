@@ -41,7 +41,7 @@ class _NekhlawiAppState extends State<NekhlawiApp> {
     // 2. الاستماع لتغيرات حالة الدخول (فقط بعد اكتمال البيانات)
     Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       final session = data.session;
-      final user = data.user;
+      final user = session?.user;
       
       if (session != null && user != null && user.emailConfirmedAt != null) {
         // تحقق: هل البيانات موجودة في جدول User؟
