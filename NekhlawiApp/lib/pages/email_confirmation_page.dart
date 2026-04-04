@@ -43,7 +43,7 @@ class _EmailConfirmationPageState extends State<EmailConfirmationPage> {
         });
         
         // بعد ثانية، انتقل لصفحة استكمال البيانات
-        Future.delayed(const Duration(seconds: 1), () {
+        Future.delayed(const Duration(seconds: 10), () {
           if (!mounted) return;
           Navigator.pushReplacement(
             context,

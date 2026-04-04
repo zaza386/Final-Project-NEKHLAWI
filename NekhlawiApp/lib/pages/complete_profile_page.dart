@@ -77,7 +77,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
 
     try {
       // 🔹 إدراج بيانات المستخدم في جدول User
-      await supabase.from('User').insert({
+      await supabase.from('User').upsert({
         'UserID': widget.userId,
         'Name': nameController.text.trim(),
         'Email': widget.email,
