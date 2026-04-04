@@ -4,7 +4,8 @@ import 'package:nekhlawi_app/core/widgets/header_background.dart';
 import 'package:nekhlawi_app/core/widgets/expert_card.dart';
 import '../core/data/expert_repo.dart';
 import '../core/models/expert_item.dart';
-import '../pages/booking_page.dart';
+import 'package:nekhlawi_app/pages/booking_page.dart';
+
 
 class BookingExpertsPage extends StatefulWidget {
   const BookingExpertsPage({super.key});

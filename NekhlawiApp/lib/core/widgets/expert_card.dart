@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nekhlawi_app/pages/booking_page.dart';
 import '../theme/app_colors.dart';
 import 'package:nekhlawi_app/pages/to_do_page.dart';
 
@@ -110,7 +111,7 @@ class ExpertCard extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const TodoPage(title: 'حجز موعد'),
+                          builder: (_) => const BookingPage(),
                         ),
                       );
                     },

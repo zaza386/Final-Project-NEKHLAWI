@@ -1,46 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import 'dart:ui' as ui;
+import 'package:nekhlawi_app/core/widgets/header_background.dart';
+import 'package:nekhlawi_app/core/theme/app_colors.dart';
 
-// ─────────────────────────────────────────────
 // SUPABASE: import the Supabase Flutter package
 // Add to pubspec.yaml:
 //   supabase_flutter: ^2.0.0
-//   intl: ^0.19.0
-// ─────────────────────────────────────────────
 // import 'package:supabase_flutter/supabase_flutter.dart';
-
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // SUPABASE: Initialize Supabase with your project URL and anon key
-  // await Supabase.initialize(
-  //   url: 'https://YOUR_PROJECT_ID.supabase.co',
-  //   anonKey: 'YOUR_ANON_KEY',
-  // );
-
-  runApp(const MyApp());
-}
 
 // SUPABASE: Helper to access the Supabase client anywhere
 // final supabase = Supabase.instance.client;
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      // RTL for Arabic UI
-      builder: (context, child) => Directionality(
-        textDirection: ui.TextDirection.rtl,
-        child: child!,
-      ),
-      home: const BookingPage(),
-    );
-  }
-}
 
 // ─────────────────────────────────────────────
 // DATA MODELS
@@ -111,7 +79,7 @@ class BookingPage extends StatefulWidget {
 
   const BookingPage({
     super.key,
-    this.expertId = '1', // default for demo
+    this.expertId = '1',
   });
 
   @override
@@ -128,7 +96,6 @@ class _BookingPageState extends State<BookingPage> {
   DateTime _selectedDay = DateTime(2026, 2, 5);
   String? _selectedSlotId;
 
-  // Months to display (you can generate these dynamically)
   final List<DateTime> _months = [
     DateTime(2026, 2),
     DateTime(2026, 3),
@@ -136,11 +103,11 @@ class _BookingPageState extends State<BookingPage> {
   ];
 
   // ── Colors ─────────────────────────────────
-  static const Color kPrimary = Color(0xFF5C6E2E);
+  static const Color kPrimary = Color(0xFF797F3D);
   static const Color kBackground = Color(0xFFF2F0E8);
   static const Color kCard = Color(0xFFFFFFFF);
-  static const Color kSlotAvailable = Color(0xFF8E8E8E);
-  static const Color kSlotUnavailable = Color(0xFFD4D0C4);
+  static const Color kSlotAvailable = Color(0xFFD4D0C4);
+  static const Color kSlotUnavailable = Color(0xFF8E8E8E);
 
   @override
   void initState() {
@@ -162,9 +129,9 @@ class _BookingPageState extends State<BookingPage> {
   Future<void> _fetchExpert() async {
     // SUPABASE: Fetch expert details from the "experts" table by ID
     // final response = await supabase
-    //     .from('experts')                          // SUPABASE: table name
+    //     .from('experts')                            // SUPABASE: table name
     //     .select('id, name, title, location, price_label, avatar_url')
-    //     .eq('id', widget.expertId)               // SUPABASE: filter by expert id
+    //     .eq('id', widget.expertId)                 // SUPABASE: filter by expert id
     //     .single();
     // setState(() => _expert = ExpertModel.fromMap(response));
 
@@ -183,27 +150,28 @@ class _BookingPageState extends State<BookingPage> {
     // SUPABASE: Fetch available time slots for the selected day and expert
     // final start = DateTime(_selectedDay.year, _selectedDay.month, _selectedDay.day);
     // final end   = start.add(const Duration(days: 1));
-    //
     // final response = await supabase
-    //     .from('time_slots')                      // SUPABASE: table name
+    //     .from('time_slots')                         // SUPABASE: table name
     //     .select('id, slot_time, is_available')
-    //     .eq('expert_id', widget.expertId)        // SUPABASE: filter by expert
-    //     .gte('slot_time', start.toIso8601String()) // SUPABASE: from start of day
-    //     .lt('slot_time', end.toIso8601String())    // SUPABASE: to end of day
+    //     .eq('expert_id', widget.expertId)           // SUPABASE: filter by expert
+    //     .gte('slot_time', start.toIso8601String())  // SUPABASE: from start of day
+    //     .lt('slot_time', end.toIso8601String())     // SUPABASE: to end of day
     //     .order('slot_time');
-    //
     // setState(() {
     //   _timeSlots = (response as List).map((r) => TimeSlot.fromMap(r)).toList();
     // });
 
     // ── Demo data (remove when using Supabase) ──
-    await Future.delayed(const Duration(milliseconds: 300));
     final slots = <TimeSlot>[];
-    for (int i = 0; i < 20; i++) {
+    // Generate slots from 8:00 AM to 8:00 PM every 30 minutes = 24 slots
+    for (int i = 0; i < 24; i++) {
+      final hour = 8 + (i ~/ 2);   // 8, 8, 9, 9, 10 ...
+      final minute = (i % 2) * 30; // 0, 30, 0, 30 ...
       slots.add(TimeSlot(
         id: 'slot_$i',
-        dateTime: DateTime(2026, 2, 5, 8, 0),
-        isAvailable: i != 15, // slot 15 is unavailable for demo
+        dateTime: DateTime(
+            _selectedDay.year, _selectedDay.month, _selectedDay.day, hour, minute),
+        isAvailable: i != 5 && i != 11 && i != 18,
       ));
     }
     _timeSlots = slots;
@@ -215,18 +183,18 @@ class _BookingPageState extends State<BookingPage> {
     if (_selectedSlotId == null) return;
 
     // SUPABASE: Insert a new booking into the "bookings" table
-    // await supabase.from('bookings').insert({  // SUPABASE: table name
-    //   'expert_id': widget.expertId,           // SUPABASE: expert foreign key
-    //   'slot_id': _selectedSlotId,             // SUPABASE: time slot foreign key
+    // await supabase.from('bookings').insert({    // SUPABASE: table name
+    //   'expert_id': widget.expertId,             // SUPABASE: expert foreign key
+    //   'slot_id': _selectedSlotId,               // SUPABASE: time slot foreign key
     //   'user_id': supabase.auth.currentUser?.id, // SUPABASE: logged-in user id
     //   'created_at': DateTime.now().toIso8601String(),
     // });
 
     // SUPABASE: Mark the slot as unavailable after booking
     // await supabase
-    //     .from('time_slots')                    // SUPABASE: table name
-    //     .update({'is_available': false})        // SUPABASE: set unavailable
-    //     .eq('id', _selectedSlotId!);            // SUPABASE: target slot id
+    //     .from('time_slots')                     // SUPABASE: table name
+    //     .update({'is_available': false})         // SUPABASE: set unavailable
+    //     .eq('id', _selectedSlotId!);             // SUPABASE: target slot id
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -256,7 +224,10 @@ class _BookingPageState extends State<BookingPage> {
   }
 
   String _arabicWeekday(DateTime date) {
-    const days = ['الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
+    const days = [
+      'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس',
+      'الجمعة', 'السبت', 'الأحد'
+    ];
     return days[date.weekday - 1];
   }
 
@@ -269,7 +240,17 @@ class _BookingPageState extends State<BookingPage> {
   }
 
   String _formatSelectedDate() {
-    return '${_selectedDay.year}-${_selectedDay.month.toString().padLeft(2, '0')}-${_selectedDay.day.toString().padLeft(2, '0')}';
+    return '${_selectedDay.year}-'
+        '${_selectedDay.month.toString().padLeft(2, '0')}-'
+        '${_selectedDay.day.toString().padLeft(2, '0')}';
+  }
+
+  String _formatSlotTime(DateTime dt) {
+    final isPM = dt.hour >= 12;
+    final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+    final minute = dt.minute.toString().padLeft(2, '0');
+    final period = isPM ? 'م' : 'ص';
+    return '$hour:$minute $period';
   }
 
   // ─────────────────────────────────────────────
@@ -278,58 +259,54 @@ class _BookingPageState extends State<BookingPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kBackground,
-      body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: kPrimary))
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: AppColors.header,
+        body: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(color: AppColors.darkBrown))
             : Column(
                 children: [
-                  _buildHeader(),
+                  SafeArea(
+                    bottom: false,
+                    child: SizedBox(
+                      height: 90, // reduce this number until it looks right
+                      child: HeaderBackground(
+                        title: 'اختر التاريخ و الوقت',
+                      ),
+                    ),
+                  ),
                   Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _buildExpertCard(),
-                          const SizedBox(height: 16),
-                          _buildMonthSelector(),
-                          const SizedBox(height: 12),
-                          _buildDaySelector(),
-                          const SizedBox(height: 16),
-                          _buildTimeSlotsGrid(),
-                        ],
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: kBackground,
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(30),
+                          topRight: Radius.circular(30),
+                        ),
+                      ),
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildExpertCard(),
+                            const SizedBox(height: 16),
+                            _buildMonthSelector(),
+                            const SizedBox(height: 12),
+                            _buildDaySelector(),
+                            const SizedBox(height: 16),
+                            _buildTimeSlotsGrid(),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                   _buildBottomBar(),
                 ],
               ),
-      ),
-    );
-  }
-
-  // ── Header ─────────────────────────────────
-
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => Navigator.maybePop(context),
-            child: const Icon(Icons.arrow_forward, size: 26),
-          ),
-          const Expanded(
-            child: Text(
-              'اختر التاريخ و الوقت',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-          ),
-          const SizedBox(width: 26),
-        ],
       ),
     );
   }
@@ -354,7 +331,8 @@ class _BookingPageState extends State<BookingPage> {
                 backgroundColor: const Color(0xFFD9D5C5),
                 child: expert.avatarUrl != null
                     // SUPABASE: Load avatar from Supabase Storage URL
-                    ? ClipOval(child: Image.network(expert.avatarUrl!, fit: BoxFit.cover))
+                    ? ClipOval(
+                        child: Image.network(expert.avatarUrl!, fit: BoxFit.cover))
                     : const Icon(Icons.person, color: kPrimary, size: 30),
               ),
               const SizedBox(width: 12),
@@ -363,10 +341,12 @@ class _BookingPageState extends State<BookingPage> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(expert.name,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
                         textAlign: TextAlign.right),
                     Text(expert.title,
-                        style: const TextStyle(fontSize: 13, color: Colors.grey),
+                        style: const TextStyle(
+                            fontSize: 13, color: Colors.grey),
                         textAlign: TextAlign.right),
                   ],
                 ),
@@ -392,7 +372,8 @@ class _BookingPageState extends State<BookingPage> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.black87)),
+        Text(label,
+            style: const TextStyle(fontSize: 12, color: Colors.black87)),
         const SizedBox(width: 4),
         Icon(icon, size: 16, color: kPrimary),
       ],
@@ -406,7 +387,6 @@ class _BookingPageState extends State<BookingPage> {
       height: 40,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        reverse: true, // RTL order
         itemCount: _months.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
@@ -417,15 +397,15 @@ class _BookingPageState extends State<BookingPage> {
             onTap: () {
               setState(() {
                 _selectedMonth = month;
-                _selectedDay =
-                    DateTime(month.year, month.month, 1);
+                _selectedDay = DateTime(month.year, month.month, 1);
                 _selectedSlotId = null;
               });
-              // SUPABASE: Re-fetch slots for the new selected day
+              // SUPABASE: Re-fetch slots for the new selected month
               _fetchTimeSlots();
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               decoration: BoxDecoration(
                 color: isSelected ? kPrimary : kCard,
                 borderRadius: BorderRadius.circular(20),
@@ -434,7 +414,8 @@ class _BookingPageState extends State<BookingPage> {
                 _arabicMonth(month),
                 style: TextStyle(
                   color: isSelected ? Colors.white : Colors.black87,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  fontWeight:
+                      isSelected ? FontWeight.bold : FontWeight.normal,
                   fontSize: 13,
                 ),
               ),
@@ -448,7 +429,6 @@ class _BookingPageState extends State<BookingPage> {
   // ── Day Selector ───────────────────────────
 
   Widget _buildDaySelector() {
-    // Show a window of days around the selected day
     final days = _daysInSelectedMonth;
     final selectedIndex = days.indexWhere((d) => d.day == _selectedDay.day);
     final start = (selectedIndex - 1).clamp(0, days.length - 3);
@@ -517,6 +497,7 @@ class _BookingPageState extends State<BookingPage> {
 
   Widget _buildTimeSlotsGrid() {
     return GridView.builder(
+      padding: EdgeInsets.zero,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -561,7 +542,7 @@ class _BookingPageState extends State<BookingPage> {
             alignment: Alignment.center,
             child: Text(
               // SUPABASE: Format slot time from the real dateTime
-              '${slot.dateTime.hour}:${slot.dateTime.minute.toString().padLeft(2, '0')} ص',
+              _formatSlotTime(slot.dateTime),
               style: TextStyle(
                 fontSize: 12,
                 color: textColor,
@@ -578,14 +559,13 @@ class _BookingPageState extends State<BookingPage> {
 
   Widget _buildBottomBar() {
     return Container(
-      color: kBackground,
+      color: Color(0xFFF5F5F5),
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Legend
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
               _legendItem('غير متاح', kSlotUnavailable),
               const SizedBox(width: 16),
@@ -593,13 +573,16 @@ class _BookingPageState extends State<BookingPage> {
             ],
           ),
           const SizedBox(height: 8),
-          // Selected date & time
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Text(
                 _selectedSlotId != null
-                    ? '٨:٠٠ ص'
+                    ? _formatSlotTime(
+                        _timeSlots
+                            .firstWhere((s) => s.id == _selectedSlotId)
+                            .dateTime,
+                      )
                     : '--:--',
                 style: const TextStyle(fontSize: 13),
               ),
@@ -611,11 +594,11 @@ class _BookingPageState extends State<BookingPage> {
                 style: const TextStyle(fontSize: 13),
               ),
               const SizedBox(width: 4),
-              const Icon(Icons.calendar_today, size: 16, color: Colors.black54),
+              const Icon(Icons.calendar_today,
+                  size: 16, color: Colors.black54),
             ],
           ),
           const SizedBox(height: 12),
-          // Confirm button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
