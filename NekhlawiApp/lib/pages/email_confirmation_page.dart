@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -25,6 +27,44 @@ class _EmailConfirmationPageState extends State<EmailConfirmationPage> {
   final supabase = Supabase.instance.client;
   bool isLoading = false;
   String statusMessage = 'تم إنشاء الحساب. افتح صندوق البريد واضغط على رابط التأكيد.';
+  late StreamSubscription<AuthState> _authSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    // استمع لتغيرات حالة المستخدم - عندما يتأكد البريد تلقائياً
+    _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
+      final user = data.session?.user;
+      
+      // إذا تأكد البريد تلقائياً (من الضغط على الرابط)
+      if (user != null && user.emailConfirmedAt != null && mounted) {
+        setState(() {
+          statusMessage = '✅ تم تأكيد بريدك! يتم الانتقال...';
+        });
+        
+        // بعد ثانية، انتقل لصفحة استكمال البيانات
+        Future.delayed(const Duration(seconds: 1), () {
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => CompleteProfilePage(
+                userId: user.id,
+                email: widget.email,
+                role: widget.role,
+              ),
+            ),
+          );
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    super.dispose();
+  }
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(

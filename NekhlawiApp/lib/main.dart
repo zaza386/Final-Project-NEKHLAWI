@@ -38,12 +38,24 @@ class _NekhlawiAppState extends State<NekhlawiApp> {
   void initState() {
     super.initState();
 
-    // 2. الاستماع لتغيرات حالة الدخول (عندما يعود المستخدم من الرابط السحري)
-    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    // 2. الاستماع لتغيرات حالة الدخول (فقط بعد اكتمال البيانات)
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) async {
       final session = data.session;
-      if (session != null) {
-        // إذا تم التقاط الجلسة بنجاح، نتوجه فوراً لصفحة الهوم/الورابر
-        Get.offAll(() => const Wrapper());
+      final user = data.user;
+      
+      if (session != null && user != null && user.emailConfirmedAt != null) {
+        // تحقق: هل البيانات موجودة في جدول User؟
+        final userRecord = await Supabase.instance.client
+            .from('User')
+            .select()
+            .eq('UserID', user.id)
+            .maybeSingle();
+        
+        // إذا البيانات موجودة، احول للهوم
+        if (userRecord != null) {
+          Get.offAll(() => const Wrapper());
+        }
+        // إذا ما في بيانات، ابق على الصفحة الحالية (complete_profile_page ستتعامل معها)
       }
     });
   }
