@@ -12,9 +12,11 @@ void main() async {
   // 1. إعداد سوبابيس مع تفعيل الـ PKCE لدعم الروابط السحرية (Magic Links)
   await Supabase.initialize(
     url: "https://kywgxfkbyvczxerjogxf.supabase.co",
-    anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5d2d4ZmtieXZjenhlcmpvZ3hmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NTk4MjgsImV4cCI6MjA4NjIzNTgyOH0.5tgrLScwnld4mrxMCcVsu1bEHQaxHoYUasA9ciBDneA",
+    anonKey:
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5d2d4ZmtieXZjenhlcmpvZ3hmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA2NTk4MjgsImV4cCI6MjA4NjIzNTgyOH0.5tgrLScwnld4mrxMCcVsu1bEHQaxHoYUasA9ciBDneA",
     authOptions: const FlutterAuthClientOptions(
-      authFlowType: AuthFlowType.pkce, // 👈 هذا التعديل ضروري لعمل الـ Session مع الروابط
+      authFlowType:
+          AuthFlowType.pkce, // 👈 هذا التعديل ضروري لعمل الـ Session مع الروابط
     ),
   );
 
@@ -32,7 +34,6 @@ class NekhlawiApp extends StatefulWidget {
 }
 
 class _NekhlawiAppState extends State<NekhlawiApp> {
-
   @override
   void initState() {
     super.initState();
