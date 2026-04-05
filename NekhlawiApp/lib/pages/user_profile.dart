@@ -70,7 +70,19 @@ class _UserProfilePageState extends State<UserProfilePage> {
     Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsAndConditionsPage()));
   }
 
-  void goLogin() {
+  Future<void> goLogin() async {
+    // إنهاء الـ session
+    try {
+      await Supabase.instance.client.auth.signOut();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في تسجيل الخروج: $e')),
+        );
+      }
+    }
+
+    if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const LoginPage()),

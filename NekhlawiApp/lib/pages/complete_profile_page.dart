@@ -24,6 +24,7 @@ class CompleteProfilePage extends StatefulWidget {
 
 class _CompleteProfilePageState extends State<CompleteProfilePage> {
   final supabase = Supabase.instance.client;
+
   bool isLoading = false;
   bool submitted = false;
 
@@ -49,69 +50,77 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         content: Text(message),
         backgroundColor: Colors.red,
         behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.all(16),
       ),
     );
   }
 
   List<String> _missingFields() {
     final missing = <String>[];
-    if (nameController.text.trim().isEmpty) missing.add('الاسم');
-    if (phoneController.text.trim().isEmpty) missing.add('رقم الجوال');
-    if (isExpert && yearsController.text.trim().isEmpty) missing.add('سنوات الخبرة');
-    if (isExpert && specialtyController.text.trim().isEmpty) missing.add('التخصص');
+
+    if (nameController.text.trim().isEmpty) {
+      missing.add('الاسم');
+    }
+
+    if (phoneController.text.trim().isEmpty) {
+      missing.add('رقم الجوال');
+    }
+
+    if (isExpert && yearsController.text.trim().isEmpty) {
+      missing.add('سنوات الخبرة');
+    }
+
+    if (isExpert && specialtyController.text.trim().isEmpty) {
+      missing.add('التخصص');
+    }
+
     return missing;
   }
 
   Future<void> _saveProfileData() async {
     if (isLoading) return;
+
     setState(() => submitted = true);
 
     final missing = _missingFields();
+
     if (missing.isNotEmpty) {
-      _showError('الحقول مطلوبة: ${missing.join(', ')}');
+      _showError('الحقول المطلوبة: ${missing.join(', ')}');
       return;
     }
 
     setState(() => isLoading = true);
 
     try {
-      // 🔹 إدراج بيانات المستخدم في جدول User
-      await supabase.from('User').upsert({
-        'UserID': widget.userId,
+      /// ======================
+      /// تحديث User
+      /// ======================
+      await supabase.from('User').update({
         'Name': nameController.text.trim(),
-        'Email': widget.email,
         'Phone': phoneController.text.trim(),
-        'Role': widget.role,
-      });
+      }).eq('UserID', widget.userId);
 
-      // 🔹 إذا كان خبير، أدرج البيانات الإضافية
+      /// ======================
+      /// تحديث ExpertProfile
+      /// ======================
       if (isExpert) {
-        await supabase.from('ExpertProfile').insert({
-          'ExpertID': widget.userId,
-          'Specialization': specialtyController.text.trim(),
-          'ExperienceYears': int.tryParse(yearsController.text.trim()) ?? 0,
-          'Bio': '',
-          'RatingAvg': 0,
-        });
+        await supabase
+            .from('ExpertProfile')
+            .update({
+              'Specialization': specialtyController.text.trim(),
+              'ExperienceYears':
+                  int.tryParse(yearsController.text.trim()) ?? 0,
+            })
+            .eq('ExpertID', widget.userId);
       }
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ تم حفظ بيانات حسابك بنجاح!'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
-        ),
-      );
 
-      // توجيه للهوم
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
+        MaterialPageRoute(builder: (_) => HomePage(userId: widget.userId)),
       );
     } catch (e) {
-      _showError('❌ حدث خطأ: $e');
+      _showError('حدث خطأ: $e');
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -129,16 +138,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
         ),
         body: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            padding: const EdgeInsets.all(24),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'استكمل بيانات حسابك',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 32),
                 CustomInput(
                   hint: 'الاسم الكريم',
                   icon: Icons.person_outline,
@@ -146,12 +148,15 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                   showError: submitted,
                 ),
                 const SizedBox(height: 16),
+
                 CustomInput(
                   hint: 'رقم الجوال',
                   icon: Icons.phone_outlined,
                   controller: phoneController,
                   showError: submitted,
                 ),
+
+                /// حقول الخبير
                 if (isExpert) ...[
                   const SizedBox(height: 16),
                   CustomInput(
@@ -168,7 +173,9 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
                     showError: submitted,
                   ),
                 ],
+
                 const SizedBox(height: 40),
+
                 PrimaryButton(
                   title: isLoading ? 'جاري الحفظ...' : 'استكمال',
                   onPressed: _saveProfileData,

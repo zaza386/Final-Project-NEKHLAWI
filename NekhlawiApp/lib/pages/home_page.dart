@@ -9,8 +9,59 @@ import 'package:nekhlawi_app/pages/user_profile.dart';
 import 'package:nekhlawi_app/core/widgets/upcoming_sessions_carousel.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+class HomePage extends StatefulWidget {
+  final String? userId;
+
+  const HomePage({super.key, this.userId});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  String? userName;
+  String greeting = 'صباح الخير';
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.userId != null) {
+      _loadUserData();
+    }
+    _setGreeting();
+  }
+
+  void _setGreeting() {
+    final hour = DateTime.now().hour;
+    setState(() {
+      greeting = hour < 12 ? 'صباح الخير' : 'مساء الخير';
+    });
+  }
+
+  Future<void> _loadUserData() async {
+    if (widget.userId == null) return;
+
+    try {
+      final supabase = Supabase.instance.client;
+      final response = await supabase
+          .from('User')
+          .select('Name')
+          .eq('UserID', widget.userId!)
+          .single();
+
+      if (mounted) {
+        setState(() {
+          userName = response['Name'] ?? 'المستخدم';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          userName = 'المستخدم';
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +93,7 @@ class HomePage extends StatelessWidget {
                             children: [
                               const SizedBox(height: 10),
                               UserSessionsCarousel(
-                                userId: '3f155ab7-60b2-4f12-9271-8881a128659b',
+                                userId: widget.userId ?? 'default_user_id',
                                 statuses: const ['لم تبدأ', 'بدأت'],
                                 iconAssetPath: 'assets/images/home_brown_icon.png',
                               ),
@@ -134,19 +185,19 @@ class HomePage extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: AppColors.header.withOpacity(0.5)),
         ),
-        child: const Row(
+        child: Row(
           children: [
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('صباح الخير يا أحمد 👋', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.darkBrown)),
-                  SizedBox(height: 6),
-                  Text('الدور: مزارع • اضغط لتعديل ملفك', style: TextStyle(fontSize: 14, color: AppColors.darkBrown)),
+                  Text('$greeting يا ${userName ?? 'المستخدم'} 👋', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.darkBrown)),
+                  const SizedBox(height: 6),
+                  const Text('الدور: مزارع • اضغط لتعديل ملفك', style: TextStyle(fontSize: 14, color: AppColors.darkBrown)),
                 ],
               ),
             ),
-            Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.darkBrown),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: AppColors.darkBrown),
           ],
         ),
       ),

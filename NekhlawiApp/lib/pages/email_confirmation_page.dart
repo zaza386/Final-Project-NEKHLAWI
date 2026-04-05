@@ -42,8 +42,17 @@ class _EmailConfirmationPageState extends State<EmailConfirmationPage> {
           statusMessage = '✅ تم تأكيد بريدك! يتم الانتقال...';
         });
         
-        // بعد ثانية، انتقل لصفحة استكمال البيانات
-        Future.delayed(const Duration(seconds: 10), () {
+        // أدرج سجل أولي للمستخدم في جدول User
+        supabase.from('User').insert({
+          'UserID': user.id,
+          'Email': widget.email,
+          'Role': widget.role,
+        }).catchError((_) {
+          // إذا كان السجل موجود بالفعل، لا تفعل شيء
+        });
+        
+        // بعد ثانيتين، انتقل لصفحة استكمال البيانات
+        Future.delayed(const Duration(seconds: 2), () {
           if (!mounted) return;
           Navigator.pushReplacement(
             context,
@@ -102,21 +111,40 @@ class _EmailConfirmationPageState extends State<EmailConfirmationPage> {
       // 🔹 تحقق من تأكيد البريد
       if (user.emailConfirmedAt == null) {
         _showError('البريد ما زال غير مؤكد. افتح رابط التأكيد في صندوق البريد ثم حاول مرة أخرى.');
+        setState(() => isLoading = false);
         return;
+      }
+
+      // 🔹 أدرج سجل أولي للمستخدم في جدول User
+      try {
+        await supabase.from('User').insert({
+          'UserID': user.id,
+          'Email': widget.email,
+          'Role': widget.role,
+        });
+      } catch (e) {
+        // إذا كان السجل موجود بالفعل، لا تفعل شيء
+        if (!e.toString().contains('duplicate')) {
+          _showError('خطأ: $e');
+          setState(() => isLoading = false);
+          return;
+        }
       }
 
       if (!mounted) return;
       // 🔹 انتقل لصفحة استكمال البيانات
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => CompleteProfilePage(
-            userId: user.id,
-            email: widget.email,
-            role: widget.role,
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CompleteProfilePage(
+              userId: user.id,
+              email: widget.email,
+              role: widget.role,
+            ),
           ),
-        ),
-      );
+        );
+      }
     } catch (e) {
       _showError('❌ حدث خطأ: $e');
     } finally {

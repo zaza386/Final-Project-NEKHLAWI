@@ -1,7 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:nekhlawi_app/core/theme/app_colors.dart';
-import 'package:nekhlawi_app/pages/home_page.dart';
+import 'package:nekhlawi_app/pages/wrapper.dart';
 import 'package:nekhlawi_app/pages/role_selection_page.dart';
 //import 'package:nekhlawi_app/pages/OTP.dart';
 import 'package:nekhlawi_app/pages/forgot_password_page.dart';
@@ -75,33 +75,60 @@ class _LoginPageState extends State<LoginPage> {
   }
   }
 
-  Future<void> _sendOtp(BuildContext context) async {
+  Future<void> _signInWithPassword() async {
     final email = emailController.text.trim();
-    if (email.isEmpty) return;
+    final password = passwordController.text.trim();
 
-    setState(() => submitted = true);
-
-    if (!canProceed) return;
-
-    try {
-      // 🔹 إرسال OTP
-      await Supabase.instance.client.auth.signInWithOtp(email: email);
-
-      // لو وصلنا هنا بدون Exception، نعتبر العملية نجحت
+    if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('تم إرسال الرمز إلى بريدك الإلكتروني'),
-          backgroundColor: Colors.green,
+          content: Text('الرجاء إدخال البريد الإلكتروني وكلمة المرور'),
+          backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           margin: EdgeInsets.all(16),
         ),
       );
+      return;
+    }
 
-      // الانتقال لصفحة OTP
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const HomePage()),
+    setState(() => submitted = true);
+
+    if (!isEmailValid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('الرجاء إدخال بريد إلكتروني صحيح'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.all(16),
+        ),
       );
+      return;
+    }
+
+    try {
+      // 🔹 تسجيل الدخول بالإيميل وكلمة المرور
+      final response = await Supabase.instance.client.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+
+      if (response.session != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم تسجيل الدخول بنجاح!'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.all(16),
+          ),
+        );
+
+        // الانتقال للصفحة الرئيسية
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const Wrapper()),
+          (route) => false,
+        );
+      }
     } on AuthException catch (e) {
       // أي خطأ من Supabase
       ScaffoldMessenger.of(context).showSnackBar(
@@ -122,6 +149,8 @@ class _LoginPageState extends State<LoginPage> {
           margin: const EdgeInsets.all(16),
         ),
       );
+    } finally {
+      setState(() => submitted = false);
     }
   }
 
@@ -208,16 +237,18 @@ class _LoginPageState extends State<LoginPage> {
 
                               const SizedBox(height: 30),
 
-                              /// زر تسجيل الدخول
+                              /// زر تسجيل الدخول بالإيميل وكلمة المرور
                               PrimaryButton(
                                 title: 'تسجيل دخول',
-                                onPressed: () => _sendOtp(context),
+                                onPressed: _signInWithPassword,
                               ),
+
                               const SizedBox(height: 12),
+
+                              /// زر تسجيل الدخول باستخدام البريد (Magic Link)
                               PrimaryButton(
                                 title: 'تسجيل الدخول باستخدام البريد',
-                                onPressed: () =>
-                                    signInWithMagicLink(emailController),
+                                onPressed: () => signInWithMagicLink(emailController),
                               ),
                               const SizedBox(height: 16),
                               const Center(child: SignUpLinkText()),
