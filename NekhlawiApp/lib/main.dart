@@ -4,7 +4,7 @@ import 'package:nekhlawi_app/pages/welcome_page.dart';
 import 'package:nekhlawi_app/pages/wrapper.dart';
 import 'package:nekhlawi_app/core/theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import 'dart:typed_data';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
