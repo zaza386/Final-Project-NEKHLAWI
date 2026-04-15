@@ -1,16 +1,26 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'classifier.dart'; // 1. استيراد ملف المحلل
+import 'booking_experts_page.dart';
 
 class AnalysisResultPage extends StatefulWidget {
-  final File imageFile;
+  final File? imageFile;
+  final String? imageUrl;     // هذا الرابط القادم من السيرفر
+  final String aiLabel;
+  final double confidence;
+  final Map<String, dynamic>? diseaseInfo;
+  final Map<String, dynamic>? treatmentInfo;
   final String sessionId;
 
   const AnalysisResultPage({
     super.key,
-    required this.imageFile,
+    this.imageFile,
+    this.imageUrl,
+    required this.aiLabel,
+    required this.confidence,
     required this.sessionId,
+    this.diseaseInfo,
+    this.treatmentInfo,
   });
 
   @override
@@ -19,116 +29,133 @@ class AnalysisResultPage extends StatefulWidget {
 
 class _AnalysisResultPageState extends State<AnalysisResultPage> {
   final supabase = Supabase.instance.client;
-  final Classifier _classifier = Classifier(); // 2. تعريف نسخة من المحلل
-
-  bool _isProcessing = true;
-  String _statusMessage = 'جاري التحليل...'; // المتغير الذي سيتغير لاحقاً
 
   @override
   void initState() {
     super.initState();
-    _startFullProcess();
+    // إذا كانت هناك صورة جديدة ورابط، نقوم بالحفظ
+    if (widget.imageFile != null && widget.imageUrl != null) {
+      _saveAllDataToDatabase();
+    }
   }
 
-  Future<void> _startFullProcess() async {
+  Future<void> _saveAllDataToDatabase() async {
     try {
-      // الخطوة الأولى: رفع الصورة لـ Supabase (لحفظ السجل)
-      final String fileName = 'palm_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      await supabase.storage.from('pic').upload(fileName, widget.imageFile);
-      final String publicUrl = supabase.storage.from('pic').getPublicUrl(fileName);
-
-      final decodedImage = await decodeImageFromList(widget.imageFile.readAsBytesSync());
-
-      // الخطوة الثانية: تشغيل الذكاء الاصطناعي (الموديل)
-      // ننتظر قليلاً لضمان تحميل الموديل ثم نقوم بالتنبؤ
-      String aiResult = await _classifier.predict(widget.imageFile);
-
-      // الخطوة الثالثة: حفظ البيانات والنتيجة في جدول AISessionPicture
-      await supabase.from('AISessionPicture').insert({
-        'AISessionID': widget.sessionId,
-        'FileURL': publicUrl,
-        'Width': decodedImage.width,
-        'Height': decodedImage.height,
-        'EXIFJson': {'ai_label': aiResult}, // حفظ النتيجة هنا أيضاً
-      });
-
-      // الخطوة الرابعة: تحديث الواجهة بالنتيجة
-      if (mounted) {
-        setState(() {
-          _statusMessage = aiResult; // تغيير النص من "جاري التحليل" إلى النتيجة الفعلية
-          _isProcessing = false;
+      // 1. حفظ بيانات التشخيص
+      if (widget.diseaseInfo != null) {
+        await supabase.from('AIDiagnosis Table').insert({
+          'AISessionID': widget.sessionId,
+          'DiseaseID': widget.diseaseInfo!['DiseaseID'],
+          'Confidence': "${widget.confidence.toStringAsFixed(0)}%",
         });
+      }
+
+      // 2. حفظ رابط الصورة في جدول AISessionPicture
+      if (widget.imageUrl != null && widget.imageUrl!.isNotEmpty) {
+        await supabase.from('AISessionPicture').insert({
+          'AISessionID': widget.sessionId,
+          'FileURL': widget.imageUrl, // العمود كما في قاعدة بياناتك
+        });
+        print("✅ تم حفظ الصورة في الداتابيز بنجاح");
       }
     } catch (e) {
-      debugPrint("Error: $e");
-      if (mounted) {
-        setState(() {
-          _statusMessage = "حدث خطأ أثناء المعالجة";
-          _isProcessing = false;
-        });
-      }
+      debugPrint("❌ خطأ أثناء الحفظ: $e");
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // عرض الصورة الملتقطة
-          Image.file(widget.imageFile, fit: BoxFit.cover),
+    const Color darkBrown = Color(0xFF43321A);
+    const Color lightBeige = Color(0xFFD9E0B3);
 
-          // طبقة تعتيم
-          Container(color: Colors.black.withOpacity(0.5)),
-
-          // محتوى التحليل
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_isProcessing)
-                  const CircularProgressIndicator(color: Color(0xFFC7C7A3)),
-
-                const SizedBox(height: 30),
-
-                // مستطيل النتيجة
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
-                  margin: const EdgeInsets.symmetric(horizontal: 40),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFF43321A), width: 2),
-                  ),
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: lightBeige,
+        appBar: AppBar(
+          title: const Text("نتائج التحليل", style: TextStyle(color: darkBrown, fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: true,
+        ),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(15.0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(25),
+                child: widget.imageFile != null
+                    ? Image.file(widget.imageFile!, height: 180, width: double.infinity, fit: BoxFit.cover)
+                    : (widget.imageUrl != null && widget.imageUrl!.isNotEmpty)
+                    ? Image.network(widget.imageUrl!, height: 180, width: double.infinity, fit: BoxFit.cover)
+                    : Container(height: 180, color: Colors.grey[300], child: const Icon(Icons.image)),
+              ),
+            ),
+            Expanded(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(topLeft: Radius.circular(45), topRight: Radius.circular(45)),
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(25),
                   child: Column(
                     children: [
-                      Text(
-                        _statusMessage, // هنا تظهر النتيجة (سليمة، مصابة...)
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF43321A),
+                      _buildResultCard(widget.aiLabel, widget.confidence),
+                      const SizedBox(height: 30),
+                      _buildSection("الأعراض:", widget.diseaseInfo?['Symptoms'] ?? "لا توجد تفاصيل."),
+                      _buildSection("العلاج:", widget.treatmentInfo?['Steps'] ?? "لا يتوفر علاج حالياً."),
+                      const SizedBox(height: 30),
+                      // الهيبرلينك لصفحة الخبراء
+                      GestureDetector(
+                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BookingExpertsPage())),
+                        child: Column(
+                          children: [
+                            const Text("بستشير خبيراً", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: darkBrown)),
+                            Container(margin: const EdgeInsets.only(top: 2), height: 1.5, width: 100, color: darkBrown),
+                          ],
                         ),
                       ),
-                      if (!_isProcessing) ...[
-                        const SizedBox(height: 20),
-                        ElevatedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF43321A),
-                          ),
-                          child: const Text("العودة للكاميرا", style: TextStyle(color: Colors.white)),
-                        )
-                      ]
+                      const SizedBox(height: 20),
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ميثود مساعدة لبناء الأقسام
+  Widget _buildSection(String title, String content) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF43321A))),
+        const SizedBox(height: 10),
+        Text(content, style: const TextStyle(fontSize: 15, height: 1.6, color: Colors.black87)),
+        const Divider(height: 35),
+      ],
+    );
+  }
+
+  Widget _buildResultCard(String label, double conf) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(color: const Color(0xFFD9E0B3).withOpacity(0.3), borderRadius: BorderRadius.circular(25)),
+      child: Row(
+        children: [
+          CircularProgressIndicator(value: conf / 100, color: const Color(0xFF7B8646), strokeWidth: 6),
+          const SizedBox(width: 25),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF43321A))),
+              Text("الدقة: ${conf.toStringAsFixed(0)}%", style: const TextStyle(color: Colors.black54)),
+            ],
+          )
         ],
       ),
     );

@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
-import 'analysis_result_page.dart';
+import 'analysis_indocator.dart';
 
 class AiConsultationDetailsPage extends StatefulWidget {
   final String title;
@@ -67,9 +67,8 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => AnalysisResultPage(
-          imageFile: imageFile,
-          sessionId: widget.sessionId,
+        builder: (context) => ProcessingPage(
+          imageFile: imageFile, // نرسل الصورة لصفحة المعالجة وهي تتولى الباقي
         ),
       ),
     );
