@@ -214,7 +214,7 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
                 const Icon(Icons.error, color: Colors.red, size: 70),
                 const SizedBox(height: 20),
                 const Text(
-                    "تأكد أن الصورة واضحة لتحليل دقيق لإصابات النخيل في مشروع نخلاوي.",
+                    "تأكد أن الصورة واضحة ومنورة عشان نعطيك افضل نتيجة.",
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 16, height: 1.5)
                 ),
