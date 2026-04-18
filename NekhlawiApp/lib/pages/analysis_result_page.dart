@@ -1,11 +1,15 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:flutter/services.dart';
 import 'booking_experts_page.dart';
 
 class AnalysisResultPage extends StatefulWidget {
   final File? imageFile;
-  final String? imageUrl;     // هذا الرابط القادم من السيرفر
+  final String? imageUrl;
   final String aiLabel;
   final double confidence;
   final Map<String, dynamic>? diseaseInfo;
@@ -33,7 +37,6 @@ class _AnalysisResultPageState extends State<AnalysisResultPage> {
   @override
   void initState() {
     super.initState();
-    // إذا كانت هناك صورة جديدة ورابط، نقوم بالحفظ
     if (widget.imageFile != null && widget.imageUrl != null) {
       _saveAllDataToDatabase();
     }
@@ -41,7 +44,6 @@ class _AnalysisResultPageState extends State<AnalysisResultPage> {
 
   Future<void> _saveAllDataToDatabase() async {
     try {
-      // 1. حفظ بيانات التشخيص
       if (widget.diseaseInfo != null) {
         await supabase.from('AIDiagnosis Table').insert({
           'AISessionID': widget.sessionId,
@@ -50,16 +52,62 @@ class _AnalysisResultPageState extends State<AnalysisResultPage> {
         });
       }
 
-      // 2. حفظ رابط الصورة في جدول AISessionPicture
       if (widget.imageUrl != null && widget.imageUrl!.isNotEmpty) {
         await supabase.from('AISessionPicture').insert({
           'AISessionID': widget.sessionId,
-          'FileURL': widget.imageUrl, // العمود كما في قاعدة بياناتك
+          'FileURL': widget.imageUrl,
         });
         print("✅ تم حفظ الصورة في الداتابيز بنجاح");
       }
     } catch (e) {
       debugPrint("❌ خطأ أثناء الحفظ: $e");
+    }
+  }
+
+  // ميثود توليد وحفظ ملف الـ PDF باستخدام خط من الإنترنت لتجنب مشاكل الـ Assets
+  Future<void> _generatePDF() async {
+    try {
+      final pdf = pw.Document();
+
+      // 💡 التعديل هنا: سحب الخط من الإنترنت مباشرة عشان يشتغل معك الحين بدون ما تلمسين الـ Assets
+      final fontData = await NetworkAssetBundle(Uri.parse('https://github.com/google/fonts/raw/main/ofl/amiri/Amiri-Regular.ttf')).load("");
+      final ttf = pw.Font.ttf(fontData);
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          build: (pw.Context context) {
+            return pw.Directionality(
+              textDirection: pw.TextDirection.rtl,
+              child: pw.Padding(
+                padding: const pw.EdgeInsets.all(30),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Center(child: pw.Text("تقرير تشخيص نخلاوي", style: pw.TextStyle(font: ttf, fontSize: 26, fontWeight: pw.FontWeight.bold))),
+                    pw.SizedBox(height: 10),
+                    pw.Divider(),
+                    pw.SizedBox(height: 20),
+                    pw.Text("الحالة المكتشفة: ${widget.aiLabel}", style: pw.TextStyle(font: ttf, fontSize: 18)),
+                    pw.Text("نسبة الثقة: ${widget.confidence.toStringAsFixed(0)}%", style: pw.TextStyle(font: ttf, fontSize: 18)),
+                    pw.SizedBox(height: 20),
+                    pw.Text("الأعراض:", style: pw.TextStyle(font: ttf, fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.brown900)),
+                    pw.Text(widget.diseaseInfo?['Symptoms'] ?? "لا توجد تفاصيل", style: pw.TextStyle(font: ttf, fontSize: 14)),
+                    pw.SizedBox(height: 20),
+                    pw.Text("خطة العلاج:", style: pw.TextStyle(font: ttf, fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.brown900)),
+                    pw.Text(widget.treatmentInfo?['Steps'] ?? "لا توجد تفاصيل", style: pw.TextStyle(font: ttf, fontSize: 14)),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      );
+
+      // يفتح صفحة الحفظ والمشاركة فوراً
+      await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
+    } catch (e) {
+      debugPrint("خطأ في الـ PDF: $e");
     }
   }
 
@@ -77,6 +125,13 @@ class _AnalysisResultPageState extends State<AnalysisResultPage> {
           backgroundColor: Colors.transparent,
           elevation: 0,
           centerTitle: true,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.share, size: 26, color: darkBrown),
+              onPressed: _generatePDF,
+              tooltip: "حفظ كـ PDF",
+            ),
+          ],
         ),
         body: Column(
           children: [
@@ -106,7 +161,6 @@ class _AnalysisResultPageState extends State<AnalysisResultPage> {
                       _buildSection("الأعراض:", widget.diseaseInfo?['Symptoms'] ?? "لا توجد تفاصيل."),
                       _buildSection("العلاج:", widget.treatmentInfo?['Steps'] ?? "لا يتوفر علاج حالياً."),
                       const SizedBox(height: 30),
-                      // الهيبرلينك لصفحة الخبراء
                       GestureDetector(
                         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BookingExpertsPage())),
                         child: Column(
@@ -128,7 +182,6 @@ class _AnalysisResultPageState extends State<AnalysisResultPage> {
     );
   }
 
-  // ميثود مساعدة لبناء الأقسام
   Widget _buildSection(String title, String content) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
