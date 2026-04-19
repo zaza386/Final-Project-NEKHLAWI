@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
-import 'analysis_result_page.dart';
+import 'analysis_indocator.dart';
 
 class AiConsultationDetailsPage extends StatefulWidget {
   final String title;
@@ -23,6 +23,7 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
   Future<void>? _initializeControllerFuture;
   final ImagePicker _imagePicker = ImagePicker();
   bool _isCameraInitialized = false;
+  bool _isFlashOn = false; // متغير لحالة الفلاش
 
   @override
   void initState() {
@@ -56,20 +57,36 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
     }
   }
 
+  // دالة تشغيل وإطفاء الفلاش
+  Future<void> _toggleFlash() async {
+    if (!_isCameraInitialized || _cameraController == null) return;
+
+    try {
+      if (_isFlashOn) {
+        await _cameraController!.setFlashMode(FlashMode.off);
+      } else {
+        await _cameraController!.setFlashMode(FlashMode.torch);
+      }
+      setState(() {
+        _isFlashOn = !_isFlashOn;
+      });
+    } catch (e) {
+      debugPrint("خطأ في تبديل الفلاش: $e");
+    }
+  }
+
   @override
   void dispose() {
     _cameraController?.dispose();
     super.dispose();
   }
 
-  // دالة للانتقال لصفحة "جاري التحليل" وتمرير ملف الصورة
   void _navigateToAnalysis(File imageFile) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => AnalysisResultPage(
+        builder: (context) => ProcessingPage(
           imageFile: imageFile,
-          sessionId: widget.sessionId,
         ),
       ),
     );
@@ -104,7 +121,6 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
         backgroundColor: Colors.black,
         body: Stack(
           children: [
-            // عرض الكاميرا
             Positioned.fill(
               child: _isCameraInitialized
                   ? CameraPreview(_cameraController!)
@@ -114,7 +130,6 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
               ),
             ),
 
-            // شريط العنوان العلوي
             Positioned(
               top: 0, left: 0, right: 0,
               child: Container(
@@ -134,23 +149,33 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
                         style: TextStyle(color: darkColor, fontSize: 20, fontWeight: FontWeight.bold)
                     ),
                     const Spacer(),
-                    Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(color: darkColor, shape: BoxShape.circle),
-                        child: const Icon(Icons.flash_on, color: Colors.white, size: 20)
+                    // زر الفلاش الذي طلبته
+                    GestureDetector(
+                      onTap: _toggleFlash,
+                      child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            // يتغير اللون قليلاً عند التشغيل ليعرف المستخدم الحالة
+                              color: _isFlashOn ? Colors.yellow[700] : darkColor,
+                              shape: BoxShape.circle
+                          ),
+                          child: Icon(
+                              _isFlashOn ? Icons.flash_on : Icons.flash_off,
+                              color: Colors.white,
+                              size: 20
+                          )
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
 
-            // أزرار التحكم السفلية
             Positioned(
               bottom: 40, left: 0, right: 0,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  // زر المعرض
                   GestureDetector(
                     onTap: _openGallery,
                     child: Container(
@@ -164,7 +189,6 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
                     ),
                   ),
 
-                  // زر التقاط الصورة الكبير
                   GestureDetector(
                     onTap: _takePicture,
                     child: Container(
@@ -180,7 +204,6 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
                     ),
                   ),
 
-                  // مساحة فارغة للتوازن البصري
                   const SizedBox(width: 60),
                 ],
               ),
@@ -215,7 +238,7 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
                 const Icon(Icons.error, color: Colors.red, size: 70),
                 const SizedBox(height: 20),
                 const Text(
-                    "تأكد أن الصورة واضحة لتحليل دقيق لإصابات النخيل في مشروع نخلاوي.",
+                    "تأكد أن الصورة واضحة ومنورة عشان نعطيك افضل نتيجة.",
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 16, height: 1.5)
                 ),

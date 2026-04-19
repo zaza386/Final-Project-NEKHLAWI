@@ -4,103 +4,103 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 
 class Classifier {
-  // تأكدي أن المسار يطابق مجلدات مشروعك بالضبط (حساس لحالة الأحرف)
   static const String _modelFile = 'assets/AIModel/palm_model.tflite';
-
   Interpreter? _interpreter;
 
-  // التصنيفات الأربعة كما حددتيها
+  // ⚠️ تنبيه: تأكدي أن الترتيب هنا يطابق تماماً ترتيب المجلدات أثناء التدريب
   final List<String> _labels = [
-    ' مصابة بالبقع البنية',
-    'مصابة بالحشرة العسلية',
-    'الورقة سليمة',
-    'مصابة بالحشرة البيضاء'
+    'البقع البنية',
+    'حشرة دباس النخيل',
+    'ورقة سليمة',
+    'الحشرة القشرية البيضاء'
   ];
 
-  static const int inputSize = 240; // الحجم المطلوب للموديل
+  // EfficientNetB0 غالباً يستخدم 240 أو 224
+  static const int inputSize = 240;
 
   Classifier() {
     _loadModel();
   }
 
-  // تحميل الموديل
   Future<void> _loadModel() async {
     try {
-      _interpreter = await Interpreter.fromAsset(_modelFile);
-      print('✅ تم تحميل موديل نخلاوي بنجاح (إصدار 0.12.0)');
+      // إعداد خيارات المترجم لتحسين الأداء
+      final options = InterpreterOptions();
+      _interpreter = await Interpreter.fromAsset(_modelFile, options: options);
+      print('✅ تم تحميل موديل EfficientNet بنجاح');
     } catch (e) {
       print('❌ خطأ في تحميل الموديل: $e');
     }
   }
 
-  // الدالة الأساسية للتنبؤ
-  Future<String> predict(File imageFile) async {
+  Future<Map<String, dynamic>> predict(File imageFile) async {
     if (_interpreter == null) {
-      // محاولة تحميل الموديل إذا لم يكن جاهزاً
       await _loadModel();
-      if (_interpreter == null) return "المحلل غير جاهز بعد...";
+      if (_interpreter == null) return {"label": "الموديل غير جاهز", "confidence": 0.0};
     }
 
     try {
-      // 1. معالجة الصورة وقراءتها
+      // 1. قراءة وتحويل الصورة
       final imageBytes = imageFile.readAsBytesSync();
       final decodedImage = img.decodeImage(imageBytes);
-      if (decodedImage == null) return "فشل في قراءة الصورة";
+      if (decodedImage == null) return {"label": "خطأ في معالجة الصورة", "confidence": 0.0};
 
-      // 2. تغيير الحجم إلى 240x240
+      // 2. تغيير الحجم ليناسب EfficientNet
       final resizedImage = img.copyResize(decodedImage, width: inputSize, height: inputSize);
 
-      // 3. تحويل الصورة إلى مصفوفة رباعية الأبعاد [1, 240, 240, 3]
-      // هذا التعديل يحل مشكلة failed precondition
+      // 3. تحويل الصورة إلى تنسيق يدعمه الموديل (Normalization)
       var input = _imageToBuffer(resizedImage);
 
-      // 4. تجهيز مصفوفة المخرجات لـ 4 تصنيفات [1, 4]
+      // 4. تجهيز مصفوفة المخرجات (لدينا 4 فئات)
       var output = List.filled(1 * 4, 0.0).reshape([1, 4]);
 
       // 5. تشغيل الموديل
       _interpreter!.run(input, output);
 
-      // 6. الحصول على النتيجة الأعلى
+      // 6. استخراج النتائج
       List<double> results = List<double>.from(output[0]);
-      double maxScore = -1.0;
-      int maxIndex = 0;
 
-      for (int i = 0; i < results.length; i++) {
+      int maxIndex = 0;
+      double maxScore = results[0];
+
+      for (int i = 1; i < results.length; i++) {
         if (results[i] > maxScore) {
           maxScore = results[i];
           maxIndex = i;
         }
       }
 
-      print("توقع الموديل: ${_labels[maxIndex]} بنسبة ثقة: ${results[maxIndex]}");
-      return _labels[maxIndex];
+      double confidence = maxScore * 100;
+
+      // 💡 منطق إضافي لتجنب انحياز "Healthy":
+      // إذا كانت الثقة ضعيفة جداً، يفضل تنبيه المستخدم
+      if (confidence < 40.0) {
+        return {
+          "label": "غير قادر على التحديد بدقة",
+          "confidence": confidence,
+        };
+      }
+
+      return {
+        "label": _labels[maxIndex],
+        "confidence": confidence,
+      };
 
     } catch (e) {
-      print("خطأ أثناء التحليل: $e");
-      return "حدث خطأ أثناء التحليل: $e";
+      print("❌ خطأ أثناء التحليل: $e");
+      return {"label": "خطأ تقني", "confidence": 0.0};
     }
   }
 
-  // دالة تحويل الصورة إلى مصفوفة بيانات منظمة (Normalization)
+  // دالة تحويل الصورة إلى مصفوفة (Tensor)
   List<List<List<List<double>>>> _imageToBuffer(img.Image image) {
-    // بناء مصفوفة [1, 240, 240, 3]
-    return List.generate(
-      1,
-          (_) => List.generate(
-        inputSize,
-            (y) => List.generate(
-          inputSize,
-              (x) {
-            var pixel = image.getPixel(x, y);
-            // تقسيم القيم على 255 لتحويلها لنطاق 0-1 (Float32)
-            return [
-              pixel.r / 255.0,
-              pixel.g / 255.0,
-              pixel.b / 255.0,
-            ];
-          },
-        ),
-      ),
-    );
+    return List.generate(1, (i) => List.generate(inputSize, (y) => List.generate(inputSize, (x) {
+      var pixel = image.getPixel(x, y);
+      return [
+        pixel.r.toDouble(),
+        pixel.g.toDouble(),
+        pixel.b.toDouble()
+      ];
+    })));
   }
 }
