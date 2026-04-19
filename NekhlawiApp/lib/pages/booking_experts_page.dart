@@ -170,6 +170,7 @@ class _BookingExpertsPageState extends State<BookingExpertsPage> {
                                 name: e.name,
                                 specialization: e.specialization,
                                 pricePerHour: 100,
+                                expertId: e.expertId,
                                 onOpenProfile: () =>
                                     _goToExpertProfile(e.expertId),
                               );
