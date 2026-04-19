@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:nekhlawi_app/core/widgets/header_background.dart';
 import 'package:nekhlawi_app/core/theme/app_colors.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-// SUPABASE: import the Supabase Flutter package
-// Add to pubspec.yaml:
-//   supabase_flutter: ^2.0.0
-// import 'package:supabase_flutter/supabase_flutter.dart';
-
-// SUPABASE: Helper to access the Supabase client anywhere
-// final supabase = Supabase.instance.client;
+final supabase = Supabase.instance.client;
 
 // ─────────────────────────────────────────────
 // DATA MODELS
@@ -26,44 +21,38 @@ class ExpertModel {
     required this.id,
     required this.name,
     required this.title,
-    required this.location,
-    required this.priceLabel,
+    this.location = '',
+    this.priceLabel = '',
     this.avatarUrl,
   });
 
-  // SUPABASE: Map a Supabase row from the "experts" table to this model
-  // Change field names to match your actual Supabase column names
-  factory ExpertModel.fromMap(Map<String, dynamic> map) {
-    return ExpertModel(
-      id: map['id'].toString(),
-      name: map['name'] ?? '',
-      title: map['title'] ?? '',
-      location: map['location'] ?? '',
-      priceLabel: map['price_label'] ?? '',
-      avatarUrl: map['avatar_url'],
-    );
-  }
+factory ExpertModel.fromMap(Map<String, dynamic> map) {
+  final userData = map['User'] ?? {}; 
+  
+  return ExpertModel(
+    id: map['ExpertID'].toString(),
+    name: userData['Name'] ?? 'خبير غير معروف',
+    title: map['Specialization'] ?? '',
+    avatarUrl: userData['ProfilePicturePath'],
+  );
+}
 }
 
 class TimeSlot {
-  final String id;
+  final String? id;
   final DateTime dateTime;
   final bool isAvailable;
 
   TimeSlot({
-    required this.id,
+    this.id,
     required this.dateTime,
     required this.isAvailable,
   });
 
-  // SUPABASE: Map a Supabase row from the "time_slots" table to this model
-  // Change field names to match your actual Supabase column names
   factory TimeSlot.fromMap(Map<String, dynamic> map) {
     return TimeSlot(
       id: map['id'].toString(),
-      // SUPABASE: "slot_time" should be a timestamptz column in Supabase
       dateTime: DateTime.parse(map['slot_time']),
-      // SUPABASE: "is_available" is a boolean column in Supabase
       isAvailable: map['is_available'] ?? false,
     );
   }
@@ -74,12 +63,11 @@ class TimeSlot {
 // ─────────────────────────────────────────────
 
 class BookingPage extends StatefulWidget {
-  // SUPABASE: Pass the expert's ID so we can query their data
   final String expertId;
 
   const BookingPage({
     super.key,
-    this.expertId = '1',
+    required this.expertId,
   });
 
   @override
@@ -87,22 +75,20 @@ class BookingPage extends StatefulWidget {
 }
 
 class _BookingPageState extends State<BookingPage> {
-  // ── State ──────────────────────────────────
   bool _isLoading = true;
   ExpertModel? _expert;
-  List<TimeSlot> _timeSlots = [];
+  List<TimeSlot> _dbSlots = [];
+  List<TimeSlot> _displaySlots = [];
 
-  DateTime _selectedMonth = DateTime(2026, 2);
-  DateTime _selectedDay = DateTime(2026, 2, 5);
+  DateTime _selectedMonth = DateTime(DateTime.now().year, 1, 1);
+  DateTime _selectedDay = DateTime.now();
   String? _selectedSlotId;
+  DateTime? _selectedSlotTime;
 
-  final List<DateTime> _months = [
-    DateTime(2026, 2),
-    DateTime(2026, 3),
-    DateTime(2026, 4),
-  ];
+  final List<DateTime> _months = List.generate(12, (index) {
+    return DateTime(DateTime.now().year, 1 + index, 1);
+  });
 
-  // ── Colors ─────────────────────────────────
   static const Color kPrimary = Color(0xFF797F3D);
   static const Color kBackground = Color(0xFFF2F0E8);
   static const Color kCard = Color(0xFFFFFFFF);
@@ -115,147 +101,140 @@ class _BookingPageState extends State<BookingPage> {
     _loadData();
   }
 
-  // ── Data loading ───────────────────────────
-
   Future<void> _loadData() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
-    await Future.wait([
-      _fetchExpert(),
-      _fetchTimeSlots(),
-    ]);
-    setState(() => _isLoading = false);
-  }
 
-  Future<void> _fetchExpert() async {
-    // SUPABASE: Fetch expert details from the "experts" table by ID
-    // final response = await supabase
-    //     .from('experts')                            // SUPABASE: table name
-    //     .select('id, name, title, location, price_label, avatar_url')
-    //     .eq('id', widget.expertId)                 // SUPABASE: filter by expert id
-    //     .single();
-    // setState(() => _expert = ExpertModel.fromMap(response));
+    try {
+      final expertResponse = await supabase
+          .from('ExpertProfile')
+          .select('ExpertID, Specialization, User ( Name, ProfilePicturePath )')
+          .eq('ExpertID', widget.expertId)
+          .maybeSingle();
 
-    // ── Demo data (remove when using Supabase) ──
-    await Future.delayed(const Duration(milliseconds: 400));
-    _expert = ExpertModel(
-      id: '1',
-      name: 'م.خالد العتيبي',
-      title: 'خبير زراعي',
-      location: 'الأحساء، السعودية',
-      priceLabel: 'الاستشارة تبدأ من ٣٠٠ ريال',
-    );
-  }
+      if (expertResponse == null) return;
 
-  Future<void> _fetchTimeSlots() async {
-    // SUPABASE: Fetch available time slots for the selected day and expert
-    // final start = DateTime(_selectedDay.year, _selectedDay.month, _selectedDay.day);
-    // final end   = start.add(const Duration(days: 1));
-    // final response = await supabase
-    //     .from('time_slots')                         // SUPABASE: table name
-    //     .select('id, slot_time, is_available')
-    //     .eq('expert_id', widget.expertId)           // SUPABASE: filter by expert
-    //     .gte('slot_time', start.toIso8601String())  // SUPABASE: from start of day
-    //     .lt('slot_time', end.toIso8601String())     // SUPABASE: to end of day
-    //     .order('slot_time');
-    // setState(() {
-    //   _timeSlots = (response as List).map((r) => TimeSlot.fromMap(r)).toList();
-    // });
+      final start = DateTime.utc(_selectedDay.year, _selectedDay.month, _selectedDay.day);
+      final end = start.add(const Duration(days: 1));
 
-    // ── Demo data (remove when using Supabase) ──
-    final slots = <TimeSlot>[];
-    // Generate slots from 8:00 AM to 8:00 PM every 30 minutes = 24 slots
-    for (int i = 0; i < 24; i++) {
-      final hour = 8 + (i ~/ 2);   // 8, 8, 9, 9, 10 ...
-      final minute = (i % 2) * 30; // 0, 30, 0, 30 ...
-      slots.add(TimeSlot(
-        id: 'slot_$i',
-        dateTime: DateTime(
-            _selectedDay.year, _selectedDay.month, _selectedDay.day, hour, minute),
-        isAvailable: i != 5 && i != 11 && i != 18,
-      ));
+      final slotsResponse = await supabase
+          .from('time_slots')
+          .select('id, slot_time, is_available')
+          .eq('ExpertID', widget.expertId)
+          .gte('slot_time', start.toIso8601String())
+          .lt('slot_time', end.toIso8601String())
+          .order('slot_time');
+
+      if (mounted) {
+        setState(() {
+          _expert = ExpertModel.fromMap(expertResponse);
+          _dbSlots = (slotsResponse as List)
+              .map((r) => TimeSlot.fromMap(r))
+              .toList();
+          _generateHalfHourSlots();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-    _timeSlots = slots;
   }
 
-  // ── Booking confirmation ───────────────────
+  void _generateHalfHourSlots() {
+    List<TimeSlot> tempSlots = [];
+    for (int hour = 8; hour <= 19; hour++) {
+      for (int minute in [0, 30]) {
+        final slotTime = DateTime(_selectedDay.year, _selectedDay.month, _selectedDay.day, hour, minute);
+        
+        final dbMatch = _dbSlots.firstWhere(
+          (s) => s.dateTime.hour == hour && s.dateTime.minute == minute,
+          orElse: () => TimeSlot(dateTime: slotTime, isAvailable: false),
+        );
+
+        bool existsInDb = _dbSlots.any((s) => s.dateTime.hour == hour && s.dateTime.minute == minute);
+
+        tempSlots.add(TimeSlot(
+          id: existsInDb ? dbMatch.id : null,
+          dateTime: slotTime,
+          isAvailable: existsInDb ? dbMatch.isAvailable : false,
+        ));
+      }
+    }
+    _displaySlots = tempSlots;
+  }
+
+  Future<int> _fetchAvailableCountForDay(DateTime day) async {
+    final start = DateTime.utc(day.year, day.month, day.day);
+    final end = start.add(const Duration(days: 1));
+    
+    final response = await supabase
+        .from('time_slots')
+        .select('id')
+        .eq('ExpertID', widget.expertId)
+        .eq('is_available', true)
+        .gte('slot_time', start.toIso8601String())
+        .lt('slot_time', end.toIso8601String());
+    
+    return (response as List).length;
+  }
 
   Future<void> _confirmBooking() async {
-    if (_selectedSlotId == null) return;
+  if (_selectedSlotId == null) return;
 
-    // SUPABASE: Insert a new booking into the "bookings" table
-    // await supabase.from('bookings').insert({    // SUPABASE: table name
-    //   'expert_id': widget.expertId,             // SUPABASE: expert foreign key
-    //   'slot_id': _selectedSlotId,               // SUPABASE: time slot foreign key
-    //   'user_id': supabase.auth.currentUser?.id, // SUPABASE: logged-in user id
-    //   'created_at': DateTime.now().toIso8601String(),
-    // });
+  // Find the actual DateTime object for the selected slot
+  final selectedSlot = _dbSlots.firstWhere((s) => s.id == _selectedSlotId);
 
-    // SUPABASE: Mark the slot as unavailable after booking
-    // await supabase
-    //     .from('time_slots')                     // SUPABASE: table name
-    //     .update({'is_available': false})         // SUPABASE: set unavailable
-    //     .eq('id', _selectedSlotId!);             // SUPABASE: target slot id
+  try {
+    // SUPABASE: Insert booking matching your exact schema columns
+    await supabase.from('Bookings').insert({
+      'ExpertID': widget.expertId,
+      'UserID': supabase.auth.currentUser?.id,
+      'slot_time': selectedSlot.dateTime.toIso8601String(), // MATCHES YOUR IMAGE
+      'is_confirmed': true,                                // MATCHES YOUR IMAGE
+      'created_at': DateTime.now().toIso8601String(),
+    });
+
+    // SUPABASE: Mark the slot as unavailable
+    await supabase
+        .from('time_slots')
+        .update({'is_available': false})
+        .eq('id', _selectedSlotId!);
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('تم الحجز بنجاح!'),
-        backgroundColor: kPrimary,
-      ),
+      const SnackBar(content: Text('تم الحجز بنجاح!'), backgroundColor: kPrimary),
+    );
+    
+    // Refresh data to show the slot is now unavailable
+    _loadData(); 
+  } catch (e) {
+    debugPrint('Booking error: $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('حدث خطأ أثناء الحجز'), backgroundColor: Colors.red),
     );
   }
+}
 
-  // ── Helpers ────────────────────────────────
-
-  List<DateTime> get _daysInSelectedMonth {
-    final first = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
-    final last = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0);
-    return List.generate(
-      last.day,
-      (i) => DateTime(first.year, first.month, i + 1),
-    );
-  }
-
-  int _availableSlotsForDay(DateTime day) {
-    // SUPABASE: In production this count comes from the fetched slots per day
-    if (day.day == 5) return 1;
-    if (day.day == 4) return 3;
-    if (day.day == 6) return 1;
-    return 0;
+  List<DateTime> _getDaysInMonth(DateTime month) {
+    final lastDay = DateTime(month.year, month.month + 1, 0).day;
+    return List.generate(lastDay, (i) => DateTime(month.year, month.month, i + 1));
   }
 
   String _arabicWeekday(DateTime date) {
-    const days = [
-      'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس',
-      'الجمعة', 'السبت', 'الأحد'
-    ];
+    const days = ['الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
     return days[date.weekday - 1];
   }
 
   String _arabicMonth(DateTime date) {
-    const months = [
-      'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
-    ];
+    const months = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
     return '${months[date.month - 1]} ${date.year}';
   }
 
-  String _formatSelectedDate() {
-    return '${_selectedDay.year}-'
-        '${_selectedDay.month.toString().padLeft(2, '0')}-'
-        '${_selectedDay.day.toString().padLeft(2, '0')}';
-  }
-
   String _formatSlotTime(DateTime dt) {
-    final isPM = dt.hour >= 12;
     final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
     final minute = dt.minute.toString().padLeft(2, '0');
-    final period = isPM ? 'م' : 'ص';
-    return '$hour:$minute $period';
+    return '$hour:$minute ${dt.hour >= 12 ? 'م' : 'ص'}';
   }
-
-  // ─────────────────────────────────────────────
-  // BUILD
-  // ─────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -263,41 +242,28 @@ class _BookingPageState extends State<BookingPage> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: AppColors.header,
-        body: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(color: AppColors.darkBrown))
+        body: _isLoading && _expert == null
+            ? const Center(child: CircularProgressIndicator(color: AppColors.darkBrown))
             : Column(
                 children: [
-                  SafeArea(
-                    bottom: false,
-                    child: SizedBox(
-                      height: 90, // reduce this number until it looks right
-                      child: HeaderBackground(
-                        title: 'اختر التاريخ و الوقت',
-                      ),
-                    ),
-                  ),
+                  SafeArea(bottom: false, child: SizedBox(height: 90, child: HeaderBackground(title: 'اختر التاريخ و الوقت'))),
                   Expanded(
                     child: Container(
                       decoration: const BoxDecoration(
                         color: kBackground,
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(30),
-                          topRight: Radius.circular(30),
-                        ),
+                        borderRadius: BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
                       ),
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 20),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             _buildExpertCard(),
                             const SizedBox(height: 16),
-                            _buildMonthSelector(),
+                            _buildMonthScrollSelector(),
                             const SizedBox(height: 12),
-                            _buildDaySelector(),
-                            const SizedBox(height: 16),
+                            _buildDayScrollSelector(),
+                            const SizedBox(height: 16), // Restored some space for breathing
                             _buildTimeSlotsGrid(),
                           ],
                         ),
@@ -311,56 +277,39 @@ class _BookingPageState extends State<BookingPage> {
     );
   }
 
-  // ── Expert Card ────────────────────────────
-
   Widget _buildExpertCard() {
-    final expert = _expert!;
+    if (_expert == null) return const SizedBox();
     return Container(
-      decoration: BoxDecoration(
-        color: kCard,
-        borderRadius: BorderRadius.circular(16),
-      ),
+      decoration: BoxDecoration(color: kCard, borderRadius: BorderRadius.circular(16)),
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
           Row(
             children: [
-              // SUPABASE: If avatar_url is set, load it with Image.network
               CircleAvatar(
                 radius: 28,
                 backgroundColor: const Color(0xFFD9D5C5),
-                child: expert.avatarUrl != null
-                    // SUPABASE: Load avatar from Supabase Storage URL
-                    ? ClipOval(
-                        child: Image.network(expert.avatarUrl!, fit: BoxFit.cover))
-                    : const Icon(Icons.person, color: kPrimary, size: 30),
+                backgroundImage: _expert!.avatarUrl != null ? NetworkImage(_expert!.avatarUrl!) : null,
+                child: _expert!.avatarUrl == null ? const Icon(Icons.person, color: kPrimary) : null,
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(expert.name,
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.right),
-                    Text(expert.title,
-                        style: const TextStyle(
-                            fontSize: 13, color: Colors.grey),
-                        textAlign: TextAlign.right),
+                    Text(_expert!.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(_expert!.title, style: const TextStyle(fontSize: 13, color: Colors.grey)),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              const Icon(Icons.chevron_left, color: Colors.grey),
             ],
           ),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _infoChip(Icons.monetization_on_outlined, expert.priceLabel),
-              _infoChip(Icons.location_on_outlined, expert.location),
+              _infoChip(Icons.monetization_on_outlined, 'الاستشارة تبدأ من ٣٠٠ ريال'),
+              _infoChip(Icons.location_on_outlined, 'السعودية'),
             ],
           ),
         ],
@@ -372,53 +321,35 @@ class _BookingPageState extends State<BookingPage> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label,
-            style: const TextStyle(fontSize: 12, color: Colors.black87)),
-        const SizedBox(width: 4),
         Icon(icon, size: 16, color: kPrimary),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.black87)),
       ],
     );
   }
 
-  // ── Month Selector ─────────────────────────
-
-  Widget _buildMonthSelector() {
+  Widget _buildMonthScrollSelector() {
     return SizedBox(
-      height: 40,
-      child: ListView.separated(
+      height: 42, // Slightly taller for cleaner padding
+      child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: _months.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final month = _months[index];
-          final isSelected = month.month == _selectedMonth.month &&
-              month.year == _selectedMonth.year;
+          final isSelected = month.month == _selectedMonth.month && month.year == _selectedMonth.year;
           return GestureDetector(
             onTap: () {
               setState(() {
                 _selectedMonth = month;
                 _selectedDay = DateTime(month.year, month.month, 1);
-                _selectedSlotId = null;
               });
-              // SUPABASE: Re-fetch slots for the new selected month
-              _fetchTimeSlots();
+              _loadData();
             },
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? kPrimary : kCard,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                _arabicMonth(month),
-                style: TextStyle(
-                  color: isSelected ? Colors.white : Colors.black87,
-                  fontWeight:
-                      isSelected ? FontWeight.bold : FontWeight.normal,
-                  fontSize: 13,
-                ),
-              ),
+              margin: const EdgeInsets.symmetric(horizontal: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              decoration: BoxDecoration(color: isSelected ? kPrimary : kCard, borderRadius: BorderRadius.circular(20)),
+              child: Center(child: Text(_arabicMonth(month), style: TextStyle(color: isSelected ? Colors.white : Colors.black87, fontSize: 13))),
             ),
           );
         },
@@ -426,141 +357,95 @@ class _BookingPageState extends State<BookingPage> {
     );
   }
 
-  // ── Day Selector ───────────────────────────
-
-  Widget _buildDaySelector() {
-    final days = _daysInSelectedMonth;
-    final selectedIndex = days.indexWhere((d) => d.day == _selectedDay.day);
-    final start = (selectedIndex - 1).clamp(0, days.length - 3);
-    final visible = days.sublist(start, (start + 3).clamp(0, days.length));
-
-    return Row(
-      children: visible.map((day) {
-        final isSelected = day.day == _selectedDay.day;
-        final slots = _availableSlotsForDay(day);
-        return Expanded(
-          child: GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedDay = day;
-                _selectedSlotId = null;
-              });
-              // SUPABASE: Re-fetch slots for the newly selected day
-              _fetchTimeSlots();
-            },
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: isSelected ? kPrimary : kCard,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isSelected ? kPrimary : Colors.grey.shade300,
+  Widget _buildDayScrollSelector() {
+    final days = _getDaysInMonth(_selectedMonth);
+    return SizedBox(
+      height: 95, 
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: days.length,
+        itemBuilder: (context, index) {
+          final day = days[index];
+          final isSelected = day.day == _selectedDay.day && day.month == _selectedDay.month;
+          
+          return FutureBuilder<int>(
+            future: _fetchAvailableCountForDay(day),
+            builder: (context, snapshot) {
+              final count = snapshot.data ?? 0;
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _selectedDay = day;
+                    _selectedSlotId = null;
+                    _selectedSlotTime = null;
+                  });
+                  _loadData();
+                },
+                child: Container(
+                  width: 78,
+                  margin: const EdgeInsets.symmetric(horizontal: 5),
+                  decoration: BoxDecoration(
+                    color: isSelected ? kPrimary : kCard,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: isSelected ? kPrimary : Colors.grey.shade300),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(day.day.toString(), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isSelected ? Colors.white : Colors.black)),
+                      Text(_arabicWeekday(day), style: TextStyle(fontSize: 10, color: isSelected ? Colors.white70 : Colors.black54)),
+                      const SizedBox(height: 5),
+                      Text('متاح: $count', style: TextStyle(fontSize: 9, color: isSelected ? Colors.white60 : kPrimary, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                 ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    day.day.toString(),
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? Colors.white : Colors.black,
-                    ),
-                  ),
-                  Text(
-                    _arabicWeekday(day),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isSelected ? Colors.white70 : Colors.black54,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'الأوقات المتاحة $slots',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: isSelected ? Colors.white60 : Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }).toList(),
+              );
+            }
+          );
+        },
+      ),
     );
   }
 
-  // ── Time Slots Grid ────────────────────────
-
   Widget _buildTimeSlotsGrid() {
+    if (_displaySlots.isEmpty) return const SizedBox();
     return GridView.builder(
-      padding: EdgeInsets.zero,
+      padding: const EdgeInsets.only(bottom: 10),
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        childAspectRatio: 2.2,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
+        crossAxisCount: 4, 
+        childAspectRatio: 2.2, 
+        crossAxisSpacing: 10, 
+        mainAxisSpacing: 10
       ),
-      itemCount: _timeSlots.length,
+      itemCount: _displaySlots.length,
       itemBuilder: (context, index) {
-        final slot = _timeSlots[index];
-        final isSelected = slot.id == _selectedSlotId;
-
-        Color bgColor;
-        Color textColor;
-        Border? border;
-
-        if (!slot.isAvailable) {
-          bgColor = kSlotUnavailable;
-          textColor = Colors.white54;
-          border = null;
-        } else if (isSelected) {
-          bgColor = Colors.white;
-          textColor = kPrimary;
-          border = Border.all(color: kPrimary, width: 1.5);
-        } else {
-          bgColor = kSlotAvailable;
-          textColor = Colors.white;
-          border = null;
-        }
-
+        final slot = _displaySlots[index];
+        final isSelected = _selectedSlotTime == slot.dateTime;
         return GestureDetector(
-          onTap: slot.isAvailable
-              ? () => setState(() => _selectedSlotId = slot.id)
-              : null,
+          onTap: slot.isAvailable ? () => setState(() {
+            _selectedSlotId = slot.id;
+            _selectedSlotTime = slot.dateTime;
+          }) : null,
           child: Container(
             decoration: BoxDecoration(
-              color: bgColor,
+              color: !slot.isAvailable ? kSlotUnavailable : (isSelected ? Colors.white : kSlotAvailable),
               borderRadius: BorderRadius.circular(10),
-              border: border,
+              border: isSelected ? Border.all(color: kPrimary, width: 2) : null,
             ),
             alignment: Alignment.center,
-            child: Text(
-              // SUPABASE: Format slot time from the real dateTime
-              _formatSlotTime(slot.dateTime),
-              style: TextStyle(
-                fontSize: 12,
-                color: textColor,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            child: Text(_formatSlotTime(slot.dateTime), style: TextStyle(fontSize: 11, color: isSelected ? kPrimary : Colors.white)),
           ),
         );
       },
     );
   }
 
-  // ── Bottom Bar ─────────────────────────────
-
   Widget _buildBottomBar() {
     return Container(
-      color: Color(0xFFF5F5F5),
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+      color: const Color(0xFFF5F5F5),
+      padding: const EdgeInsets.fromLTRB(16, 15, 16, 20), // Increased padding for comfort
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -572,33 +457,20 @@ class _BookingPageState extends State<BookingPage> {
               _legendItem('متاح', kSlotAvailable),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 15),
           Row(
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
-              Text(
-                _selectedSlotId != null
-                    ? _formatSlotTime(
-                        _timeSlots
-                            .firstWhere((s) => s.id == _selectedSlotId)
-                            .dateTime,
-                      )
-                    : '--:--',
-                style: const TextStyle(fontSize: 13),
-              ),
-              const SizedBox(width: 4),
-              const Icon(Icons.alarm, size: 16, color: Colors.black54),
-              const SizedBox(width: 16),
-              Text(
-                _formatSelectedDate(),
-                style: const TextStyle(fontSize: 13),
-              ),
-              const SizedBox(width: 4),
-              const Icon(Icons.calendar_today,
-                  size: 16, color: Colors.black54),
+              Text(_selectedSlotTime != null ? _formatSlotTime(_selectedSlotTime!) : '--:--', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+              const SizedBox(width: 6),
+              const Icon(Icons.alarm, size: 18, color: Colors.black54),
+              const SizedBox(width: 20),
+              Text('${_selectedDay.year}-${_selectedDay.month.toString().padLeft(2, '0')}-${_selectedDay.day.toString().padLeft(2, '0')}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+              const SizedBox(width: 6),
+              const Icon(Icons.calendar_today, size: 18, color: Colors.black54),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 15),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -606,26 +478,14 @@ class _BookingPageState extends State<BookingPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: kPrimary,
                 disabledBackgroundColor: kPrimary.withOpacity(0.5),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text(
-                'تأكيد الحجز',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              child: const Text('تأكيد الحجز', style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            '© 2025-2026',
-            style: TextStyle(fontSize: 11, color: Colors.grey),
-          ),
+          const SizedBox(height: 10),
+          const Text('© 2025-2026', style: TextStyle(fontSize: 11, color: Colors.grey)),
         ],
       ),
     );
@@ -636,15 +496,8 @@ class _BookingPageState extends State<BookingPage> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(label, style: const TextStyle(fontSize: 12)),
-        const SizedBox(width: 4),
-        Container(
-          width: 14,
-          height: 14,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
-        ),
+        const SizedBox(width: 6),
+        Container(width: 14, height: 14, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
       ],
     );
   }

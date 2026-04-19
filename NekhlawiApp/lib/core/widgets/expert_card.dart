@@ -8,6 +8,7 @@ class ExpertCard extends StatelessWidget {
   final String specialization;
   final int pricePerHour;
   final VoidCallback onOpenProfile;
+  final String expertId;
   
 
   const ExpertCard({
@@ -16,6 +17,7 @@ class ExpertCard extends StatelessWidget {
     required this.specialization,
     required this.pricePerHour,
     required this.onOpenProfile,
+    required this.expertId,
   });
 
   @override
@@ -111,7 +113,7 @@ class ExpertCard extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const BookingPage(),
+                          builder: (_) => BookingPage(expertId: expertId),
                         ),
                       );
                     },
