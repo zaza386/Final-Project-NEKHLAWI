@@ -4,6 +4,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/widgets/custom_input.dart';
 import 'terms_and_conditions_page.dart';
 import 'login_page.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+final supabase = Supabase.instance.client;
 
 class UserProfilePage extends StatefulWidget {
   const UserProfilePage({super.key});
@@ -37,10 +40,14 @@ class _UserProfilePageState extends State<UserProfilePage> {
   Future<void> fetchHeaderImages() async {
     final client = Supabase.instance.client;
 
-    final response = await client.storage.from('pic').list(path: 'profile_headers');
+    final response = await client.storage
+        .from('pic')
+        .list(path: 'profile_headers');
 
     final urls = response.map((file) {
-      return client.storage.from('pic').getPublicUrl('profile_headers/${file.name}');
+      return client.storage
+          .from('pic')
+          .getPublicUrl('profile_headers/${file.name}');
     }).toList();
 
     setState(() => headerImages = urls);
@@ -67,7 +74,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
   void goHome() => Navigator.pop(context);
 
   void goTerms() {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsAndConditionsPage()));
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const TermsAndConditionsPage()),
+    );
   }
 
   Future<void> goLogin() async {
@@ -76,9 +86,9 @@ class _UserProfilePageState extends State<UserProfilePage> {
       await Supabase.instance.client.auth.signOut();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ في تسجيل الخروج: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('خطأ في تسجيل الخروج: $e')));
       }
     }
 
@@ -98,9 +108,14 @@ class _UserProfilePageState extends State<UserProfilePage> {
           textDirection: TextDirection.rtl,
           child: AlertDialog(
             title: const Text("تأكيد حذف الحساب"),
-            content: const Text("هل أنت متأكد من حذف الحساب؟ هذا الإجراء لا يمكن التراجع عنه."),
+            content: const Text(
+              "هل أنت متأكد من حذف الحساب؟ هذا الإجراء لا يمكن التراجع عنه.",
+            ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("إلغاء")),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text("إلغاء"),
+              ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(ctx, true),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -113,10 +128,20 @@ class _UserProfilePageState extends State<UserProfilePage> {
     );
 
     if (ok == true) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("تم اختيار حذف الحساب (غير مربوط حالياً).")),
-      );
+      try {
+        final userId = supabase.auth.currentUser!.id;
+        await supabase.from('User').delete().eq('UserID', userId);
+
+        await supabase.auth.signOut();
+
+        if (!mounted) return;
+        Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -196,7 +221,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => const TermsAndConditionsPage()),
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const TermsAndConditionsPage(),
+                            ),
                           );
                         },
                       ),
@@ -310,7 +338,9 @@ class _Header extends StatelessWidget {
               child: headerImages.isEmpty
                   ? Container(
                       color: AppColors.header,
-                      child: const Center(child: CircularProgressIndicator(color: Colors.white)),
+                      child: const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      ),
                     )
                   : PageView.builder(
                       itemCount: headerImages.length,
@@ -320,7 +350,11 @@ class _Header extends StatelessWidget {
                         errorBuilder: (_, __, ___) => Container(
                           color: AppColors.header,
                           child: const Center(
-                            child: Icon(Icons.image_outlined, color: Colors.white, size: 42),
+                            child: Icon(
+                              Icons.image_outlined,
+                              color: Colors.white,
+                              size: 42,
+                            ),
                           ),
                         ),
                       ),
@@ -336,7 +370,10 @@ class _Header extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _CircleIconButton(icon: Icons.arrow_back, onTap: onBack),
-                _CircleIconButton(icon: isEditing ? Icons.check : Icons.edit, onTap: onToggleEdit),
+                _CircleIconButton(
+                  icon: isEditing ? Icons.check : Icons.edit,
+                  onTap: onToggleEdit,
+                ),
               ],
             ),
           ),
@@ -360,9 +397,15 @@ class _Header extends StatelessWidget {
               padding: const EdgeInsets.all(4),
               child: CircleAvatar(
                 backgroundColor: const Color(0xFFEFF2F8),
-                backgroundImage: avatarUrl == null ? null : NetworkImage(avatarUrl!),
+                backgroundImage: avatarUrl == null
+                    ? null
+                    : NetworkImage(avatarUrl!),
                 child: avatarUrl == null
-                    ? const Icon(Icons.person, size: 48, color: Color(0xFF8B95A5))
+                    ? const Icon(
+                        Icons.person,
+                        size: 48,
+                        color: Color(0xFF8B95A5),
+                      )
                     : null,
               ),
             ),
@@ -429,7 +472,10 @@ class _NavTile extends StatelessWidget {
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1F2937)),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1F2937),
+                ),
               ),
             ),
             const Icon(Icons.chevron_left, color: Color(0xFF9CA3AF)),
@@ -471,7 +517,10 @@ class _DangerTile extends StatelessWidget {
             Expanded(
               child: Text(
                 title,
-                style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.red),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: Colors.red,
+                ),
               ),
             ),
             const Icon(Icons.chevron_left, color: Colors.red),
@@ -506,10 +555,7 @@ class _CircleIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
 
-  const _CircleIconButton({
-    required this.icon,
-    required this.onTap,
-  });
+  const _CircleIconButton({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -534,7 +580,12 @@ class _CurvedHeaderClipper extends CustomClipper<Path> {
   Path getClip(Size size) {
     final path = Path();
     path.lineTo(0, size.height - 70);
-    path.quadraticBezierTo(size.width * 0.5, size.height, size.width, size.height - 70);
+    path.quadraticBezierTo(
+      size.width * 0.5,
+      size.height,
+      size.width,
+      size.height - 70,
+    );
     path.lineTo(size.width, 0);
     path.close();
     return path;

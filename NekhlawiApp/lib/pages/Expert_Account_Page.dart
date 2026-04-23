@@ -207,36 +207,51 @@ class _ExpertAccountPageState extends State<ExpertAccountPage> {
     );
   }
 
-  Future<void> _confirmDeleteAccount() async {
+Future<void> confirmDeleteAccount() async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          title: const Text('تأكيد حذف الحساب'),
-          content: const Text(
-              'هل أنت متأكد من حذف حسابك كخبير؟ هذا الإجراء لا يمكن التراجع عنه.'),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('إلغاء')),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style:
-                  ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('حذف'),
+      builder: (ctx) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            title: const Text("تأكيد حذف الحساب"),
+            content: const Text(
+              "هل أنت متأكد من حذف الحساب؟ هذا الإجراء لا يمكن التراجع عنه.",
             ),
-          ],
-        ),
-      ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text("إلغاء"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: const Text("حذف"),
+              ),
+            ],
+          ),
+        );
+      },
     );
-    if (ok == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('تم اختيار حذف الحساب (غير مربوط حالياً).')),
-      );
+
+    if (ok == true) {
+      try {
+        final userId = supabase.auth.currentUser!.id;
+        await supabase.from('User').delete().eq('UserID', userId);
+
+        await supabase.auth.signOut();
+
+        if (!mounted) return;
+        Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
+
 
   // ── Build ───────────────────────────────────
 
@@ -438,7 +453,7 @@ class _ExpertAccountPageState extends State<ExpertAccountPage> {
                               _DangerTile(
                                 title: 'حذف الحساب',
                                 icon: Icons.delete_outline,
-                                onTap: _confirmDeleteAccount,
+                                onTap: confirmDeleteAccount,
                               ),
                               const SizedBox(height: 16),
                             ],
