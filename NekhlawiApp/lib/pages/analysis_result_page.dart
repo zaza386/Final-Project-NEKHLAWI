@@ -6,6 +6,8 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:flutter/services.dart';
 import 'booking_experts_page.dart';
+import 'package:exif/exif.dart';
+import 'dart:convert'; // ضروري لتحويل البيانات لـ JSON
 
 class AnalysisResultPage extends StatefulWidget {
   final File? imageFile;
@@ -44,20 +46,49 @@ class _AnalysisResultPageState extends State<AnalysisResultPage> {
 
   Future<void> _saveAllDataToDatabase() async {
     try {
+      // 1. حفظ بيانات التشخيص
       if (widget.diseaseInfo != null) {
-        await supabase.from('AIDiagnosis Table').insert({
+        await supabase.from('AIDiagnosis Table').upsert({
           'AISessionID': widget.sessionId,
           'DiseaseID': widget.diseaseInfo!['DiseaseID'],
           'Confidence': "${widget.confidence.toStringAsFixed(0)}%",
         });
       }
 
+      // 2. حفظ بيانات الصورة مع الـ EXIF والأبعاد
       if (widget.imageUrl != null && widget.imageUrl!.isNotEmpty) {
+        int? width;
+        int? height;
+        Map<String, String> exifData = {};
+
+        if (widget.imageFile != null) {
+          final bytes = await widget.imageFile!.readAsBytes();
+
+          // استخراج أبعاد الصورة
+          final decodedImage = await decodeImageFromList(bytes);
+          width = decodedImage.width;
+          height = decodedImage.height;
+
+          // استخراج بيانات الـ EXIF
+          final tags = await readExifFromBytes(bytes);
+          if (tags.isNotEmpty) {
+            tags.forEach((key, value) {
+              // تحويل البيانات لنصوص لتخزينها في JSON
+              exifData[key] = value.toString();
+            });
+          }
+        }
+
         await supabase.from('AISessionPicture').insert({
           'AISessionID': widget.sessionId,
           'FileURL': widget.imageUrl,
+          'Width': width ?? 0,
+          'Height': height ?? 0,
+          // تحويل الماب إلى JSON String ليتم حفظه في حقل الـ json الخاص بـ Supabase
+          'EXIFJson': exifData.isNotEmpty ? exifData : null,
         });
-        print("✅ تم حفظ الصورة في الداتابيز بنجاح");
+
+        print("✅ تم حفظ جميع البيانات (الأبعاد + EXIF) بنجاح");
       }
     } catch (e) {
       debugPrint("❌ خطأ أثناء الحفظ: $e");

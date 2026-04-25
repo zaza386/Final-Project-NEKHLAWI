@@ -39,6 +39,7 @@ dependencies:
   printing: ^5.11.1
   gal: ^2.1.0
   permission_handler: ^11.3.0
+  exif: ^3.1.0
 
 
   # The following adds the Cupertino Icons font to your application.
