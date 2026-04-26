@@ -38,16 +38,16 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> signInWithMagicLink(TextEditingController emailAddress) async {
     String emailAddress2 = emailAddress.text;
-     if (emailAddress2.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('الرجاء إدخال البريد الإلكتروني'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    return;
-  }
-  
+    if (emailAddress2.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('الرجاء إدخال البريد الإلكتروني'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     try {
       await supabase.auth.signInWithOtp(
         email: emailAddress2,
@@ -55,24 +55,24 @@ class _LoginPageState extends State<LoginPage> {
         emailRedirectTo: 'io.supabase.flutter://login-callback/',
       );
       ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('✅ تم إرسال الرابط السحري إلى بريدك!'),
-        backgroundColor: Colors.green,
-        duration: Duration(seconds: 4), 
-      ),
-    );
-    
-    emailController.clear(); 
-    
-  } catch (error) {
+        SnackBar(
+          content: Text('✅ تم إرسال الرابط السحري إلى بريدك!'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 4),
+        ),
+      );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('❌ حدث خطأ: $error'),
-        backgroundColor: Colors.red,
-      ),
-    );
-  }
+      emailController.clear();
+
+    } catch (error) {
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ حدث خطأ: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _signInWithPassword() async {
@@ -126,7 +126,7 @@ class _LoginPageState extends State<LoginPage> {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const Wrapper()),
-          (route) => false,
+              (route) => false,
         );
       }
     } on AuthException catch (e) {
