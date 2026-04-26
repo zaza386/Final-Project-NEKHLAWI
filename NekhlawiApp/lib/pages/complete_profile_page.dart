@@ -97,6 +97,7 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       await supabase.from('User').update({
         'Name': nameController.text.trim(),
         'Phone': phoneController.text.trim(),
+        'Role': widget.role, // ensure Role is always persisted - ask doja if cooked
       }).eq('UserID', widget.userId);
 
       /// ======================

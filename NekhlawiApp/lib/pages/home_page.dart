@@ -6,7 +6,7 @@ import '../core/theme/app_colors.dart';
 import '../core/widgets/header_background.dart';
 import 'package:nekhlawi_app/pages/History_page.dart';
 import 'package:nekhlawi_app/pages/user_profile.dart';
-import 'package:nekhlawi_app/pages/Expert_Account_Page.dart'; //ask doja if anything cooked
+import 'package:nekhlawi_app/pages/Expert_Account_Page.dart';
 import 'package:nekhlawi_app/core/widgets/upcoming_sessions_carousel.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -21,7 +21,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   String? userName;
-  String? userRole;           
+  String? userRole;
   String greeting = 'صباح الخير';
 
   @override
@@ -45,10 +45,9 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final supabase = Supabase.instance.client;
-      // Fetch Name AND Role in one call
       final response = await supabase
           .from('User')
-          .select('Name, Role')           //  also select Role
+          .select('Name, Role')
           .eq('UserID', widget.userId!)
           .single();
 
@@ -57,6 +56,7 @@ class _HomePageState extends State<HomePage> {
           userName = response['Name'] ?? 'المستخدم';
           userRole = response['Role'] ?? 'user';
         });
+        print('DEBUG userRole = $userRole'); // ← remove after confirming
       }
     } catch (e) {
       if (mounted) {
@@ -68,9 +68,16 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // ── Navigate to the correct profile page based on role ── ask doja if anything cooked
+  // ── Navigate to the correct profile page based on role ──
   void _goToProfile(BuildContext context) {
-    if (userRole == 'expert') {
+    // Guard: if role not loaded yet, show message
+    if (userRole == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('جاري تحميل البيانات، حاول مرة أخرى')),
+      );
+      return;
+    }
+    if (userRole!.toLowerCase() == 'expert') {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const ExpertAccountPage()),
@@ -214,13 +221,12 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildWelcomeCard(BuildContext context) {
-    // Derive a human-readable role label
-    final isExpert = userRole == 'expert';
-    final roleLabel = isExpert ? 'خبير نخل' : 'مزارع';
+    final isExpert = userRole?.toLowerCase() == 'expert';
+    final roleLabel = isExpert ? 'خبير نخيل' : 'مزارع';
 
     return InkWell(
       borderRadius: BorderRadius.circular(20),
-      onTap: () => _goToProfile(context),   //uses role-aware helper - ask doja if ur cooked
+      onTap: () => _goToProfile(context),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
@@ -236,11 +242,6 @@ class _HomePageState extends State<HomePage> {
         ),
         child: Row(
           children: [
-            // Expert gets a small verified badge icon
-            if (isExpert) ...[
-              const Icon(Icons.verified, color: AppColors.darkBrown, size: 20),
-              const SizedBox(width: 8),
-            ],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

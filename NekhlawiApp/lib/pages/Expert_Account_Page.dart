@@ -34,9 +34,8 @@ class _ExpertAccountPageState extends State<ExpertAccountPage> {
   final newPassCtrl = TextEditingController();
   final confirmPassCtrl = TextEditingController();
 
-  // ── Stats (read-only) ───────────────────────
+  // ── Rating (read-only) ──────────────────────
   double ratingAvg = 0.0;
-  int totalSessions = 0;
 
   final supabase = Supabase.instance.client;
 
@@ -61,7 +60,7 @@ class _ExpertAccountPageState extends State<ExpertAccountPage> {
     super.dispose();
   }
 
-  // ── Data fetching ───────────────────────────
+  // ── Load all expert data from DB ────────────
 
   Future<void> _loadExpertData() async {
     setState(() => isLoading = true);
@@ -69,31 +68,26 @@ class _ExpertAccountPageState extends State<ExpertAccountPage> {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) return;
 
-      // Fetch User table
       final userData = await supabase
           .from('User')
           .select('Name, Phone, Email, CreatedAt')
           .eq('UserID', userId)
           .maybeSingle();
 
-      // Fetch ExpertProfile table
       final expertData = await supabase
           .from('ExpertProfile')
           .select('Specialization, ExperienceYears, Bio, RatingAvg, AvatarUrl')
           .eq('ExpertID', userId)
           .maybeSingle();
 
-      // Fetch total sessions count (bookings)
-      final sessionsResp = await supabase
-          .from('ExpertConsultations')
-          .select('id')
-          .eq('ExpertID', userId);
+      print('DEBUG userData: $userData');
+      print('DEBUG expertData: $expertData');
 
       if (mounted) {
         setState(() {
           nameCtrl.text = userData?['Name'] ?? '';
-          emailCtrl.text = userData?['Email'] ??
-              supabase.auth.currentUser?.email ?? '';
+          emailCtrl.text =
+              userData?['Email'] ?? supabase.auth.currentUser?.email ?? '';
           phoneCtrl.text = userData?['Phone'] ?? '';
 
           final rawDate = userData?['CreatedAt'];
@@ -109,10 +103,8 @@ class _ExpertAccountPageState extends State<ExpertAccountPage> {
           experienceYearsCtrl.text =
               (expertData?['ExperienceYears'] ?? 0).toString();
           bioCtrl.text = expertData?['Bio'] ?? '';
-          ratingAvg =
-              (expertData?['RatingAvg'] ?? 0.0).toDouble();
+          ratingAvg = (expertData?['RatingAvg'] ?? 0.0).toDouble();
           avatarUrl = expertData?['AvatarUrl'];
-          totalSessions = (sessionsResp as List).length;
           isLoading = false;
         });
       }
@@ -137,28 +129,24 @@ class _ExpertAccountPageState extends State<ExpertAccountPage> {
     }
   }
 
-  // ── Save changes ────────────────────────────
+  // ── Save all changes to DB ──────────────────
 
   Future<void> _saveChanges() async {
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) return;
 
     try {
-      // Update User table
       await supabase.from('User').update({
         'Name': nameCtrl.text.trim(),
         'Phone': phoneCtrl.text.trim(),
       }).eq('UserID', userId);
 
-      // Update ExpertProfile table
       await supabase.from('ExpertProfile').update({
         'Specialization': specializationCtrl.text.trim(),
-        'ExperienceYears':
-            int.tryParse(experienceYearsCtrl.text.trim()) ?? 0,
+        'ExperienceYears': int.tryParse(experienceYearsCtrl.text.trim()) ?? 0,
         'Bio': bioCtrl.text.trim(),
       }).eq('ExpertID', userId);
 
-      // Update password if filled
       if (newPassCtrl.text.trim().isNotEmpty &&
           newPassCtrl.text == confirmPassCtrl.text) {
         await supabase.auth.updateUser(
@@ -186,7 +174,7 @@ class _ExpertAccountPageState extends State<ExpertAccountPage> {
     }
   }
 
-  // ── Navigation helpers ──────────────────────
+  // ── Navigation ──────────────────────────────
 
   void goHome() => Navigator.pop(context);
 
@@ -207,51 +195,35 @@ class _ExpertAccountPageState extends State<ExpertAccountPage> {
     );
   }
 
-Future<void> confirmDeleteAccount() async {
+  Future<void> _confirmDeleteAccount() async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) {
-        return Directionality(
-          textDirection: TextDirection.rtl,
-          child: AlertDialog(
-            title: const Text("تأكيد حذف الحساب"),
-            content: const Text(
-              "هل أنت متأكد من حذف الحساب؟ هذا الإجراء لا يمكن التراجع عنه.",
-            ),
-            actions: [
-              TextButton(
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text('تأكيد حذف الحساب'),
+          content: const Text(
+              'هل أنت متأكد من حذف حسابك كخبير؟ هذا الإجراء لا يمكن التراجع عنه.'),
+          actions: [
+            TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text("إلغاء"),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                child: const Text("حذف"),
-              ),
-            ],
-          ),
-        );
-      },
+                child: const Text('إلغاء')),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('حذف'),
+            ),
+          ],
+        ),
+      ),
     );
-
-    if (ok == true) {
-      try {
-        final userId = supabase.auth.currentUser!.id;
-        await supabase.from('User').delete().eq('UserID', userId);
-
-        await supabase.auth.signOut();
-
-        if (!mounted) return;
-        Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
-      } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red),
-        );
-      }
+    if (ok == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('تم اختيار حذف الحساب (غير مربوط حالياً).')),
+      );
     }
   }
-
 
   // ── Build ───────────────────────────────────
 
@@ -269,16 +241,11 @@ Future<void> confirmDeleteAccount() async {
                   padding: const EdgeInsets.only(bottom: 24),
                   child: Column(
                     children: [
-                      // ── Header ────────────────────────────
                       _ExpertHeader(
                         headerImages: headerImages,
                         avatarUrl: avatarUrl,
                         name: nameCtrl.text,
                         specialization: specializationCtrl.text,
-                        ratingAvg: ratingAvg,
-                        totalSessions: totalSessions,
-                        experienceYears:
-                            int.tryParse(experienceYearsCtrl.text) ?? 0,
                         onBack: goHome,
                         isEditing: isEditing,
                         onToggleEdit: () {
@@ -295,11 +262,9 @@ Future<void> confirmDeleteAccount() async {
                       const SizedBox(height: 16),
 
                       Padding(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 16),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Column(
                           children: [
-                            // ── Basic info ────────────────
                             _SectionLabel(label: 'المعلومات الشخصية'),
                             const SizedBox(height: 10),
 
@@ -315,13 +280,13 @@ Future<void> confirmDeleteAccount() async {
                               hint: 'الإيميل',
                               icon: Icons.email_outlined,
                               controller: emailCtrl,
-                              enabled: false, // email cannot be changed here
+                              enabled: false,
                               keyboardType: TextInputType.emailAddress,
                             ),
                             const SizedBox(height: 12),
 
                             CustomInput(
-                              hint: 'رقم التلفون',
+                              hint: 'رقم الجوال',
                               icon: Icons.phone_outlined,
                               controller: phoneCtrl,
                               enabled: isEditing,
@@ -338,7 +303,6 @@ Future<void> confirmDeleteAccount() async {
 
                             const SizedBox(height: 24),
 
-                            // ── Expert-specific info ──────
                             _SectionLabel(label: 'معلومات الخبير'),
                             const SizedBox(height: 10),
 
@@ -359,19 +323,18 @@ Future<void> confirmDeleteAccount() async {
                             ),
                             const SizedBox(height: 12),
 
-                            // Bio – multi-line
+                            // Bio multi-line
                             Container(
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                    color: const Color(0xFFE9ECF3)),
+                                border:
+                                    Border.all(color: const Color(0xFFE9ECF3)),
                               ),
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 4),
                               child: Row(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Padding(
                                     padding: const EdgeInsets.only(top: 14),
@@ -390,7 +353,7 @@ Future<void> confirmDeleteAccount() async {
                                       minLines: 2,
                                       textDirection: TextDirection.rtl,
                                       decoration: const InputDecoration(
-                                        hintText: 'نبذة عن الخبير...',
+                                        hintText: 'نبذة عنك...',
                                         border: InputBorder.none,
                                       ),
                                       style: const TextStyle(fontSize: 14),
@@ -399,15 +362,12 @@ Future<void> confirmDeleteAccount() async {
                                 ],
                               ),
                             ),
-
                             const SizedBox(height: 12),
 
-                            // Rating badge (read-only)
                             _RatingBadge(ratingAvg: ratingAvg),
 
                             const SizedBox(height: 24),
 
-                            // ── Terms link ────────────────
                             _NavTile(
                               title: 'الشروط والأحكام',
                               icon: Icons.description_outlined,
@@ -421,10 +381,8 @@ Future<void> confirmDeleteAccount() async {
 
                             const SizedBox(height: 16),
 
-                            // ── Edit-mode extras ──────────
                             if (isEditing) ...[
-                              _SectionLabel(
-                                  label: 'تعديل كلمة المرور'),
+                              _SectionLabel(label: 'تعديل كلمة المرور'),
                               const SizedBox(height: 10),
 
                               CustomInput(
@@ -453,12 +411,11 @@ Future<void> confirmDeleteAccount() async {
                               _DangerTile(
                                 title: 'حذف الحساب',
                                 icon: Icons.delete_outline,
-                                onTap: confirmDeleteAccount,
+                                onTap: _confirmDeleteAccount,
                               ),
                               const SizedBox(height: 16),
                             ],
 
-                            // ── Logout ────────────────────
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton.icon(
@@ -470,8 +427,7 @@ Future<void> confirmDeleteAccount() async {
                                   padding: const EdgeInsets.symmetric(
                                       vertical: 14),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(14),
+                                    borderRadius: BorderRadius.circular(14),
                                     side: const BorderSide(
                                         color: Color(0xFFE9ECF3)),
                                   ),
@@ -492,18 +448,15 @@ Future<void> confirmDeleteAccount() async {
   }
 }
 
-// ══════════════════════════════════════════════
-// Expert Header  (replaces the plain user header)
-// ══════════════════════════════════════════════
+
+// Expert Header
+
 
 class _ExpertHeader extends StatelessWidget {
   final List<String> headerImages;
   final String? avatarUrl;
   final String name;
   final String specialization;
-  final double ratingAvg;
-  final int totalSessions;
-  final int experienceYears;
   final VoidCallback onBack;
   final VoidCallback onToggleEdit;
   final bool isEditing;
@@ -515,9 +468,6 @@ class _ExpertHeader extends StatelessWidget {
     required this.avatarUrl,
     required this.name,
     required this.specialization,
-    required this.ratingAvg,
-    required this.totalSessions,
-    required this.experienceYears,
     required this.onBack,
     required this.onToggleEdit,
     required this.isEditing,
@@ -529,68 +479,31 @@ class _ExpertHeader extends StatelessWidget {
     const avatarDiameter = _avatarRadius * 2;
 
     return SizedBox(
-      height: headerHeight + _avatarRadius + 100,
+      height: headerHeight + _avatarRadius + 70,
       child: Stack(
         alignment: Alignment.topCenter,
         children: [
-          // ── Curved banner ────────────────────
+          // Curved banner
           ClipPath(
             clipper: _CurvedHeaderClipper(),
             child: SizedBox(
               height: headerHeight,
               width: double.infinity,
               child: headerImages.isEmpty
-                  ? Container(
-                      color: AppColors.header,
-                      child: const Center(
-                          child: CircularProgressIndicator(
-                              color: Colors.white)),
-                    )
+                  ? Container(color: AppColors.header)
                   : PageView.builder(
                       itemCount: headerImages.length,
                       itemBuilder: (_, i) => Image.network(
                         headerImages[i],
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: AppColors.header,
-                          child: const Center(
-                            child: Icon(Icons.image_outlined,
-                                color: Colors.white, size: 42),
-                          ),
-                        ),
+                        errorBuilder: (_, __, ___) =>
+                            Container(color: AppColors.header),
                       ),
                     ),
             ),
           ),
 
-          // ── Expert badge overlay on banner ───
-          Positioned(
-            top: headerHeight - 44,
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.darkBrown.withOpacity(0.85),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.verified, color: Colors.white, size: 14),
-                  const SizedBox(width: 5),
-                  const Text(
-                    'خبير نخل معتمد',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // ── Back & edit buttons ──────────────
+          // Back & edit buttons
           Positioned(
             top: 6,
             left: 12,
@@ -606,7 +519,7 @@ class _ExpertHeader extends StatelessWidget {
             ),
           ),
 
-          // ── Avatar ───────────────────────────
+          // Avatar 
           Positioned(
             top: headerHeight - _avatarRadius,
             child: Container(
@@ -615,8 +528,6 @@ class _ExpertHeader extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.white,
-                border: Border.all(
-                    color: AppColors.primary.withOpacity(0.6), width: 3),
                 boxShadow: [
                   BoxShadow(
                     blurRadius: 18,
@@ -631,13 +542,14 @@ class _ExpertHeader extends StatelessWidget {
                 backgroundImage:
                     avatarUrl == null ? null : NetworkImage(avatarUrl!),
                 child: avatarUrl == null
-                    ? const Icon(Icons.person, size: 48, color: Color(0xFF8B95A5))
+                    ? const Icon(Icons.person,
+                        size: 48, color: Color(0xFF8B95A5))
                     : null,
               ),
             ),
           ),
 
-          // ── Name + specialization + stats ────
+          // Name + specialization
           Positioned(
             top: headerHeight + _avatarRadius + 8,
             left: 16,
@@ -652,7 +564,7 @@ class _ExpertHeader extends StatelessWidget {
                     color: Color(0xFF1F2937),
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 if (specialization.isNotEmpty)
                   Text(
                     specialization,
@@ -662,34 +574,6 @@ class _ExpertHeader extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                const SizedBox(height: 10),
-
-                // ── Stats row ─────────────────
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _StatBadge(
-                      icon: Icons.star_rounded,
-                      iconColor: const Color(0xFFE4A01D),
-                      value: ratingAvg.toStringAsFixed(1),
-                      label: 'التقييم',
-                    ),
-                    const SizedBox(width: 12),
-                    _StatBadge(
-                      icon: Icons.calendar_today_outlined,
-                      iconColor: AppColors.primary,
-                      value: totalSessions.toString(),
-                      label: 'الجلسات',
-                    ),
-                    const SizedBox(width: 12),
-                    _StatBadge(
-                      icon: Icons.timeline,
-                      iconColor: AppColors.darkBrown,
-                      value: '$experienceYears سنة',
-                      label: 'الخبرة',
-                    ),
-                  ],
-                ),
               ],
             ),
           ),
@@ -699,9 +583,9 @@ class _ExpertHeader extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════
-// Rating read-only badge
-// ══════════════════════════════════════════════
+
+// Rating badge (read-only)
+
 
 class _RatingBadge extends StatelessWidget {
   final double ratingAvg;
@@ -719,8 +603,7 @@ class _RatingBadge extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.star_rounded,
-              color: Color(0xFFE4A01D), size: 22),
+          const Icon(Icons.star_rounded, color: Color(0xFFE4A01D), size: 22),
           const SizedBox(width: 10),
           Text(
             'متوسط التقييم: ${ratingAvg.toStringAsFixed(1)} / 5',
@@ -728,7 +611,6 @@ class _RatingBadge extends StatelessWidget {
                 fontWeight: FontWeight.w700, color: Color(0xFF1F2937)),
           ),
           const Spacer(),
-          // Star row
           Row(
             children: List.generate(5, (i) {
               return Icon(
@@ -746,57 +628,9 @@ class _RatingBadge extends StatelessWidget {
   }
 }
 
-// ══════════════════════════════════════════════
-// Shared small widgets
-// ══════════════════════════════════════════════
 
-class _StatBadge extends StatelessWidget {
-  final IconData icon;
-  final Color iconColor;
-  final String value;
-  final String label;
+// Shared widgets
 
-  const _StatBadge({
-    required this.icon,
-    required this.iconColor,
-    required this.value,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE9ECF3)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: iconColor, size: 18),
-          const SizedBox(height: 4),
-          Text(value,
-              style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1F2937))),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 10, color: Color(0xFF6B7280))),
-        ],
-      ),
-    );
-  }
-}
 
 class _SectionLabel extends StatelessWidget {
   final String label;
