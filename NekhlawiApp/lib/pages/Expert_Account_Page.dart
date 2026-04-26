@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/widgets/custom_input.dart';
 import 'terms_and_conditions_page.dart';
 import 'login_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ExpertAccountPage extends StatefulWidget {
   const ExpertAccountPage({super.key});
@@ -60,59 +61,95 @@ class _ExpertAccountPageState extends State<ExpertAccountPage> {
     super.dispose();
   }
 
-  // ── Load all expert data from DB ────────────
+  Future<void> _launchSupportEmail() async {
+  final Uri emailUri = Uri(
+    scheme: 'mailto',
+    path: 'support@nekhlawi.com',
+    queryParameters: {
+      'subject': 'طلب دعم - تطبيق نخلاوي',
+      'body': 'السلام عليكم،\n\nأحتاج مساعدة في:\n\n',
+    },
+  );
 
-  Future<void> _loadExpertData() async {
-    setState(() => isLoading = true);
-    try {
-      final userId = supabase.auth.currentUser?.id;
-      if (userId == null) return;
-
-      final userData = await supabase
-          .from('User')
-          .select('Name, Phone, Email, CreatedAt')
-          .eq('UserID', userId)
-          .maybeSingle();
-
-      final expertData = await supabase
-          .from('ExpertProfile')
-          .select('Specialization, ExperienceYears, Bio, RatingAvg, AvatarUrl')
-          .eq('ExpertID', userId)
-          .maybeSingle();
-
-      print('DEBUG userData: $userData');
-      print('DEBUG expertData: $expertData');
-
-      if (mounted) {
-        setState(() {
-          nameCtrl.text = userData?['Name'] ?? '';
-          emailCtrl.text =
-              userData?['Email'] ?? supabase.auth.currentUser?.email ?? '';
-          phoneCtrl.text = userData?['Phone'] ?? '';
-
-          final rawDate = userData?['CreatedAt'];
-          if (rawDate != null) {
-            final dt = DateTime.tryParse(rawDate.toString());
-            if (dt != null) {
-              memberSinceCtrl.text =
-                  '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
-            }
-          }
-
-          specializationCtrl.text = expertData?['Specialization'] ?? '';
-          experienceYearsCtrl.text =
-              (expertData?['ExperienceYears'] ?? 0).toString();
-          bioCtrl.text = expertData?['Bio'] ?? '';
-          ratingAvg = (expertData?['RatingAvg'] ?? 0.0).toDouble();
-          avatarUrl = expertData?['AvatarUrl'];
-          isLoading = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading expert data: $e');
-      if (mounted) setState(() => isLoading = false);
+  if (await canLaunchUrl(emailUri)) {
+    await launchUrl(emailUri);
+  } else {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تعذّر فتح تطبيق البريد. يمكنك التواصل على: support@nekhlawi.com'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
+}
+
+  // ── Load all expert data from DB ────────────
+
+Future<void> _loadExpertData() async {
+  setState(() => isLoading = true);
+  try {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) {
+      debugPrint('❌ No user logged in');
+      setState(() => isLoading = false);
+      return;
+    }
+
+    debugPrint('✅ Fetching data for user: $userId');
+
+    final userData = await supabase
+        .from('User')
+        .select('Name, Phone, Email, CreatedAt')
+        .eq('UserID', userId)
+        .maybeSingle();
+
+    debugPrint('✅ userData: $userData');
+
+    final expertData = await supabase
+        .from('ExpertProfile')
+        .select('Specialization, ExperienceYears, Bio, RatingAvg')
+        .eq('ExpertID', userId)
+        .maybeSingle();
+
+    debugPrint('✅ expertData: $expertData');
+
+    if (mounted) {
+      setState(() {
+        nameCtrl.text = userData?['Name'] ?? '';
+        emailCtrl.text =
+            userData?['Email'] ?? supabase.auth.currentUser?.email ?? '';
+        phoneCtrl.text = userData?['Phone'] ?? '';
+
+        final rawDate = userData?['CreatedAt'];
+        if (rawDate != null) {
+          final dt = DateTime.tryParse(rawDate.toString());
+          if (dt != null) {
+            memberSinceCtrl.text =
+                '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+          }
+        }
+
+        specializationCtrl.text = expertData?['Specialization'] ?? '';
+        experienceYearsCtrl.text =
+            (expertData?['ExperienceYears'] ?? 0).toString();
+        bioCtrl.text = expertData?['Bio'] ?? '';
+        ratingAvg = (expertData?['RatingAvg'] ?? 0.0).toDouble();
+        isLoading = false;
+      });
+    }
+  } catch (e) {
+    debugPrint('❌ Error loading expert data: $e');
+    if (mounted) {
+      setState(() => isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('خطأ في تحميل البيانات: $e')),
+      );
+    }
+  }
+}
 
   Future<void> _fetchHeaderImages() async {
     try {
@@ -157,14 +194,15 @@ class _ExpertAccountPageState extends State<ExpertAccountPage> {
       }
 
       if (mounted) {
-        setState(() => isEditing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ تم حفظ التعديلات بنجاح'),
-            backgroundColor: Color(0xFF7B8646),
-          ),
-        );
-      }
+  await _loadExpertData(); 
+  setState(() => isEditing = false);
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('✅ تم حفظ التعديلات بنجاح'),
+      backgroundColor: Color(0xFF7B8646),
+    ),
+  );
+}
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -376,8 +414,11 @@ class _ExpertAccountPageState extends State<ExpertAccountPage> {
                                 MaterialPageRoute(
                                     builder: (_) =>
                                         const TermsAndConditionsPage()),
-                              ),
+                              ), 
                             ),
+                            
+                            const SizedBox(height: 12),
+                            _SupportEmailTile(onTap: _launchSupportEmail),
 
                             const SizedBox(height: 16),
 
@@ -764,4 +805,49 @@ class _CurvedHeaderClipper extends CustomClipper<Path> {
 
   @override
   bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
+class _SupportEmailTile extends StatelessWidget {
+  final VoidCallback onTap;
+  const _SupportEmailTile({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0F4E8),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.primary.withOpacity(0.25)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.support_agent_outlined, color: AppColors.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'تواصل مع الدعم',
+                    style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1F2937)),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'support@nekhlawi.com',
+                    style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_left, color: AppColors.primary.withOpacity(0.6)),
+          ],
+        ),
+      ),
+    );
+  }
 }

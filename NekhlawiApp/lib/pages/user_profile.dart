@@ -5,6 +5,7 @@ import '../core/widgets/custom_input.dart';
 import 'terms_and_conditions_page.dart';
 import 'login_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -36,6 +37,31 @@ class _UserProfilePageState extends State<UserProfilePage> {
     super.initState();
     fetchHeaderImages();
   }
+
+  Future<void> _launchSupportEmail() async {
+  final Uri emailUri = Uri(
+    scheme: 'mailto',
+    path: 'support@nekhlawi.com',
+    queryParameters: {
+      'subject': 'طلب دعم - تطبيق نخلاوي',
+      'body': 'السلام عليكم،\n\nأحتاج مساعدة في:\n\n',
+    },
+  );
+
+  try {
+    await launchUrl(emailUri, mode: LaunchMode.externalApplication);
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تعذّر فتح تطبيق البريد. يمكنك التواصل على: support@nekhlawi.com'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+}
 
   Future<void> fetchHeaderImages() async {
     final client = Supabase.instance.client;
@@ -228,6 +254,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
                           );
                         },
                       ),
+
+                      const SizedBox(height: 12),
+                      _SupportEmailTile(onTap: _launchSupportEmail),
+                      
                       const SizedBox(height: 16),
 
                       if (isEditing) ...[
@@ -593,4 +623,49 @@ class _CurvedHeaderClipper extends CustomClipper<Path> {
 
   @override
   bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
+class _SupportEmailTile extends StatelessWidget {
+  final VoidCallback onTap;
+  const _SupportEmailTile({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0F4E8),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.primary.withOpacity(0.25)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.support_agent_outlined, color: AppColors.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'تواصل مع الدعم',
+                    style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1F2937)),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'support@nekhlawi.com',
+                    style: TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_left, color: AppColors.primary.withOpacity(0.6)),
+          ],
+        ),
+      ),
+    );
+  }
 }

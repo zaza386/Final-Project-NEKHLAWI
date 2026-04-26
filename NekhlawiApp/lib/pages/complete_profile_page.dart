@@ -94,25 +94,23 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       /// ======================
       /// تحديث User
       /// ======================
-      await supabase.from('User').update({
-        'Name': nameController.text.trim(),
-        'Phone': phoneController.text.trim(),
-        'Role': widget.role, // ensure Role is always persisted - ask doja if cooked
-      }).eq('UserID', widget.userId);
+await supabase.from('User').upsert({
+  'UserID': widget.userId,
+  'Email': widget.email,
+  'Name': nameController.text.trim(),
+  'Phone': phoneController.text.trim(),
+  'Role': widget.role,
+}, onConflict: 'UserID');
 
       /// ======================
       /// تحديث ExpertProfile
       /// ======================
-      if (isExpert) {
-        await supabase
-            .from('ExpertProfile')
-            .update({
-              'Specialization': specialtyController.text.trim(),
-              'ExperienceYears':
-                  int.tryParse(yearsController.text.trim()) ?? 0,
-            })
-            .eq('ExpertID', widget.userId);
-      }
+      await supabase.from('ExpertProfile').upsert({
+  'ExpertID': widget.userId,
+  'Specialization': specialtyController.text.trim(),
+  'ExperienceYears': int.tryParse(yearsController.text.trim()) ?? 0,
+  'Bio': '',
+}, onConflict: 'ExpertID');
 
       if (!mounted) return;
 
