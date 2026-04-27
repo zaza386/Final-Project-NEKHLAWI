@@ -52,7 +52,7 @@ class _LoginPageState extends State<LoginPage> {
       await supabase.auth.signInWithOtp(
         email: emailAddress2,
         shouldCreateUser: false,
-        emailRedirectTo: 'io.supabase.flutter://login-callback/',
+        emailRedirectTo: 'io.supabase.flutter://login-callback/home',
       );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
