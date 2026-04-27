@@ -1,9 +1,9 @@
+import 'dart:async'; // ضروري للمستمع
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:nekhlawi_app/core/theme/app_colors.dart';
 import 'package:nekhlawi_app/pages/wrapper.dart';
 import 'package:nekhlawi_app/pages/role_selection_page.dart';
-//import 'package:nekhlawi_app/pages/OTP.dart';
 import 'package:nekhlawi_app/pages/forgot_password_page.dart';
 import '../core/widgets/header_background.dart';
 import '../core/widgets/custom_input.dart';
@@ -25,10 +25,33 @@ class _LoginPageState extends State<LoginPage> {
   bool isPasswordValid = false;
   bool isEmailValid = false;
 
+  // 1. تعريف متغير المستمع لمراقبة حالة الدخول
+  StreamSubscription<AuthState>? _authSubscription;
+
   bool get canProceed => emailController.text.isNotEmpty && isEmailValid;
 
   @override
+  void initState() {
+    super.initState();
+
+    // 2. تفعيل المستمع: هذا الجزء هو المسؤول عن "لقط" الجلسة فور العودة من الرابط السحري
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      final session = data.session;
+      if (session != null && mounted) {
+        // إذا تم العثور على جلسة، ننتقل فوراً للـ Wrapper
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const Wrapper()),
+              (route) => false,
+        );
+      }
+    });
+  }
+
+  @override
   void dispose() {
+    // 3. تنظيف المستمع عند إغلاق الصفحة
+    _authSubscription?.cancel();
     emailController.dispose();
     passwordController.dispose();
     super.dispose();
@@ -37,10 +60,10 @@ class _LoginPageState extends State<LoginPage> {
   final supabase = Supabase.instance.client;
 
   Future<void> signInWithMagicLink(TextEditingController emailAddress) async {
-    String emailAddress2 = emailAddress.text;
+    String emailAddress2 = emailAddress.text.trim();
     if (emailAddress2.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('الرجاء إدخال البريد الإلكتروني'),
           backgroundColor: Colors.red,
         ),
@@ -49,29 +72,31 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     try {
+      // تعديل الرابط ليتوافق مع الـ Host في المانيفست
       await supabase.auth.signInWithOtp(
         email: emailAddress2,
         shouldCreateUser: false,
-        emailRedirectTo: 'io.supabase.flutter://login-callback/home',
-      );
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✅ تم إرسال الرابط السحري إلى بريدك!'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 4),
-        ),
+        emailRedirectTo: 'io.supabase.flutter://login-callback/',
       );
 
-      emailController.clear();
-
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ تم إرسال الرابط السحري إلى بريدك!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
     } catch (error) {
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ حدث خطأ: $error'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ حدث خطأ: $error'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -106,13 +131,12 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     try {
-      // 🔹 تسجيل الدخول بالإيميل وكلمة المرور
       final response = await Supabase.instance.client.auth.signInWithPassword(
         email: email,
         password: password,
       );
 
-      if (response.session != null) {
+      if (response.session != null && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('تم تسجيل الدخول بنجاح!'),
@@ -122,7 +146,6 @@ class _LoginPageState extends State<LoginPage> {
           ),
         );
 
-        // الانتقال للصفحة الرئيسية
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const Wrapper()),
@@ -130,7 +153,6 @@ class _LoginPageState extends State<LoginPage> {
         );
       }
     } on AuthException catch (e) {
-      // أي خطأ من Supabase
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.message),
@@ -140,7 +162,6 @@ class _LoginPageState extends State<LoginPage> {
         ),
       );
     } catch (e) {
-      // أي خطأ غير متوقع
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('حدث خطأ غير متوقع: $e'),
@@ -150,7 +171,7 @@ class _LoginPageState extends State<LoginPage> {
         ),
       );
     } finally {
-      setState(() => submitted = false);
+      if (mounted) setState(() => submitted = false);
     }
   }
 
@@ -205,7 +226,6 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               const SizedBox(height: 50),
 
-                              /// البريد الإلكتروني
                               CustomInput(
                                 hint: 'البريد الإلكتروني',
                                 icon: Icons.email_outlined,
@@ -219,7 +239,6 @@ class _LoginPageState extends State<LoginPage> {
 
                               const SizedBox(height: 16),
 
-                              /// كلمة المرور
                               CustomInput(
                                 hint: 'كلمة المرور',
                                 icon: Icons.lock_outline,
@@ -237,7 +256,6 @@ class _LoginPageState extends State<LoginPage> {
 
                               const SizedBox(height: 30),
 
-                              /// زر تسجيل الدخول بالإيميل وكلمة المرور
                               PrimaryButton(
                                 title: 'تسجيل دخول',
                                 onPressed: _signInWithPassword,
@@ -245,7 +263,6 @@ class _LoginPageState extends State<LoginPage> {
 
                               const SizedBox(height: 12),
 
-                              /// زر تسجيل الدخول باستخدام البريد (Magic Link)
                               PrimaryButton(
                                 title: 'تسجيل الدخول باستخدام البريد',
                                 onPressed: () => signInWithMagicLink(emailController),
@@ -279,6 +296,8 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 }
+
+
 
 /// باقي الكلاسات بدون تغيير
 class SignUpLinkText extends StatefulWidget {
