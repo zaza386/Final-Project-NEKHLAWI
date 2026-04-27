@@ -20,7 +20,7 @@ class _BookingExpertsPageState extends State<BookingExpertsPage> {
 
   Future<List<ExpertItem>>? _future;
 
-  static const int pricePerHour = 100;
+  static const int pricePerHour = 300;
   static const String locationText = 'السعودية';
 
   @override
@@ -42,148 +42,161 @@ class _BookingExpertsPageState extends State<BookingExpertsPage> {
   }
 
   void _goToExpertProfile(String expertId) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => ExpertProfilePage(expertId: expertId)),
-    );
+    Future.delayed(Duration.zero, () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ExpertProfilePage(expertId: expertId)),
+      );
+    });
   }
 
   void _goToBooking(String expertId) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BookingPage(expertId: expertId),
-      ),
-    );
+    Future.delayed(Duration.zero, () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BookingPage(expertId: expertId),
+        ),
+      );
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        body: Stack(
-          children: [
-            Container(color: Colors.white),
+    return PopScope(
+      canPop: true,
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          Navigator.pop(context);
+        }
+      },
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          body: Stack(
+            children: [
+              Container(color: Colors.white),
 
-            const HeaderBackground(title: 'استشر خبير'),
+              const HeaderBackground(title: 'استشر خبير'),
 
-            Positioned(
-              top: 140,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(30),
-                    topRight: Radius.circular(30),
+              Positioned(
+                top: 140,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(30),
+                      topRight: Radius.circular(30),
+                    ),
                   ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 16),
 
-                    // بحث فقط (السهم تمت إزالته)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            onChanged: _runSearch,
-                            decoration: InputDecoration(
-                              hintText: 'ابحث عن خبير ...',
-                              prefixIcon: const Icon(Icons.search),
-                              filled: true,
-                              fillColor: const Color(0xFFF4F4F4),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(24),
-                                borderSide: BorderSide.none,
+                      // بحث فقط (السهم تمت إزالته)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _searchController,
+                              onChanged: _runSearch,
+                              decoration: InputDecoration(
+                                hintText: 'ابحث عن خبير ...',
+                                prefixIcon: const Icon(Icons.search),
+                                filled: true,
+                                fillColor: const Color(0xFFF4F4F4),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                  borderSide: BorderSide.none,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    Expanded(
-                      child: FutureBuilder<List<ExpertItem>>(
-                        future: _future,
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return const Center(
-                              child: CircularProgressIndicator(),
-                            );
-                          }
-
-                          if (snapshot.hasError) {
-                            return Center(
-                              child: Text(
-                                'صار خطأ في تحميل الخبراء:\n${snapshot.error}',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(color: Colors.red),
-                              ),
-                            );
-                          }
-
-                          final experts = snapshot.data ?? [];
-
-                          if (experts.isEmpty) {
-                            final isSearching = _searchController.text
-                                .trim()
-                                .isNotEmpty;
-                            return Center(
-                              child: Text(
-                                isSearching
-                                    ? 'لا يوجد ما تبحث عنه'
-                                    : 'ما فيه خبراء حالياً',
-                                style: const TextStyle(color: Colors.grey),
-                              ),
-                            );
-                          }
-
-                          return ListView.builder(
-                            physics: const BouncingScrollPhysics(),
-                            itemCount: experts.length + 1,
-                            itemBuilder: (context, index) {
-                              if (index == experts.length) {
-                                return const Padding(
-                                  padding: EdgeInsets.only(top: 10, bottom: 16),
-                                  child: Center(
-                                    child: Text(
-                                      '©️ 2025 - 2026',
-                                      style: TextStyle(color: Colors.grey),
-                                    ),
-                                  ),
-                                );
-                              }
-
-                              final e = experts[index];
-
-                              return ExpertCard(
-                                name: e.name,
-                                specialization: e.specialization,
-                                pricePerHour: 100,
-                                expertId: e.expertId,
-                                onOpenProfile: () =>
-                                    _goToExpertProfile(e.expertId),
-                              );
-                            },
-                          );
-                        },
+                        ],
                       ),
-                    ),
-                  ],
+
+                      const SizedBox(height: 16),
+
+                      Expanded(
+                        child: FutureBuilder<List<ExpertItem>>(
+                          future: _future,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
+                            }
+
+                            if (snapshot.hasError) {
+                              return Center(
+                                child: Text(
+                                  'صار خطأ في تحميل الخبراء:\n${snapshot.error}',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(color: Colors.red),
+                                ),
+                              );
+                            }
+
+                            final experts = snapshot.data ?? [];
+
+                            if (experts.isEmpty) {
+                              final isSearching = _searchController.text
+                                  .trim()
+                                  .isNotEmpty;
+                              return Center(
+                                child: Text(
+                                  isSearching
+                                      ? 'لا يوجد ما تبحث عنه'
+                                      : 'ما فيه خبراء حالياً',
+                                  style: const TextStyle(color: Colors.grey),
+                                ),
+                              );
+                            }
+
+                            return ListView.builder(
+                              physics: const BouncingScrollPhysics(),
+                              itemCount: experts.length + 1,
+                              itemBuilder: (context, index) {
+                                if (index == experts.length) {
+                                  return const Padding(
+                                    padding: EdgeInsets.only(top: 10, bottom: 16),
+                                    child: Center(
+                                      child: Text(
+                                        '©️ 2025 - 2026',
+                                        style: TextStyle(color: Colors.grey),
+                                      ),
+                                    ),
+                                  );
+                                }
+
+                                final e = experts[index];
+
+                                return ExpertCard(
+                                  name: e.name,
+                                  specialization: e.specialization,
+                                  pricePerHour: 300,
+                                  expertId: e.expertId,
+                                  avatarUrl: e.avatarUrl,
+                                  onOpenProfile: () =>
+                                      _goToExpertProfile(e.expertId),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

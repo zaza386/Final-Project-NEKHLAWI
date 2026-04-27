@@ -97,7 +97,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
     super.dispose();
   }
 
-  void goHome() => Navigator.pop(context);
+  void goHome() => Navigator.pop(context, true);
 
   void goTerms() {
     Navigator.push(
@@ -173,11 +173,18 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF6F7FB),
-        body: SafeArea(
+    return PopScope(
+      canPop: true,
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          Navigator.pop(context, true);
+        }
+      },
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF6F7FB),
+          body: SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.only(bottom: 24),
             child: Column(
@@ -320,6 +327,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

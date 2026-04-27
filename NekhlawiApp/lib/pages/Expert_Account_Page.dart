@@ -214,7 +214,7 @@ Future<void> _loadExpertData() async {
 
   // ── Navigation ──────────────────────────────
 
-  void goHome() => Navigator.pop(context);
+  void goHome() => Navigator.pop(context, true);
 
   Future<void> goLogout() async {
     try {
@@ -267,11 +267,18 @@ Future<void> _loadExpertData() async {
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF6F7FB),
-        body: isLoading
+    return PopScope(
+      canPop: true,
+      onPopInvoked: (didPop) {
+        if (didPop) {
+          Navigator.pop(context, true);
+        }
+      },
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF6F7FB),
+          body: isLoading
             ? const Center(
                 child: CircularProgressIndicator(color: AppColors.primary))
             : SafeArea(
@@ -484,6 +491,7 @@ Future<void> _loadExpertData() async {
                   ),
                 ),
               ),
+          ),
       ),
     );
   }

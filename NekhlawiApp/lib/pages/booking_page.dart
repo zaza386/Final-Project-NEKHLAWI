@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:nekhlawi_app/core/widgets/header_background.dart';
 import 'package:nekhlawi_app/core/theme/app_colors.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'home_page.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -186,13 +187,18 @@ class _BookingPageState extends State<BookingPage> {
   final selectedSlot = _dbSlots.firstWhere((s) => s.id == _selectedSlotId);
 
   try {
-    // SUPABASE: Insert booking matching your exact schema columns
-    await supabase.from('Bookings').insert({
+    // حساب StartAt و EndAt (30 دقيقة لكل جلسة)
+    final startAt = selectedSlot.dateTime;
+    final endAt = startAt.add(const Duration(minutes: 30));
+
+    // SUPABASE: Insert booking in ExpertSession table
+    await supabase.from('ExpertSession').insert({
       'ExpertID': widget.expertId,
       'UserID': supabase.auth.currentUser?.id,
-      'slot_time': selectedSlot.dateTime.toIso8601String(), // MATCHES YOUR IMAGE
-      'is_confirmed': true,                                // MATCHES YOUR IMAGE
-      'created_at': DateTime.now().toIso8601String(),
+      'BookedAt': DateTime.now().toIso8601String(),
+      'StartAt': startAt.toIso8601String(),
+      'EndAt': endAt.toIso8601String(),
+      'Status': 'لم تبدأ',
     });
 
     // SUPABASE: Mark the slot as unavailable
@@ -201,17 +207,62 @@ class _BookingPageState extends State<BookingPage> {
         .update({'is_available': false})
         .eq('id', _selectedSlotId!);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تم الحجز بنجاح!'), backgroundColor: kPrimary),
-    );
-    
-    // Refresh data to show the slot is now unavailable
-    _loadData(); 
+    // عرض dialog بمعلومات الحجز
+    if (mounted) {
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return Directionality(
+            textDirection: TextDirection.rtl,
+            child: AlertDialog(
+              title: const Text('تم الحجز بنجاح!'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('الخبير: ${_expert?.name ?? 'غير محدد'}'),
+                  const SizedBox(height: 8),
+                  Text('التخصص: ${_expert?.title ?? 'غير محدد'}'),
+                  const SizedBox(height: 8),
+                  Text('تاريخ الموعد: ${startAt.day}/${startAt.month}/${startAt.year}'),
+                  const SizedBox(height: 8),
+                  Text('وقت الموعد: ${startAt.hour}:${startAt.minute.toString().padLeft(2, '0')} - ${endAt.hour}:${endAt.minute.toString().padLeft(2, '0')}'),
+                  const SizedBox(height: 8),
+                  const Text('الحالة: لم تبدأ'),
+                  const SizedBox(height: 8),
+                  Text('تاريخ الحجز: ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}'),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(); // إغلاق الـ dialog
+                    // الرجوع للـ home page وتحديثها
+                    Future.delayed(Duration.zero, () {
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (_) => HomePage(userId: supabase.auth.currentUser?.id),
+                        ),
+                        (route) => false, // إزالة جميع الصفحات السابقة من الـ stack
+                      );
+                    });
+                  },
+                  child: const Text('تمام'),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    }
   } catch (e) {
     debugPrint('Booking error: $e');
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('حدث خطأ أثناء الحجز'), backgroundColor: Colors.red),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('حدث خطأ أثناء الحجز'), backgroundColor: Colors.red),
+      );
+    }
   }
 }
 
@@ -289,8 +340,10 @@ class _BookingPageState extends State<BookingPage> {
               CircleAvatar(
                 radius: 28,
                 backgroundColor: const Color(0xFFD9D5C5),
-                backgroundImage: _expert!.avatarUrl != null ? NetworkImage(_expert!.avatarUrl!) : null,
-                child: _expert!.avatarUrl == null ? const Icon(Icons.person, color: kPrimary) : null,
+                backgroundImage: _expert!.avatarUrl != null && _expert!.avatarUrl!.isNotEmpty
+                    ? NetworkImage(supabase.storage.from('pic').getPublicUrl(_expert!.avatarUrl!))
+                    : AssetImage('images/nekhlawi_icon.png'),
+                child: null,
               ),
               const SizedBox(width: 12),
               Expanded(

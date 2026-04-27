@@ -15,7 +15,8 @@ class ExpertRepo {
           ExpertID,
           Specialization,
           User (
-            Name
+            Name,
+            ProfilePicturePath
           )
         ''')
         .limit(200) // خله 100/200 حسب عددكم

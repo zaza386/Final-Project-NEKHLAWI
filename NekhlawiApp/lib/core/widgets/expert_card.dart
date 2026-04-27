@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:nekhlawi_app/pages/booking_page.dart';
 import '../theme/app_colors.dart';
 import 'package:nekhlawi_app/pages/to_do_page.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+final supabase = Supabase.instance.client;
 
 class ExpertCard extends StatelessWidget {
   final String name;
@@ -9,7 +12,7 @@ class ExpertCard extends StatelessWidget {
   final int pricePerHour;
   final VoidCallback onOpenProfile;
   final String expertId;
-  
+  final String? avatarUrl;
 
   const ExpertCard({
     super.key,
@@ -18,6 +21,7 @@ class ExpertCard extends StatelessWidget {
     required this.pricePerHour,
     required this.onOpenProfile,
     required this.expertId,
+    this.avatarUrl,
   });
 
   @override
@@ -48,10 +52,13 @@ class ExpertCard extends StatelessWidget {
               color: AppColors.header,
               shape: BoxShape.circle,
             ),
-            child: const CircleAvatar(
+            child: CircleAvatar(
               radius: 32,
-              backgroundImage: AssetImage('images/nekhlawi_icon.png'),
               backgroundColor: Colors.white,
+              backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty
+                  ? NetworkImage(supabase.storage.from('pic').getPublicUrl(avatarUrl!))
+                  : AssetImage('images/nekhlawi_icon.png'),
+              child: null,
             ),
           ),
 
@@ -110,12 +117,14 @@ class ExpertCard extends StatelessWidget {
                   height: 44,
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => BookingPage(expertId: expertId),
-                        ),
-                      );
+                      Future.delayed(Duration.zero, () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => BookingPage(expertId: expertId),
+                          ),
+                        );
+                      });
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
@@ -141,12 +150,14 @@ class ExpertCard extends StatelessWidget {
           // ✅ السهم بعد الصورة
           InkWell(
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const TodoPage(title: 'حجز موعد'),
-                ),
-              );
+              Future.delayed(Duration.zero, () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const TodoPage(title: 'حجز موعد'),
+                  ),
+                );
+              });
             },
             child: const Padding(
               padding: EdgeInsets.only(top: 6),

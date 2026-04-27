@@ -69,7 +69,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   // ── Navigate to the correct profile page based on role ──
-  void _goToProfile(BuildContext context) {
+  Future<void> _goToProfile(BuildContext context) async {
     // Guard: if role not loaded yet, show message
     if (userRole == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -77,16 +77,22 @@ class _HomePageState extends State<HomePage> {
       );
       return;
     }
+    late final result;
     if (userRole!.toLowerCase() == 'expert') {
-      Navigator.push(
+      result = await Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const ExpertAccountPage()),
       );
     } else {
-      Navigator.push(
+      result = await Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const UserProfilePage()),
       );
+    }
+    
+    // إعادة تحميل البيانات عند الرجوع من صفحة المستخدم
+    if (result == true) {
+      _loadUserData();
     }
   }
 
@@ -203,10 +209,16 @@ class _HomePageState extends State<HomePage> {
         _HomeCard(
           icon: Icons.chat_outlined,
           title: 'حجز مع خبير',
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const BookingExpertsPage()),
-          ),
+          onTap: () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const BookingExpertsPage()),
+            );
+            // إعادة تحميل البيانات عند الرجوع من صفحة الحجز
+            if (result == true) {
+              _loadUserData();
+            }
+          },
         ),
         _HomeCard(
           icon: Icons.history,
