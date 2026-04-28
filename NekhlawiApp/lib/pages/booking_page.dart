@@ -17,6 +17,7 @@ class ExpertModel {
   final String location;
   final String priceLabel;
   final String? avatarUrl;
+  final int pricePerHour;
 
   ExpertModel({
     required this.id,
@@ -25,18 +26,21 @@ class ExpertModel {
     this.location = '',
     this.priceLabel = '',
     this.avatarUrl,
+    this.pricePerHour = 300,
   });
 
-factory ExpertModel.fromMap(Map<String, dynamic> map) {
-  final userData = map['User'] ?? {}; 
-  
-  return ExpertModel(
-    id: map['ExpertID'].toString(),
-    name: userData['Name'] ?? 'خبير غير معروف',
-    title: map['Specialization'] ?? '',
-    avatarUrl: userData['ProfilePicturePath'],
-  );
-}
+  factory ExpertModel.fromMap(Map<String, dynamic> map) {
+    final userData = map['User'] ?? {};
+    return ExpertModel(
+      id: map['ExpertID'].toString(),
+      name: userData['Name'] ?? 'خبير غير معروف',
+      title: map['Specialization'] ?? '',
+      location: userData['Location'] ?? '',
+      priceLabel: 'الاستشارة تبدأ من ٣٠٠ ريال',
+      avatarUrl: userData['ProfilePicturePath'],
+      pricePerHour: 300,
+    );
+  }
 }
 
 class TimeSlot {
@@ -52,7 +56,7 @@ class TimeSlot {
 
   factory TimeSlot.fromMap(Map<String, dynamic> map) {
     return TimeSlot(
-      id: map['id'].toString(),
+      id: map['id']?.toString(),
       dateTime: DateTime.parse(map['slot_time']),
       isAvailable: map['is_available'] ?? false,
     );
@@ -83,8 +87,7 @@ class _BookingPageState extends State<BookingPage> {
 
   DateTime _selectedMonth = DateTime(DateTime.now().year, 1, 1);
   DateTime _selectedDay = DateTime.now();
-  String? _selectedSlotId;
-  DateTime? _selectedSlotTime;
+  List<TimeSlot> _selectedSlots = [];
 
   final List<DateTime> _months = List.generate(12, (index) {
     return DateTime(DateTime.now().year, 1 + index, 1);
@@ -168,7 +171,7 @@ class _BookingPageState extends State<BookingPage> {
   Future<int> _fetchAvailableCountForDay(DateTime day) async {
     final start = DateTime.utc(day.year, day.month, day.day);
     final end = start.add(const Duration(days: 1));
-    
+
     final response = await supabase
         .from('time_slots')
         .select('id')
@@ -176,95 +179,191 @@ class _BookingPageState extends State<BookingPage> {
         .eq('is_available', true)
         .gte('slot_time', start.toIso8601String())
         .lt('slot_time', end.toIso8601String());
-    
+
     return (response as List).length;
   }
 
+  bool isAdjacent(TimeSlot a, TimeSlot b) {
+    final diff = b.dateTime.difference(a.dateTime);
+    return diff == const Duration(minutes: 30) || diff == const Duration(minutes: -30);
+  }
+
+  bool _isSelectedSlot(TimeSlot slot) {
+    return _selectedSlots.any((selected) => selected.id == slot.id);
+  }
+
+  void _showSelectionError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
+  void _toggleSlotSelection(TimeSlot slot) {
+    if (!slot.isAvailable) return;
+
+    final isSelected = _isSelectedSlot(slot);
+    if (isSelected) {
+      if (_selectedSlots.length == 1) {
+        setState(() {
+          _selectedSlots.clear();
+        });
+        return;
+      }
+
+      final first = _selectedSlots.first;
+      final last = _selectedSlots.last;
+      if (slot.id == first.id) {
+        setState(() {
+          _selectedSlots.removeAt(0);
+        });
+        return;
+      }
+      if (slot.id == last.id) {
+        setState(() {
+          _selectedSlots.removeLast();
+        });
+        return;
+      }
+
+      _showSelectionError('لا يمكن إزالة خانة من المنتصف. احذف من البداية أو النهاية.');
+      return;
+    }
+
+    if (_selectedSlots.isEmpty) {
+      setState(() {
+        _selectedSlots.add(slot);
+      });
+      return;
+    }
+
+    final first = _selectedSlots.first;
+    final last = _selectedSlots.last;
+
+    if (isAdjacent(slot, first)) {
+      setState(() {
+        _selectedSlots.insert(0, slot);
+      });
+      return;
+    }
+
+    if (isAdjacent(last, slot)) {
+      setState(() {
+        _selectedSlots.add(slot);
+      });
+      return;
+    }
+
+    _showSelectionError('يجب اختيار الأوقات بشكل متتابع بدون فراغ.');
+  }
+
+  int get _selectedSlotCount => _selectedSlots.length;
+  double get _selectedDurationHours => _selectedSlotCount * 0.5;
+  int get _pricePerHour => _expert?.pricePerHour ?? 300;
+  int get _pricePerSlot => _pricePerHour ~/ 2;
+  int get _totalPrice => _selectedSlotCount * _pricePerSlot;
+
+  String get _totalDurationLabel {
+    final hours = _selectedDurationHours;
+    if (hours == hours.toInt()) {
+      return '${hours.toInt()} ساعة';
+    }
+    return '${hours.toStringAsFixed(1)} ساعات';
+  }
+
+  DateTime? get _selectedStart => _selectedSlots.isNotEmpty ? _selectedSlots.first.dateTime : null;
+  DateTime? get _selectedEnd => _selectedSlots.isNotEmpty ? _selectedSlots.last.dateTime.add(const Duration(minutes: 30)) : null;
+
   Future<void> _confirmBooking() async {
-  if (_selectedSlotId == null) return;
+    if (_selectedSlots.isEmpty) return;
 
-  // Find the actual DateTime object for the selected slot
-  final selectedSlot = _dbSlots.firstWhere((s) => s.id == _selectedSlotId);
+    final selectedSlots = List<TimeSlot>.from(_selectedSlots);
+    if (selectedSlots.isEmpty) return;
 
-  try {
-    // حساب StartAt و EndAt (30 دقيقة لكل جلسة)
-    final startAt = selectedSlot.dateTime;
-    final endAt = startAt.add(const Duration(minutes: 30));
+    selectedSlots.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+    final startAt = selectedSlots.first.dateTime;
+    final endAt = selectedSlots.last.dateTime.add(const Duration(minutes: 30));
+    final bookedSlotIds = selectedSlots
+        .map((slot) => slot.id)
+        .whereType<String>()
+        .toList();
 
-    // SUPABASE: Insert booking in ExpertSession table
-    await supabase.from('ExpertSession').insert({
-      'ExpertID': widget.expertId,
-      'UserID': supabase.auth.currentUser?.id,
-      'BookedAt': DateTime.now().toIso8601String(),
-      'StartAt': startAt.toIso8601String(),
-      'EndAt': endAt.toIso8601String(),
-      'Status': 'لم تبدأ',
-    });
+    if (bookedSlotIds.length != selectedSlots.length) {
+      _showSelectionError('حدث خطأ في تحديد الأوقات. حاول مرة أخرى.');
+      return;
+    }
 
-    // SUPABASE: Mark the slot as unavailable
-    await supabase
-        .from('time_slots')
-        .update({'is_available': false})
-        .eq('id', _selectedSlotId!);
+    try {
+      await supabase.from('ExpertSession').insert({
+        'ExpertID': widget.expertId,
+        'UserID': supabase.auth.currentUser?.id,
+        'BookedAt': DateTime.now().toIso8601String(),
+        'StartAt': startAt.toIso8601String(),
+        'EndAt': endAt.toIso8601String(),
+        'Status': 'لم تبدأ',
+      });
 
-    // عرض dialog بمعلومات الحجز
-    if (mounted) {
-      await showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return Directionality(
-            textDirection: TextDirection.rtl,
-            child: AlertDialog(
-              title: const Text('تم الحجز بنجاح!'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('الخبير: ${_expert?.name ?? 'غير محدد'}'),
-                  const SizedBox(height: 8),
-                  Text('التخصص: ${_expert?.title ?? 'غير محدد'}'),
-                  const SizedBox(height: 8),
-                  Text('تاريخ الموعد: ${startAt.day}/${startAt.month}/${startAt.year}'),
-                  const SizedBox(height: 8),
-                  Text('وقت الموعد: ${startAt.hour}:${startAt.minute.toString().padLeft(2, '0')} - ${endAt.hour}:${endAt.minute.toString().padLeft(2, '0')}'),
-                  const SizedBox(height: 8),
-                  const Text('الحالة: لم تبدأ'),
-                  const SizedBox(height: 8),
-                  Text('تاريخ الحجز: ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}'),
+      await supabase
+          .from('time_slots')
+          .update({'is_available': false})
+          .filter('id', 'in', bookedSlotIds);
+
+      if (mounted) {
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return Directionality(
+              textDirection: TextDirection.rtl,
+              child: AlertDialog(
+                title: const Text('تم الحجز بنجاح!'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('الخبير: ${_expert?.name ?? 'غير محدد'}'),
+                    const SizedBox(height: 8),
+                    Text('التخصص: ${_expert?.title ?? 'غير محدد'}'),
+                    const SizedBox(height: 8),
+                    Text('تاريخ الموعد: ${startAt.day}/${startAt.month}/${startAt.year}'),
+                    const SizedBox(height: 8),
+                    Text('وقت الموعد: ${startAt.hour}:${startAt.minute.toString().padLeft(2, '0')} - ${endAt.hour}:${endAt.minute.toString().padLeft(2, '0')}'),
+                    const SizedBox(height: 8),
+                    Text('المدة: $_totalDurationLabel'),
+                    const SizedBox(height: 8),
+                    Text('المجموع: $_totalPrice ريال'),
+                    const SizedBox(height: 8),
+                    const Text('الحالة: لم تبدأ'),
+                    const SizedBox(height: 8),
+                    Text('تاريخ الحجز: ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}'),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      Future.delayed(Duration.zero, () {
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(
+                            builder: (_) => HomePage(userId: supabase.auth.currentUser?.id),
+                          ),
+                          (route) => false,
+                        );
+                      });
+                    },
+                    child: const Text('تمام'),
+                  ),
                 ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop(); // إغلاق الـ dialog
-                    // الرجوع للـ home page وتحديثها
-                    Future.delayed(Duration.zero, () {
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(
-                          builder: (_) => HomePage(userId: supabase.auth.currentUser?.id),
-                        ),
-                        (route) => false, // إزالة جميع الصفحات السابقة من الـ stack
-                      );
-                    });
-                  },
-                  child: const Text('تمام'),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    }
-  } catch (e) {
-    debugPrint('Booking error: $e');
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('حدث خطأ أثناء الحجز'), backgroundColor: Colors.red),
-      );
+            );
+          },
+        );
+      }
+    } catch (e) {
+      debugPrint('Booking error: $e');
+      _showSelectionError('حدث خطأ أثناء الحجز');
     }
   }
-}
 
   List<DateTime> _getDaysInMonth(DateTime month) {
     final lastDay = DateTime(month.year, month.month + 1, 0).day;
@@ -429,8 +528,7 @@ class _BookingPageState extends State<BookingPage> {
                 onTap: () {
                   setState(() {
                     _selectedDay = day;
-                    _selectedSlotId = null;
-                    _selectedSlotTime = null;
+                    _selectedSlots.clear();
                   });
                   _loadData();
                 },
@@ -475,12 +573,9 @@ class _BookingPageState extends State<BookingPage> {
       itemCount: _displaySlots.length,
       itemBuilder: (context, index) {
         final slot = _displaySlots[index];
-        final isSelected = _selectedSlotTime == slot.dateTime;
+        final isSelected = _isSelectedSlot(slot);
         return GestureDetector(
-          onTap: slot.isAvailable ? () => setState(() {
-            _selectedSlotId = slot.id;
-            _selectedSlotTime = slot.dateTime;
-          }) : null,
+          onTap: slot.isAvailable ? () => _toggleSlotSelection(slot) : null,
           child: Container(
             decoration: BoxDecoration(
               color: !slot.isAvailable ? kSlotUnavailable : (isSelected ? Colors.white : kSlotAvailable),
@@ -512,22 +607,39 @@ class _BookingPageState extends State<BookingPage> {
           ),
           const SizedBox(height: 15),
           Row(
-            mainAxisAlignment: MainAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(_selectedSlotTime != null ? _formatSlotTime(_selectedSlotTime!) : '--:--', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-              const SizedBox(width: 6),
-              const Icon(Icons.alarm, size: 18, color: Colors.black54),
-              const SizedBox(width: 20),
-              Text('${_selectedDay.year}-${_selectedDay.month.toString().padLeft(2, '0')}-${_selectedDay.day.toString().padLeft(2, '0')}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-              const SizedBox(width: 6),
-              const Icon(Icons.calendar_today, size: 18, color: Colors.black54),
+              Row(
+                children: [
+                  Text(_selectedStart != null ? _formatSlotTime(_selectedStart!) : '--:--', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  const SizedBox(width: 6),
+                  const Icon(Icons.alarm, size: 18, color: Colors.black54),
+                ],
+              ),
+              Row(
+                children: [
+                  Text(_selectedEnd != null ? _formatSlotTime(_selectedEnd!) : '--:--', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                  const SizedBox(width: 6),
+                  const Icon(Icons.alarm_off, size: 18, color: Colors.black54),
+                ],
+              ),
             ],
           ),
-          const SizedBox(height: 15),
+          const SizedBox(height: 10),
+          if (_selectedSlotCount > 0) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('المدة: $_totalDurationLabel', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                Text('المجموع: $_totalPrice ريال', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF797F3D))),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _selectedSlotId != null ? _confirmBooking : null,
+              onPressed: _selectedSlotCount > 0 ? _confirmBooking : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: kPrimary,
                 disabledBackgroundColor: kPrimary.withOpacity(0.5),
