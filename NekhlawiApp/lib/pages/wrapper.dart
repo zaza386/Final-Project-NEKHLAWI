@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'home_page.dart';
 import 'welcome_page.dart';
 import 'complete_profile_page.dart';
+import 'Expert_Homepage.dart';
 
 class Wrapper extends StatelessWidget {
   const Wrapper({super.key});
@@ -88,6 +89,9 @@ class _ProfileGateState extends State<_ProfileGate> {
       }
     }
 
-    return HomePage(userId: widget.userId);
+    if (role == 'expert') {
+  return ExpertHomePage(userId: widget.userId);
+}
+return HomePage(userId: widget.userId); 
   }
 }
