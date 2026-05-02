@@ -8,12 +8,13 @@ class ExpertSessionRepo {
     required String userId,
     required List<String> statuses,
     int limit = 20,
+    bool isExpert = false,
   }) async {
-    // 1) جيب سشنز اليوزر
+    // 1) جيب سشنز اليوزر أو الخبير
     final sessionsRes = await _db
         .from('ExpertSession')
         .select('ExpertSessionID, UserID, ExpertID, Status, StartAt, EndAt, BookedAt')
-        .eq('UserID', userId)
+        .eq(isExpert ? 'ExpertID' : 'UserID', userId)
         .inFilter('Status', statuses)
         .order('StartAt', ascending: true)
         .limit(limit);

@@ -101,6 +101,7 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
                                 userId: widget.userId ?? 'default_user_id',
                                 statuses: const ['لم تبدأ', 'بدأت'],
                                 iconAssetPath: 'assets/images/home_brown_icon.png',
+                                isExpert: true,
                               ),
                               const SizedBox(height: 24),
                               _buildWelcomeCard(context),

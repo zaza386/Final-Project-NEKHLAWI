@@ -12,11 +12,13 @@ class UserSessionsCarousel extends StatefulWidget {
     required this.userId,
     this.statuses = const ['لم تبدأ', 'بدأت'],
     this.iconAssetPath = 'images/home_brown_icon.png',
+    this.isExpert = false,
   });
 
   final String userId;
   final List<String> statuses;
   final String iconAssetPath;
+  final bool isExpert;
 
   @override
   State<UserSessionsCarousel> createState() => _UserSessionsCarouselState();
@@ -44,6 +46,7 @@ class _UserSessionsCarouselState extends State<UserSessionsCarousel> {
       _future = _repo.fetchUserSessions(
         userId: widget.userId,
         statuses: widget.statuses,
+        isExpert: widget.isExpert,
       );
     });
   }
