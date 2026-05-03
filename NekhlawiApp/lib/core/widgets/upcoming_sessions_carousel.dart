@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:nekhlawi_app/pages/to_do_page.dart';
+import 'package:nekhlawi_app/pages/mock_chat.dart';
 
 import '../data/expert_session_repo.dart';
 import '../models/expert_session_item.dart';
@@ -54,12 +55,10 @@ class _UserSessionsCarouselState extends State<UserSessionsCarousel> {
   void _startAutoScroll() {
     _timer?.cancel();
 
-    // إذا ما عندنا عناصر لا نسوي شيء
     if (_itemsLength <= 1 || _pageController == null) return;
 
     _timer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (!mounted) return;
-      if (_pageController == null) return;
 
       final next = (_currentIndex + 1) % _itemsLength;
       _pageController!.animateToPage(
@@ -100,7 +99,6 @@ class _UserSessionsCarouselState extends State<UserSessionsCarousel> {
         _itemsLength = sessions.length;
 
         if (sessions.isEmpty) {
-          // صفّر الإندكس ووقف التايمر
           _timer?.cancel();
           _currentIndex = 0;
 
@@ -110,9 +108,7 @@ class _UserSessionsCarouselState extends State<UserSessionsCarousel> {
           );
         }
 
-        // (إعادة) تهيئة الـ PageController إذا اختلف عدد العناصر
         _pageController ??= PageController(viewportFraction: 0.75);
-        // ابدأ/حدث الأوتو سكرول بعد ما صار عندنا عناصر
         WidgetsBinding.instance.addPostFrameCallback((_) => _startAutoScroll());
 
         return Column(
@@ -135,14 +131,12 @@ class _UserSessionsCarouselState extends State<UserSessionsCarousel> {
                         session: sessions[index],
                         iconAssetPath: widget.iconAssetPath,
                       ),
-                    )
+                    ),
                   );
                 },
               ),
             ),
-
             const SizedBox(height: 15),
-
             _DotsIndicator(
               count: sessions.length,
               activeIndex: _currentIndex,
@@ -174,127 +168,77 @@ class _SessionHomeCard extends StatelessWidget {
     final date = _formatDate(session.startAt);
     final time = _formatTime(session.startAt);
 
-    return Stack(
-      children: [
-        // خلفية الصورة أو fallback بني
-        ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: Image.asset(
-            'images/home_brown_icon.png',
-            width: 260,
-            height: 170,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) {
-              return Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF6B5A2A),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-              );
-            },
-          ),
-        ),
-
-        // النصوص
-        Positioned(
-          top: 14,
-          right: 14,
-          left: 14,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'استشارة مع الخبير ${session.expertName}',
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  height: 1.2,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                '$date\n$time',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  height: 1.3,
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // الدوائر تحت يسار
-        Positioned(
-          bottom: 12,
-          left: 12,
-          child: Row(
-            children: [
-              _CircleIcon(
-                icon: Icons.info_outline,
-                onTap: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const TodoPage(title: 'بيانات السشن'),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(width: 8),
-              _CircleIcon(
-                icon: Icons.calendar_month_outlined,
-                onTap: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const TodoPage(title: 'إعادة جدولة السشن'),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-
-        // (اختياري) حالة السشن تحت يمين
-        Positioned(
-          bottom: 12,
-          right: 12,
-          child: _StatusPill(status: session.status),
-        ),
-      ],
-    );
-  }
-}
-
-class _CircleIcon extends StatelessWidget {
-  const _CircleIcon({required this.icon, required this.onTap});
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: const BoxDecoration(
-          color: Color(0xFFD8D5B3),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          icon,
-          size: 18,
-          color: Color(0xFF2F2A1E),
-        ),
+      borderRadius: BorderRadius.circular(18),
+
+      /// 🔥 هنا الشرط
+      onTap: () {
+        if (session.status == 'بدأت') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChatPage(
+                expertId: session.expertID!,
+              ),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('تقدر تدخل الشات بعد بدء الجلسة'),
+            ),
+          );
+        }
+      },
+
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Image.asset(
+              'images/home_brown_icon.png',
+              width: 260,
+              height: 170,
+              fit: BoxFit.cover,
+            ),
+          ),
+
+          Positioned(
+            top: 14,
+            right: 14,
+            left: 14,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'استشارة مع الخبير ${session.expertName}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  '$date\n$time',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          Positioned(
+            bottom: 12,
+            right: 12,
+            child: _StatusPill(status: session.status),
+          ),
+        ],
       ),
     );
   }
@@ -309,7 +253,7 @@ class _StatusPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.8),
+        color: Colors.white.withOpacity(0.8),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(

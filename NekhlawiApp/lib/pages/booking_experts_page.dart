@@ -5,6 +5,7 @@ import 'package:nekhlawi_app/core/widgets/expert_card.dart';
 import '../core/data/expert_repo.dart';
 import '../core/models/expert_item.dart';
 import 'package:nekhlawi_app/pages/booking_page.dart';
+import 'package:nekhlawi_app/pages/expert_profile.dart';
 
 
 class BookingExpertsPage extends StatefulWidget {
@@ -98,7 +99,7 @@ class _BookingExpertsPageState extends State<BookingExpertsPage> {
                     children: [
                       const SizedBox(height: 16),
 
-                      // بحث فقط (السهم تمت إزالته)
+
                       Row(
                         children: [
                           Expanded(
@@ -202,36 +203,3 @@ class _BookingExpertsPageState extends State<BookingExpertsPage> {
     );
   }
 }
-
-/// Placeholder pages
-class ExpertProfilePage extends StatelessWidget {
-  final String expertId;
-  const ExpertProfilePage({super.key, required this.expertId});
-
-  @override
-  Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        appBar: AppBar(title: const Text('بروفايل الخبير')),
-        body: Center(child: Text('Expert ID: $expertId\n(صفحة البروفايل لسه)')),
-      ),
-    );
-  }
-}
-
-// class AppointmentBookingPage extends StatelessWidget {
-//   final String expertId;
-//   const AppointmentBookingPage({super.key, required this.expertId});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Directionality(
-//       textDirection: TextDirection.rtl,
-//       child: Scaffold(
-//         appBar: AppBar(title: const Text('حجز موعد')),
-//         body: Center(child: Text('Expert ID: $expertId\n(صفحة الحجز لسه)')),
-//       ),
-//     );
-//   }
-// }

@@ -7,7 +7,7 @@ class ConsultationCard extends StatelessWidget {
   final String date;
   final String time;
   final bool isAi;
-  final VoidCallback? onTap; // ✅ لازم يكون موجود
+  final VoidCallback? onTap;
 
   const ConsultationCard({
     super.key,
@@ -16,12 +16,12 @@ class ConsultationCard extends StatelessWidget {
     required this.date,
     required this.time,
     required this.isAi,
-    this.onTap, // ✅
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell( // ✅ مهم
+    return InkWell( 
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
       child: Container(
