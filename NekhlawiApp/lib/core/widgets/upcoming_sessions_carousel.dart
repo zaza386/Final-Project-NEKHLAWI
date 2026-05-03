@@ -170,8 +170,6 @@ class _SessionHomeCard extends StatelessWidget {
 
     return InkWell(
       borderRadius: BorderRadius.circular(18),
-
-      /// 🔥 هنا الشرط
       onTap: () {
         if (session.status == 'بدأت') {
           Navigator.push(
@@ -190,7 +188,6 @@ class _SessionHomeCard extends StatelessWidget {
           );
         }
       },
-
       child: Stack(
         children: [
           ClipRRect(
@@ -233,12 +230,61 @@ class _SessionHomeCard extends StatelessWidget {
             ),
           ),
 
+          // 💡 الأيقونات الدائرية المضافة (التقويم والمعلومات)
+          Positioned(
+            bottom: 12,
+            left: 12,
+            child: Row(
+              children: [
+                _buildCircularActionButton(
+                  icon: Icons.event_note_rounded,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const TodoPage(title: 'إعادة جدولة السشن',)),
+                    );
+                  },
+                ),
+                const SizedBox(width: 8),
+                _buildCircularActionButton(
+                  icon: Icons.info_outline_rounded,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const TodoPage(title: 'معلومات السشن',)),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+
           Positioned(
             bottom: 12,
             right: 12,
             child: _StatusPill(status: session.status),
           ),
         ],
+      ),
+    );
+  }
+
+  // دالة بناء الزر الدائري الأبيض
+  Widget _buildCircularActionButton(
+      {required IconData icon, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(6),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          icon,
+          size: 18,
+          color: const Color(0xFF6B5A2A), // اللون البني للكارت
+        ),
       ),
     );
   }
