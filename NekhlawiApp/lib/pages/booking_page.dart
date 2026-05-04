@@ -85,8 +85,10 @@ class _BookingPageState extends State<BookingPage> {
   List<TimeSlot> _dbSlots = [];
   List<TimeSlot> _displaySlots = [];
 
-  DateTime _selectedMonth = DateTime(DateTime.now().year, 1, 1);
+  DateTime _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime _selectedDay = DateTime.now();
+  // DateTime _selectedMonth = DateTime(DateTime.now().year, 1, 1);
+  // DateTime _selectedDay = DateTime.now();
   List<TimeSlot> _selectedSlots = [];
 
   final List<DateTime> _months = List.generate(12, (index) {
