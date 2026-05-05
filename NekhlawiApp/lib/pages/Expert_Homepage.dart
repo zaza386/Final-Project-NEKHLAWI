@@ -3,7 +3,7 @@ import 'package:nekhlawi_app/pages/mini_wiki.dart';
 import 'package:nekhlawi_app/pages/ai_consultation_details_page.dart';
 import '../core/theme/app_colors.dart';
 import '../core/widgets/header_background.dart';
-import 'package:nekhlawi_app/pages/History_page.dart';
+import 'package:nekhlawi_app/pages/History_expert.dart';
 import 'package:nekhlawi_app/pages/Expert_Account_Page.dart';   // ← Expert profile
 import 'package:nekhlawi_app/core/widgets/upcoming_sessions_carousel.dart';
 import 'package:nekhlawi_app/pages/wiki_article_details_page.dart';
@@ -243,7 +243,7 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
           title: 'سجلك الزراعي',
           onTap: () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const ConsultationsPage()),
+            MaterialPageRoute(builder: (_) => const ConsultationsPage2()),
           ),
         ),
       ],
