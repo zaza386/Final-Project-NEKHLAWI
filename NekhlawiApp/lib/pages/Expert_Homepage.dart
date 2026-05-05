@@ -6,6 +6,8 @@ import '../core/widgets/header_background.dart';
 import 'package:nekhlawi_app/pages/History_page.dart';
 import 'package:nekhlawi_app/pages/Expert_Account_Page.dart';   // ← Expert profile
 import 'package:nekhlawi_app/core/widgets/upcoming_sessions_carousel.dart';
+import 'package:nekhlawi_app/pages/wiki_article_details_page.dart';
+import 'package:nekhlawi_app/core/data/wiki_article_repo.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // import 'package:nekhlawi_app/pages/expert_sessions_page.dart';
@@ -130,28 +132,84 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
   }
 
   Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
-      child: Container(
-        height: 52,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: const Row(
-          children: [
-            Icon(Icons.search, color: Colors.grey, size: 22),
-            SizedBox(width: 12),
-            Text(
-              'ابحث عن أمراض، مقالات، أو جلسات...',
-              style: TextStyle(color: Colors.grey, fontSize: 14),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
+    child: SearchAnchor(
+      builder: (context, controller) {
+        return SearchBar(
+          controller: controller,
+          hintText:'ابحث عن أمراض، مقالات، أو جلسات...',
+          leading: const Icon(Icons.search, color: Colors.grey),
+          backgroundColor: WidgetStateProperty.all(Colors.grey.shade100),
+          elevation: WidgetStateProperty.all(0),
+          shape: WidgetStateProperty.all(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          ),
+          onTap: () => controller.openView(),
+          onChanged: (_) => controller.openView(),
+        );
+      },
+      suggestionsBuilder: (context, controller) async {
+        final query = controller.text.trim();
+        if (query.isEmpty) return [];
+
+        final List<Widget> suggestions = [];
+
+       try{ 
+
+          final _wikiRepo = WikiArticleRepo();
+          final articleItems = await _wikiRepo.fetchArticles(query: query);
+
+          if (articleItems != null && articleItems.isNotEmpty) {
+            suggestions.add(
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Text('المقالات',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.darkBrown)),
+              ),
+            );
+
+            for (final article in articleItems) {
+              suggestions.add(
+                ListTile(
+                  leading: const CircleAvatar(
+                    backgroundColor: AppColors.header,
+                    child: Icon(Icons.article_outlined, color: AppColors.darkBrown),
+                  ),
+                  title: Text(article.title),
+                  subtitle: Text(article.description, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  trailing: const Icon(Icons.arrow_back_ios, size: 14, color: AppColors.darkBrown),
+                  onTap: () {
+                    controller.closeView('');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => WikiArticleDetailsPage(article: article)),
+                    );
+                  },
+                ),
+              );
+            }
+          }
+
+          if (suggestions.isEmpty) {
+            suggestions.add(
+              const Padding(
+                padding: EdgeInsets.all(20),
+                child: Center(child: Text('لا توجد نتائج مطابقة لبحثك', style: TextStyle(color: Colors.grey))),
+              ),
+            );
+          }
+
+        } catch (e) {
+          debugPrint('Search error: $e');
+          suggestions.add(const ListTile(title: Text('حدث خطأ في البحث')));
+        }
+
+        return suggestions;
+      },
+    ),
+  );
+}
 
   Widget _buildServiceGrid(BuildContext context) {
     return GridView.count(
