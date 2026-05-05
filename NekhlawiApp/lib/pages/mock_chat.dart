@@ -77,12 +77,10 @@ class _ChatPageState extends State<ChatPage> {
             onTap: _openProfile,
             child: Row(
               children: [
-                /// 🔹 السهم (يمين)
                 
 
                 const SizedBox(width: 8),
 
-                /// 🔹 الصورة (أكبر)
                 CircleAvatar(
                   radius: 22,
                   backgroundImage: expertImage != null
@@ -95,7 +93,6 @@ class _ChatPageState extends State<ChatPage> {
 
                 const SizedBox(width: 10),
 
-                /// 🔹 الاسم (أكبر + يمين)
                 Expanded(
                   child: Text(
                     expertName ?? '...',
@@ -112,7 +109,6 @@ class _ChatPageState extends State<ChatPage> {
           ),
         ),
 
-        /// ✅ نفس الشات بدون تغيير
         body: Column(
           children: [
             Expanded(
