@@ -5,6 +5,7 @@ import '../core/theme/app_colors.dart';
 import '../core/widgets/custom_input.dart';
 import '../core/widgets/primary_button.dart';
 import 'home_page.dart';
+import 'Expert_Homepage.dart';   // ← Expert home
 
 class CompleteProfilePage extends StatefulWidget {
   final String userId;
@@ -94,29 +95,36 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
       /// ======================
       /// تحديث User
       /// ======================
-await supabase.from('User').upsert({
-  'UserID': widget.userId,
-  'Email': widget.email,
-  'Name': nameController.text.trim(),
-  'Phone': phoneController.text.trim(),
-  'Role': widget.role,
-}, onConflict: 'UserID');
+      await supabase.from('User').upsert({
+        'UserID': widget.userId,
+        'Email': widget.email,
+        'Name': nameController.text.trim(),
+        'Phone': phoneController.text.trim(),
+        'Role': widget.role,
+      }, onConflict: 'UserID');
 
       /// ======================
-      /// تحديث ExpertProfile
+      /// تحديث Expert
       /// ======================
-      await supabase.from('ExpertProfile').upsert({
-  'ExpertID': widget.userId,
-  'Specialization': specialtyController.text.trim(),
-  'ExperienceYears': int.tryParse(yearsController.text.trim()) ?? 0,
-  'Bio': '',
-}, onConflict: 'ExpertID');
+      if (isExpert) {
+        await supabase.from('ExpertProfile').upsert({
+          'ExpertID': widget.userId,
+          'Specialization': specialtyController.text.trim(),
+          'ExperienceYears': int.tryParse(yearsController.text.trim()) ?? 0,
+          'Bio': '',
+        }, onConflict: 'ExpertID');
+      }
 
       if (!mounted) return;
 
+      // الخبير → ExpertHomePage | المستخدم العادي → HomePage
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => HomePage(userId: widget.userId)),
+        MaterialPageRoute(
+          builder: (_) => isExpert
+              ? ExpertHomePage(userId: widget.userId)
+              : HomePage(userId: widget.userId),
+        ),
       );
     } catch (e) {
       _showError('حدث خطأ: $e');

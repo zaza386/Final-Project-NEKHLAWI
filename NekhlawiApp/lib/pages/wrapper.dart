@@ -88,10 +88,10 @@ class _ProfileGateState extends State<_ProfileGate> {
         });
       }
     }
-
-    if (role == 'expert') {
+    
+if (role == 'expert') {
   return ExpertHomePage(userId: widget.userId);
 }
-return HomePage(userId: widget.userId); 
+return HomePage(userId: widget.userId);  
   }
 }

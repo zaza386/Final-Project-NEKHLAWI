@@ -59,7 +59,6 @@ class _HomePageState extends State<HomePage> {
           userName = response['Name'] ?? 'المستخدم';
           userRole = response['Role'] ?? 'user';
         });
-        print('DEBUG userRole = $userRole'); // ← remove after confirming
       }
     } catch (e) {
       if (mounted) {

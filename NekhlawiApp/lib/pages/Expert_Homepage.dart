@@ -4,11 +4,10 @@ import 'package:nekhlawi_app/pages/ai_consultation_details_page.dart';
 import '../core/theme/app_colors.dart';
 import '../core/widgets/header_background.dart';
 import 'package:nekhlawi_app/pages/History_page.dart';
-import 'package:nekhlawi_app/pages/user_profile.dart';
+import 'package:nekhlawi_app/pages/Expert_Account_Page.dart';   // ← Expert profile
 import 'package:nekhlawi_app/core/widgets/upcoming_sessions_carousel.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// TODO: import your expert sessions management page when ready
 // import 'package:nekhlawi_app/pages/expert_sessions_page.dart';
 
 class ExpertHomePage extends StatefulWidget {
@@ -176,8 +175,6 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
             MaterialPageRoute(builder: (_) => const MiniWiki()),
           ),
         ),
-        // ── الفرق الوحيد عن الهوم بيج العادي ──
-        // بدل "حجز مع خبير" → "إدارة الجلسات"
         _HomeCard(
           icon: Icons.calendar_month_outlined,
           title: 'إدارة الجلسات',
@@ -195,13 +192,18 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
     );
   }
 
+  /// ← بطاقة الترحيب تفتح صفحة حساب الخبير
   Widget _buildWelcomeCard(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(20),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const UserProfilePage()),
-      ),
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ExpertAccountPage()),
+        );
+        // أعِد تحميل اسم المستخدم بعد العودة من صفحة التعديل
+        _loadUserData();
+      },
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
@@ -298,7 +300,7 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
   }
 
   void _goToManageSessions(BuildContext context) {
-    // TODO: replace this placeholder with your actual ExpertSessionsPage
+    // TODO: replace with ExpertSessionsPage when ready
     // Navigator.push(context, MaterialPageRoute(builder: (_) => const ExpertSessionsPage()));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -309,7 +311,7 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
   }
 }
 
-// ── Reusable card widget 
+// ── Reusable card widget ──────────────────────────────────────────────────────
 
 class _HomeCard extends StatelessWidget {
   final IconData icon;
