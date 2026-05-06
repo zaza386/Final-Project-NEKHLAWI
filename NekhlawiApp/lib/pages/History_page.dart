@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/theme/app_colors.dart';
@@ -119,7 +118,12 @@ class _ConsultationsPageState extends State<ConsultationsPage> {
               time: item['Time'] ?? '',
               isAi: false,
               onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => TodoPage(title: item['Title'])));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => TodoPage(title: item['Title']),
+                  ),
+                );
               },
             );
           },
@@ -156,10 +160,13 @@ class _ConsultationsPageState extends State<ConsultationsPage> {
           itemBuilder: (context, index) {
             final item = data[index];
             DateTime createdAt = DateTime.parse(item['CreatedAt']);
-            String formattedDate = "${createdAt.day}/${createdAt.month}/${createdAt.year}";
+            String formattedDate =
+                "${createdAt.day}/${createdAt.month}/${createdAt.year}";
 
             return ConsultationCard(
-              title: item['Title'] ?? 'تحليل نخلة #${item['AISessionID'].toString().substring(0, 5)}',
+              title:
+                  item['Title'] ??
+                  'تحليل نخلة #${item['AISessionID'].toString().substring(0, 5)}',
               subtitle: 'تحليل ذكي بواسطة نخلاوي',
               date: formattedDate,
               time: "${createdAt.hour}:${createdAt.minute}",
@@ -181,21 +188,33 @@ class _ConsultationsPageState extends State<ConsultationsPage> {
                       .maybeSingle();
 
                   if (diagnosisData != null && context.mounted) {
-
                     // معالجة بيانات المرض (تحويل القائمة لماب)
-                    final diseaseSource = diagnosisData['Disease'] ?? diagnosisData['disease'];
-                    final Map<String, dynamic>? diseaseMap = (diseaseSource is List && diseaseSource.isNotEmpty)
+                    final diseaseSource =
+                        diagnosisData['Disease'] ?? diagnosisData['disease'];
+                    final Map<String, dynamic>? diseaseMap =
+                        (diseaseSource is List && diseaseSource.isNotEmpty)
                         ? diseaseSource[0]
-                        : (diseaseSource is Map<String, dynamic> ? diseaseSource : null);
+                        : (diseaseSource is Map<String, dynamic>
+                              ? diseaseSource
+                              : null);
 
                     // معالجة بيانات العلاج (تحويل القائمة لماب)
-                    final treatmentSource = diseaseMap?['Treatment'] ?? diseaseMap?['treatment'];
-                    final Map<String, dynamic>? treatmentMap = (treatmentSource is List && treatmentSource.isNotEmpty)
+                    final treatmentSource =
+                        diseaseMap?['Treatment'] ?? diseaseMap?['treatment'];
+                    final Map<String, dynamic>? treatmentMap =
+                        (treatmentSource is List && treatmentSource.isNotEmpty)
                         ? treatmentSource[0]
-                        : (treatmentSource is Map<String, dynamic> ? treatmentSource : null);
+                        : (treatmentSource is Map<String, dynamic>
+                              ? treatmentSource
+                              : null);
 
                     // تنظيف النسبة المئوية للتحليل
-                    String confStr = diagnosisData['Confidence']?.toString().replaceAll('%', '') ?? "0";
+                    String confStr =
+                        diagnosisData['Confidence']?.toString().replaceAll(
+                          '%',
+                          '',
+                        ) ??
+                        "0";
                     double confVal = double.tryParse(confStr) ?? 0.0;
 
                     // 3. الانتقال لصفحة النتائج وتمرير الرابط المجلوب FileURL
@@ -203,8 +222,11 @@ class _ConsultationsPageState extends State<ConsultationsPage> {
                       context,
                       MaterialPageRoute(
                         builder: (_) => AnalysisResultPage(
-                          imageFile: null, // نرسل null لأننا نستخدم الرابطimageUrl
-                          imageUrl: pictureData != null ? pictureData['FileURL'] : null,
+                          imageFile:
+                              null, // نرسل null لأننا نستخدم الرابطimageUrl
+                          imageUrl: pictureData != null
+                              ? pictureData['FileURL']
+                              : null,
                           aiLabel: diseaseMap?['ArabicName'] ?? 'غير معروف',
                           confidence: confVal,
                           sessionId: item['AISessionID'].toString(),
@@ -216,7 +238,11 @@ class _ConsultationsPageState extends State<ConsultationsPage> {
                   } else {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("عذراً، تفاصيل هذا التشخيص غير متوفرة في السجلات")),
+                        const SnackBar(
+                          content: Text(
+                            "عذراً، تفاصيل هذا التشخيص غير متوفرة في السجلات",
+                          ),
+                        ),
                       );
                     }
                   }
@@ -224,7 +250,9 @@ class _ConsultationsPageState extends State<ConsultationsPage> {
                   debugPrint("Error fetching details: $e");
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("حدث خطأ أثناء تحميل البيانات: $e")),
+                      SnackBar(
+                        content: Text("حدث خطأ أثناء تحميل البيانات: $e"),
+                      ),
                     );
                   }
                 }

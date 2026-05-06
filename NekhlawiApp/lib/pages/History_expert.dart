@@ -1,11 +1,8 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/theme/app_colors.dart';
 import '../core/widgets/header_background.dart';
 import '../core/widgets/consultation_card.dart';
-import 'analysis_result_page.dart';
-import 'package:nekhlawi_app/pages/to_do_page.dart';
 
 class ConsultationsPage2 extends StatefulWidget {
   const ConsultationsPage2({super.key}); // لم تعد تستقبل أي ID
@@ -17,7 +14,7 @@ class ConsultationsPage2 extends StatefulWidget {
 class _ConsultationsPageState extends State<ConsultationsPage2> {
   int selectedTab = 0;
   final supabase = Supabase.instance.client;
-  
+
   List<Map<String, dynamic>> _reviews = [];
   double _averageRating = 0.0;
   bool _isLoading = false;
@@ -35,7 +32,7 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
 
     if (!mounted) return;
     setState(() => _isLoading = true);
-    
+
     try {
       // 2. الفلترة باستخدام ID المستخدم الحالي مباشرة
       final response = await supabase
@@ -49,7 +46,9 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
       double avg = 0;
       if (list.isNotEmpty) {
         final total = list.fold<int>(
-            0, (sum, r) => sum + ((r['Rating'] as int?) ?? 0));
+          0,
+          (sum, r) => sum + ((r['Rating'] as int?) ?? 0),
+        );
         avg = total / list.length;
       }
 
@@ -67,7 +66,6 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
   }
 
   // ... بقية دوال الـ UI (build, _buildStars, إلخ) كما هي في الكود السابق
-  
 
   String _formatDate(String? raw) {
     if (raw == null) return '';
@@ -160,7 +158,9 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
   // قسم عرض التقييمات الخاص بالخبير
   Widget _buildExpertSection() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
     }
     if (_reviews.isEmpty) {
       return _buildEmpty();
@@ -180,8 +180,10 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
         children: [
           Icon(Icons.reviews_outlined, size: 64, color: AppColors.grey),
           SizedBox(height: 16),
-          Text('لا توجد تقييمات بعد',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+          Text(
+            'لا توجد تقييمات بعد',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
         ],
       ),
     );
@@ -200,17 +202,27 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
         children: [
           Column(
             children: [
-              Text(_averageRating.toStringAsFixed(1),
-                  style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold)),
+              Text(
+                _averageRating.toStringAsFixed(1),
+                style: const TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               _buildStars(_averageRating),
-              Text('(${_reviews.length} تقييم)', style: const TextStyle(fontSize: 12)),
+              Text(
+                '(${_reviews.length} تقييم)',
+                style: const TextStyle(fontSize: 12),
+              ),
             ],
           ),
           // Breakdown simplified for brevity
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [5, 4, 3, 2, 1].map((star) {
-              final count = _reviews.where((r) => (r['Rating'] as int?) == star).length;
+              final count = _reviews
+                  .where((r) => (r['Rating'] as int?) == star)
+                  .length;
               final percent = _reviews.isEmpty ? 0.0 : count / _reviews.length;
               return Row(
                 children: [
@@ -219,12 +231,16 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
                   SizedBox(
                     width: 60,
                     height: 4,
-                    child: LinearProgressIndicator(value: percent, backgroundColor: Colors.white, color: Colors.amber),
+                    child: LinearProgressIndicator(
+                      value: percent,
+                      backgroundColor: Colors.white,
+                      color: Colors.amber,
+                    ),
                   ),
                 ],
               );
             }).toList(),
-          )
+          ),
         ],
       ),
     );
@@ -254,7 +270,10 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _buildStars(rating.toDouble()),
-                  Text(date, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  Text(
+                    date,
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
                 ],
               ),
               if (comment.isNotEmpty) ...[
@@ -271,11 +290,14 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
   Widget _buildStars(double rating) {
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: List.generate(5, (i) => Icon(
-        i < rating ? Icons.star : Icons.star_border,
-        size: 16,
-        color: Colors.amber,
-      )),
+      children: List.generate(
+        5,
+        (i) => Icon(
+          i < rating ? Icons.star : Icons.star_border,
+          size: 16,
+          color: Colors.amber,
+        ),
+      ),
     );
   }
 
@@ -289,8 +311,10 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
           .eq('UserID', user?.id ?? '')
           .order('CreatedAt', ascending: false),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-        if (!snapshot.hasData || (snapshot.data as List).isEmpty) return const Center(child: Text("لا توجد استشارات ذكاء اصطناعي"));
+        if (snapshot.connectionState == ConnectionState.waiting)
+          return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData || (snapshot.data as List).isEmpty)
+          return const Center(child: Text("لا توجد استشارات ذكاء اصطناعي"));
 
         final data = snapshot.data as List<dynamic>;
         return ListView.builder(
