@@ -11,14 +11,14 @@ class UserSessionsCarousel extends StatefulWidget {
   const UserSessionsCarousel({
     super.key,
     required this.userId,
-    required this.userRole, // ✅ أضفناها
+    required this.userRole,
     this.statuses = const ['لم تبدأ', 'بدأت'],
-    this.iconAssetPath = 'images/home_brown_icon.png',
+    this.iconAssetPath = 'assets/images/home_brown_icon.png',
     this.isExpert = false,
   });
 
   final String userId;
-  final String userRole; // ✅
+  final String userRole;
   final List<String> statuses;
   final String iconAssetPath;
   final bool isExpert;
@@ -132,7 +132,7 @@ class _UserSessionsCarouselState extends State<UserSessionsCarousel> {
                       child: _SessionHomeCard(
                         session: sessions[index],
                         iconAssetPath: widget.iconAssetPath,
-                        userRole: widget.userRole, // ✅ مهم
+                        userRole: widget.userRole,
                       ),
                     ),
                   );
@@ -146,6 +146,7 @@ class _UserSessionsCarouselState extends State<UserSessionsCarousel> {
       },
     );
   }
+
 }
 
 class _SessionHomeCard extends StatelessWidget {
@@ -163,12 +164,15 @@ class _SessionHomeCard extends StatelessWidget {
 
   String _formatTime(DateTime dt) => DateFormat('hh:mm a').format(dt);
 
-  /// ✅ تحديد الاسم حسب الدور
+  /// ✅ التعديل هنا: تحديد الاسم بناءً على نوع المستخدم
   String get displayName {
-    if (userRole == 'user' || userRole == 'مزارع') {
-      return session.expertName;
-    } else {
+    // إذا كان المستخدم الحالي "خبير"، نعرض له اسم "المزارع" (صاحب الاستشارة)
+    if (userRole.toLowerCase() == 'expert' || userRole == 'خبير') {
       return session.userName ?? 'المزارع';
+    }
+    // وإلا (إذا كان مزارع)، نعرض له اسم "الخبير" المحجوز معه
+    else {
+      return session.expertName;
     }
   }
 
@@ -196,23 +200,74 @@ class _SessionHomeCard extends StatelessWidget {
       },
       child: Stack(
         children: [
-          /// ✅ صورة من assets
-          /// وإذا فشل التحميل يطلع لون بني
+          // داخل كلاس _SessionHomeCard استبدلي كود الـ ClipRRect كاملاً بهذا:
           ClipRRect(
             borderRadius: BorderRadius.circular(18),
-            child: Image.asset(
-              iconAssetPath,
+            child: Container(
               width: 260,
               height: 170,
-              fit: BoxFit.cover,
-
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  width: 260,
-                  height: 170,
-                  color: Color(0xFF4C3D19),
-                );
-              },
+              decoration: BoxDecoration(
+                color: const Color(0xFF4C3D19), // الخلفية البنية
+                image: DecorationImage(
+                  image: AssetImage(iconAssetPath), // المسار: images/home_brown_icon.png
+                  fit: BoxFit.cover,
+                ),
+              ),
+              child: Stack(
+                children: [
+                  // طبقة النصوص (التي كانت في الـ Positioned السابق)
+                  Positioned(
+                    top: 14,
+                    right: 14,
+                    left: 14,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'استشارة مع $displayName',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          '${_formatDate(session.startAt)}\n${_formatTime(session.startAt)}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // الأزرار السفلية
+                  Positioned(
+                    bottom: 12,
+                    left: 12,
+                    child: Row(
+                      children: [
+                        _buildCircularActionButton(
+                          icon: Icons.event_note_rounded,
+                          onTap: () {}, // الفنكشن الخاصة بك
+                        ),
+                        const SizedBox(width: 8),
+                        _buildCircularActionButton(
+                          icon: Icons.info_outline_rounded,
+                          onTap: () {}, // الفنكشن الخاصة بك
+                        ),
+                      ],
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 12,
+                    right: 12,
+                    child: _StatusPill(status: session.status),
+                  ),
+                ],
+              ),
             ),
           ),
 
@@ -224,7 +279,7 @@ class _SessionHomeCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'استشارة مع $displayName',
+                  'استشارة مع $displayName', // سيظهر الاسم المناسب تلقائياً
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -258,7 +313,7 @@ class _SessionHomeCard extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (_) =>
-                            const TodoPage(title: 'إعادة جدولة السشن'),
+                        const TodoPage(title: 'إعادة جدولة السشن'),
                       ),
                     );
                   },
@@ -301,7 +356,7 @@ class _SessionHomeCard extends StatelessWidget {
           color: Colors.white.withOpacity(0.8),
           shape: BoxShape.circle,
         ),
-        child: Icon(icon, size: 18, color: Color(0xFF4C3D19)),
+        child: Icon(icon, size: 18, color: const Color(0xFF4C3D19)),
       ),
     );
   }
@@ -346,7 +401,7 @@ class _DotsIndicator extends StatelessWidget {
           width: isActive ? 10 : 6,
           height: isActive ? 10 : 6,
           decoration: BoxDecoration(
-            color: isActive ? Color(0xFF4C3D19) : Colors.grey.shade400,
+            color: isActive ? const Color(0xFF4C3D19) : Colors.grey.shade400,
             shape: BoxShape.circle,
           ),
         );
