@@ -49,11 +49,7 @@ class TimeSlot {
   final DateTime dateTime;
   final bool isAvailable;
 
-  TimeSlot({
-    this.id,
-    required this.dateTime,
-    required this.isAvailable,
-  });
+  TimeSlot({this.id, required this.dateTime, required this.isAvailable});
 
   factory TimeSlot.fromMap(Map<String, dynamic> map) {
     return TimeSlot(
@@ -71,10 +67,7 @@ class TimeSlot {
 class BookingPage extends StatefulWidget {
   final String expertId;
 
-  const BookingPage({
-    super.key,
-    required this.expertId,
-  });
+  const BookingPage({super.key, required this.expertId});
 
   @override
   State<BookingPage> createState() => _BookingPageState();
@@ -92,9 +85,16 @@ class _BookingPageState extends State<BookingPage> {
   // DateTime _selectedDay = DateTime.now();
   List<TimeSlot> _selectedSlots = [];
 
-  final List<DateTime> _months = List.generate(12, (index) {
-    return DateTime(DateTime.now().year, 1 + index, 1);
-  });
+  late final List<DateTime> _months = _generateMonths();
+
+  List<DateTime> _generateMonths() {
+    final now = DateTime.now();
+    const totalMonths = 6;
+
+    return List.generate(totalMonths, (index) {
+      return DateTime(now.year, now.month + index, 1);
+    });
+  }
 
   static const Color kPrimary = Color(0xFF797F3D);
   static const Color kBackground = Color(0xFFF2F0E8);
@@ -122,7 +122,10 @@ class _BookingPageState extends State<BookingPage> {
       if (expertResponse == null) return;
 
       final start = DateTime.utc(
-          _selectedDay.year, _selectedDay.month, _selectedDay.day);
+        _selectedDay.year,
+        _selectedDay.month,
+        _selectedDay.day,
+      );
       final end = start.add(const Duration(days: 1));
 
       final slotsResponse = await supabase
@@ -136,8 +139,9 @@ class _BookingPageState extends State<BookingPage> {
       if (mounted) {
         setState(() {
           _expert = ExpertModel.fromMap(expertResponse);
-          _dbSlots =
-              (slotsResponse as List).map((r) => TimeSlot.fromMap(r)).toList();
+          _dbSlots = (slotsResponse as List)
+              .map((r) => TimeSlot.fromMap(r))
+              .toList();
           _generateHalfHourSlots();
         });
       }
@@ -153,21 +157,29 @@ class _BookingPageState extends State<BookingPage> {
     for (int hour = 8; hour <= 19; hour++) {
       for (int minute in [0, 30]) {
         final slotTime = DateTime(
-            _selectedDay.year, _selectedDay.month, _selectedDay.day, hour, minute);
+          _selectedDay.year,
+          _selectedDay.month,
+          _selectedDay.day,
+          hour,
+          minute,
+        );
 
         final dbMatch = _dbSlots.firstWhere(
           (s) => s.dateTime.hour == hour && s.dateTime.minute == minute,
           orElse: () => TimeSlot(dateTime: slotTime, isAvailable: false),
         );
 
-        bool existsInDb = _dbSlots
-            .any((s) => s.dateTime.hour == hour && s.dateTime.minute == minute);
+        bool existsInDb = _dbSlots.any(
+          (s) => s.dateTime.hour == hour && s.dateTime.minute == minute,
+        );
 
-        tempSlots.add(TimeSlot(
-          id: existsInDb ? dbMatch.id : null,
-          dateTime: slotTime,
-          isAvailable: existsInDb ? dbMatch.isAvailable : false,
-        ));
+        tempSlots.add(
+          TimeSlot(
+            id: existsInDb ? dbMatch.id : null,
+            dateTime: slotTime,
+            isAvailable: existsInDb ? dbMatch.isAvailable : false,
+          ),
+        );
       }
     }
     _displaySlots = tempSlots;
@@ -225,7 +237,8 @@ class _BookingPageState extends State<BookingPage> {
         return;
       }
       _showSelectionError(
-          'لا يمكن إزالة خانة من المنتصف. احذف من البداية أو النهاية.');
+        'لا يمكن إزالة خانة من المنتصف. احذف من البداية أو النهاية.',
+      );
       return;
     }
 
@@ -279,8 +292,7 @@ class _BookingPageState extends State<BookingPage> {
     selectedSlots.sort((a, b) => a.dateTime.compareTo(b.dateTime));
 
     final startAt = selectedSlots.first.dateTime;
-    final endAt =
-        selectedSlots.last.dateTime.add(const Duration(minutes: 30));
+    final endAt = selectedSlots.last.dateTime.add(const Duration(minutes: 30));
 
     final bookedSlotIds = selectedSlots
         .map((slot) => slot.id)
@@ -324,8 +336,7 @@ class _BookingPageState extends State<BookingPage> {
         if (mounted) {
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
-              builder: (_) =>
-                  HomePage(userId: supabase.auth.currentUser?.id),
+              builder: (_) => HomePage(userId: supabase.auth.currentUser?.id),
             ),
             (route) => false,
           );
@@ -333,8 +344,7 @@ class _BookingPageState extends State<BookingPage> {
       } catch (e) {
         debugPrint('Booking save error: $e');
         if (mounted) {
-          _showSelectionError(
-              'تم الدفع لكن حدث خطأ في حفظ الحجز. تواصل معنا.');
+          _showSelectionError('تم الدفع لكن حدث خطأ في حفظ الحجز. تواصل معنا.');
         }
       }
     }
@@ -348,28 +358,44 @@ class _BookingPageState extends State<BookingPage> {
   List<DateTime> _getDaysInMonth(DateTime month) {
     final lastDay = DateTime(month.year, month.month + 1, 0).day;
     return List.generate(
-        lastDay, (i) => DateTime(month.year, month.month, i + 1));
+      lastDay,
+      (i) => DateTime(month.year, month.month, i + 1),
+    );
   }
 
   String _arabicWeekday(DateTime date) {
     const days = [
-      'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس',
-      'الجمعة', 'السبت', 'الأحد'
+      'الاثنين',
+      'الثلاثاء',
+      'الأربعاء',
+      'الخميس',
+      'الجمعة',
+      'السبت',
+      'الأحد',
     ];
     return days[date.weekday - 1];
   }
 
   String _arabicMonth(DateTime date) {
     const months = [
-      'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-      'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+      'يناير',
+      'فبراير',
+      'مارس',
+      'أبريل',
+      'مايو',
+      'يونيو',
+      'يوليو',
+      'أغسطس',
+      'سبتمبر',
+      'أكتوبر',
+      'نوفمبر',
+      'ديسمبر',
     ];
     return '${months[date.month - 1]} ${date.year}';
   }
 
   String _formatSlotTime(DateTime dt) {
-    final hour =
-        dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+    final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
     final minute = dt.minute.toString().padLeft(2, '0');
     return '$hour:$minute ${dt.hour >= 12 ? 'م' : 'ص'}';
   }
@@ -386,7 +412,8 @@ class _BookingPageState extends State<BookingPage> {
         backgroundColor: AppColors.header,
         body: _isLoading && _expert == null
             ? const Center(
-                child: CircularProgressIndicator(color: AppColors.darkBrown))
+                child: CircularProgressIndicator(color: AppColors.darkBrown),
+              )
             : Column(
                 children: [
                   SafeArea(
@@ -407,7 +434,9 @@ class _BookingPageState extends State<BookingPage> {
                       ),
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 20),
+                          horizontal: 16,
+                          vertical: 20,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -437,8 +466,10 @@ class _BookingPageState extends State<BookingPage> {
   Widget _buildExpertCard() {
     if (_expert == null) return const SizedBox();
     return Container(
-      decoration:
-          BoxDecoration(color: kCard, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: kCard,
+        borderRadius: BorderRadius.circular(16),
+      ),
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
@@ -447,25 +478,32 @@ class _BookingPageState extends State<BookingPage> {
               CircleAvatar(
                 radius: 28,
                 backgroundColor: const Color(0xFFD9D5C5),
-                backgroundImage: _expert!.avatarUrl != null &&
-                        _expert!.avatarUrl!.isNotEmpty
-                    ? NetworkImage(supabase.storage
-                        .from('pic')
-                        .getPublicUrl(_expert!.avatarUrl!))
+                backgroundImage:
+                    _expert!.avatarUrl != null && _expert!.avatarUrl!.isNotEmpty
+                    ? NetworkImage(
+                        supabase.storage
+                            .from('pic')
+                            .getPublicUrl(_expert!.avatarUrl!),
+                      )
                     : const AssetImage('images/nekhlawi_icon.png')
-                        as ImageProvider,
+                          as ImageProvider,
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_expert!.name,
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text(_expert!.title,
-                        style:
-                            const TextStyle(fontSize: 13, color: Colors.grey)),
+                    Text(
+                      _expert!.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      _expert!.title,
+                      style: const TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
                   ],
                 ),
               ),
@@ -476,7 +514,9 @@ class _BookingPageState extends State<BookingPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _infoChip(
-                  Icons.monetization_on_outlined, 'الاستشارة تبدأ من ٣٠٠ ريال'),
+                Icons.monetization_on_outlined,
+                'الاستشارة تبدأ من ٣٠٠ ريال',
+              ),
               _infoChip(Icons.location_on_outlined, 'السعودية'),
             ],
           ),
@@ -491,8 +531,10 @@ class _BookingPageState extends State<BookingPage> {
       children: [
         Icon(icon, size: 16, color: kPrimary),
         const SizedBox(width: 4),
-        Text(label,
-            style: const TextStyle(fontSize: 12, color: Colors.black87)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Colors.black87),
+        ),
       ],
     );
   }
@@ -505,7 +547,8 @@ class _BookingPageState extends State<BookingPage> {
         itemCount: _months.length,
         itemBuilder: (context, index) {
           final month = _months[index];
-          final isSelected = month.month == _selectedMonth.month &&
+          final isSelected =
+              month.month == _selectedMonth.month &&
               month.year == _selectedMonth.year;
           return GestureDetector(
             onTap: () {
@@ -517,8 +560,7 @@ class _BookingPageState extends State<BookingPage> {
             },
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 5),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               decoration: BoxDecoration(
                 color: isSelected ? kPrimary : kCard,
                 borderRadius: BorderRadius.circular(20),
@@ -588,8 +630,7 @@ class _BookingPageState extends State<BookingPage> {
                         _arabicWeekday(day),
                         style: TextStyle(
                           fontSize: 10,
-                          color:
-                              isSelected ? Colors.white70 : Colors.black54,
+                          color: isSelected ? Colors.white70 : Colors.black54,
                         ),
                       ),
                       const SizedBox(height: 5),
@@ -636,8 +677,7 @@ class _BookingPageState extends State<BookingPage> {
                   ? kSlotUnavailable
                   : (isSelected ? Colors.white : kSlotAvailable),
               borderRadius: BorderRadius.circular(10),
-              border:
-                  isSelected ? Border.all(color: kPrimary, width: 2) : null,
+              border: isSelected ? Border.all(color: kPrimary, width: 2) : null,
             ),
             alignment: Alignment.center,
             child: Text(
@@ -679,7 +719,9 @@ class _BookingPageState extends State<BookingPage> {
                         ? _formatSlotTime(_selectedStart!)
                         : '--:--',
                     style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w500),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   const SizedBox(width: 6),
                   const Icon(Icons.alarm, size: 18, color: Colors.black54),
@@ -692,11 +734,12 @@ class _BookingPageState extends State<BookingPage> {
                         ? _formatSlotTime(_selectedEnd!)
                         : '--:--',
                     style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w500),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   const SizedBox(width: 6),
-                  const Icon(Icons.alarm_off,
-                      size: 18, color: Colors.black54),
+                  const Icon(Icons.alarm_off, size: 18, color: Colors.black54),
                 ],
               ),
             ],
@@ -709,7 +752,9 @@ class _BookingPageState extends State<BookingPage> {
                 Text(
                   'المدة: $_totalDurationLabel',
                   style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w500),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 Text(
                   'المجموع: $_totalPrice ريال',
@@ -732,7 +777,8 @@ class _BookingPageState extends State<BookingPage> {
                 disabledBackgroundColor: kPrimary.withOpacity(0.5),
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: const Text(
                 'تأكيد الحجز',
@@ -745,8 +791,10 @@ class _BookingPageState extends State<BookingPage> {
             ),
           ),
           const SizedBox(height: 10),
-          const Text('© 2025-2026',
-              style: TextStyle(fontSize: 11, color: Colors.grey)),
+          const Text(
+            '© 2025-2026',
+            style: TextStyle(fontSize: 11, color: Colors.grey),
+          ),
         ],
       ),
     );

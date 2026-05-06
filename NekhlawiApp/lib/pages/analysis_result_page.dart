@@ -7,7 +7,6 @@ import 'package:printing/printing.dart';
 import 'package:flutter/services.dart';
 import 'booking_experts_page.dart';
 import 'package:exif/exif.dart';
-import 'dart:convert'; // ضروري لتحويل البيانات لـ JSON
 
 class AnalysisResultPage extends StatefulWidget {
   final File? imageFile;
@@ -101,7 +100,11 @@ class _AnalysisResultPageState extends State<AnalysisResultPage> {
       final pdf = pw.Document();
 
       // 💡 التعديل هنا: سحب الخط من الإنترنت مباشرة عشان يشتغل معك الحين بدون ما تلمسين الـ Assets
-      final fontData = await NetworkAssetBundle(Uri.parse('https://github.com/google/fonts/raw/main/ofl/amiri/Amiri-Regular.ttf')).load("");
+      final fontData = await NetworkAssetBundle(
+        Uri.parse(
+          'https://github.com/google/fonts/raw/main/ofl/amiri/Amiri-Regular.ttf',
+        ),
+      ).load("");
       final ttf = pw.Font.ttf(fontData);
 
       pdf.addPage(
@@ -115,18 +118,55 @@ class _AnalysisResultPageState extends State<AnalysisResultPage> {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Center(child: pw.Text("تقرير تشخيص نخلاوي", style: pw.TextStyle(font: ttf, fontSize: 26, fontWeight: pw.FontWeight.bold))),
+                    pw.Center(
+                      child: pw.Text(
+                        "تقرير تشخيص نخلاوي",
+                        style: pw.TextStyle(
+                          font: ttf,
+                          fontSize: 26,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    ),
                     pw.SizedBox(height: 10),
                     pw.Divider(),
                     pw.SizedBox(height: 20),
-                    pw.Text("الحالة المكتشفة: ${widget.aiLabel}", style: pw.TextStyle(font: ttf, fontSize: 18)),
-                    pw.Text("نسبة الثقة: ${widget.confidence.toStringAsFixed(0)}%", style: pw.TextStyle(font: ttf, fontSize: 18)),
+                    pw.Text(
+                      "الحالة المكتشفة: ${widget.aiLabel}",
+                      style: pw.TextStyle(font: ttf, fontSize: 18),
+                    ),
+                    pw.Text(
+                      "نسبة الثقة: ${widget.confidence.toStringAsFixed(0)}%",
+                      style: pw.TextStyle(font: ttf, fontSize: 18),
+                    ),
                     pw.SizedBox(height: 20),
-                    pw.Text("الأعراض:", style: pw.TextStyle(font: ttf, fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.brown900)),
-                    pw.Text(widget.diseaseInfo?['Symptoms'] ?? "لا توجد تفاصيل", style: pw.TextStyle(font: ttf, fontSize: 14)),
+                    pw.Text(
+                      "الأعراض:",
+                      style: pw.TextStyle(
+                        font: ttf,
+                        fontSize: 16,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.brown900,
+                      ),
+                    ),
+                    pw.Text(
+                      widget.diseaseInfo?['Symptoms'] ?? "لا توجد تفاصيل",
+                      style: pw.TextStyle(font: ttf, fontSize: 14),
+                    ),
                     pw.SizedBox(height: 20),
-                    pw.Text("خطة العلاج:", style: pw.TextStyle(font: ttf, fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.brown900)),
-                    pw.Text(widget.treatmentInfo?['Steps'] ?? "لا توجد تفاصيل", style: pw.TextStyle(font: ttf, fontSize: 14)),
+                    pw.Text(
+                      "خطة العلاج:",
+                      style: pw.TextStyle(
+                        font: ttf,
+                        fontSize: 16,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.brown900,
+                      ),
+                    ),
+                    pw.Text(
+                      widget.treatmentInfo?['Steps'] ?? "لا توجد تفاصيل",
+                      style: pw.TextStyle(font: ttf, fontSize: 14),
+                    ),
                   ],
                 ),
               ),
@@ -136,7 +176,9 @@ class _AnalysisResultPageState extends State<AnalysisResultPage> {
       );
 
       // يفتح صفحة الحفظ والمشاركة فوراً
-      await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => pdf.save(),
+      );
     } catch (e) {
       debugPrint("خطأ في الـ PDF: $e");
     }
@@ -152,7 +194,10 @@ class _AnalysisResultPageState extends State<AnalysisResultPage> {
       child: Scaffold(
         backgroundColor: lightBeige,
         appBar: AppBar(
-          title: const Text("نتائج التحليل", style: TextStyle(color: darkBrown, fontWeight: FontWeight.bold)),
+          title: const Text(
+            "نتائج التحليل",
+            style: TextStyle(color: darkBrown, fontWeight: FontWeight.bold),
+          ),
           backgroundColor: Colors.transparent,
           elevation: 0,
           centerTitle: true,
@@ -171,17 +216,34 @@ class _AnalysisResultPageState extends State<AnalysisResultPage> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(25),
                 child: widget.imageFile != null
-                    ? Image.file(widget.imageFile!, height: 180, width: double.infinity, fit: BoxFit.cover)
+                    ? Image.file(
+                        widget.imageFile!,
+                        height: 180,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      )
                     : (widget.imageUrl != null && widget.imageUrl!.isNotEmpty)
-                    ? Image.network(widget.imageUrl!, height: 180, width: double.infinity, fit: BoxFit.cover)
-                    : Container(height: 180, color: Colors.grey[300], child: const Icon(Icons.image)),
+                    ? Image.network(
+                        widget.imageUrl!,
+                        height: 180,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      )
+                    : Container(
+                        height: 180,
+                        color: Colors.grey[300],
+                        child: const Icon(Icons.image),
+                      ),
               ),
             ),
             Expanded(
               child: Container(
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.only(topLeft: Radius.circular(45), topRight: Radius.circular(45)),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(45),
+                    topRight: Radius.circular(45),
+                  ),
                 ),
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(25),
@@ -189,15 +251,39 @@ class _AnalysisResultPageState extends State<AnalysisResultPage> {
                     children: [
                       _buildResultCard(widget.aiLabel, widget.confidence),
                       const SizedBox(height: 30),
-                      _buildSection("الأعراض:", widget.diseaseInfo?['Symptoms'] ?? "لا توجد تفاصيل."),
-                      _buildSection("العلاج:", widget.treatmentInfo?['Steps'] ?? "لا يتوفر علاج حالياً."),
+                      _buildSection(
+                        "الأعراض:",
+                        widget.diseaseInfo?['Symptoms'] ?? "لا توجد تفاصيل.",
+                      ),
+                      _buildSection(
+                        "العلاج:",
+                        widget.treatmentInfo?['Steps'] ??
+                            "لا يتوفر علاج حالياً.",
+                      ),
                       const SizedBox(height: 30),
                       GestureDetector(
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BookingExpertsPage())),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const BookingExpertsPage(),
+                          ),
+                        ),
                         child: Column(
                           children: [
-                            const Text("بستشير خبيراً", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: darkBrown)),
-                            Container(margin: const EdgeInsets.only(top: 2), height: 1.5, width: 100, color: darkBrown),
+                            const Text(
+                              "بستشير خبيراً",
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: darkBrown,
+                              ),
+                            ),
+                            Container(
+                              margin: const EdgeInsets.only(top: 2),
+                              height: 1.5,
+                              width: 100,
+                              color: darkBrown,
+                            ),
                           ],
                         ),
                       ),
@@ -217,9 +303,23 @@ class _AnalysisResultPageState extends State<AnalysisResultPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF43321A))),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF43321A),
+          ),
+        ),
         const SizedBox(height: 10),
-        Text(content, style: const TextStyle(fontSize: 15, height: 1.6, color: Colors.black87)),
+        Text(
+          content,
+          style: const TextStyle(
+            fontSize: 15,
+            height: 1.6,
+            color: Colors.black87,
+          ),
+        ),
         const Divider(height: 35),
       ],
     );
@@ -228,18 +328,35 @@ class _AnalysisResultPageState extends State<AnalysisResultPage> {
   Widget _buildResultCard(String label, double conf) {
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: const Color(0xFFD9E0B3).withOpacity(0.3), borderRadius: BorderRadius.circular(25)),
+      decoration: BoxDecoration(
+        color: const Color(0xFFD9E0B3).withOpacity(0.3),
+        borderRadius: BorderRadius.circular(25),
+      ),
       child: Row(
         children: [
-          CircularProgressIndicator(value: conf / 100, color: const Color(0xFF7B8646), strokeWidth: 6),
+          CircularProgressIndicator(
+            value: conf / 100,
+            color: const Color(0xFF7B8646),
+            strokeWidth: 6,
+          ),
           const SizedBox(width: 25),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF43321A))),
-              Text("الدقة: ${conf.toStringAsFixed(0)}%", style: const TextStyle(color: Colors.black54)),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF43321A),
+                ),
+              ),
+              Text(
+                "الدقة: ${conf.toStringAsFixed(0)}%",
+                style: const TextStyle(color: Colors.black54),
+              ),
             ],
-          )
+          ),
         ],
       ),
     );
