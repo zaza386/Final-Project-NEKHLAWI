@@ -55,7 +55,7 @@ class ExpertCard extends StatelessWidget {
             ),
             child: CircleAvatar(
               radius: 32,
-              backgroundColor: Colors.white,
+              backgroundColor: AppColors.header,
               backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty
                   ? NetworkImage(supabase.storage.from('pic').getPublicUrl(avatarUrl!))
                   : AssetImage('images/nekhlawi_icon.png'),
