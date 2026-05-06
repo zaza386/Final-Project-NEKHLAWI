@@ -15,7 +15,9 @@ class Wrapper extends StatelessWidget {
       stream: Supabase.instance.client.auth.onAuthStateChange,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
 
         final session = snapshot.data?.session;
@@ -27,10 +29,7 @@ class Wrapper extends StatelessWidget {
         }
 
         // إذا نجح الدخول (سواء بكلمة مرور أو ماجك لينك) نمر لمرحلة فحص الملف الشخصي
-        return _ProfileGate(
-          userId: user.id,
-          email: user.email ?? '',
-        );
+        return _ProfileGate(userId: user.id, email: user.email ?? '');
       },
     );
   }
@@ -40,7 +39,7 @@ class _ProfileGate extends StatefulWidget {
   final String userId;
   final String email;
 
-  const _ProfileGate({super.key, required this.userId, required this.email});
+  const _ProfileGate({required this.userId, required this.email});
 
   @override
   State<_ProfileGate> createState() => _ProfileGateState();
@@ -53,7 +52,9 @@ class _ProfileGateState extends State<_ProfileGate> {
       future: _resolveUserRoute(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
         return snapshot.data ?? const WelcomePage();
       },
@@ -70,14 +71,25 @@ class _ProfileGateState extends State<_ProfileGate> {
         .maybeSingle();
 
     final role = userData?['Role'] ?? 'farmer';
-    final hasBasicProfile = userData != null && userData['Name'] != null && userData['Phone'] != null;
+    final hasBasicProfile =
+        userData != null &&
+        userData['Name'] != null &&
+        userData['Phone'] != null;
 
     if (!hasBasicProfile) {
-      return CompleteProfilePage(userId: widget.userId, email: widget.email, role: role);
+      return CompleteProfilePage(
+        userId: widget.userId,
+        email: widget.email,
+        role: role,
+      );
     }
 
     if (role == 'expert') {
-      final expertProfile = await supabase.from('ExpertProfile').select().eq('ExpertID', widget.userId).maybeSingle();
+      final expertProfile = await supabase
+          .from('ExpertProfile')
+          .select()
+          .eq('ExpertID', widget.userId)
+          .maybeSingle();
       if (expertProfile == null) {
         await supabase.from('ExpertProfile').insert({
           'ExpertID': widget.userId,
@@ -88,10 +100,10 @@ class _ProfileGateState extends State<_ProfileGate> {
         });
       }
     }
-    
-if (role == 'expert') {
-  return ExpertHomePage(userId: widget.userId);
-}
-return HomePage(userId: widget.userId);  
+
+    if (role == 'expert') {
+      return ExpertHomePage(userId: widget.userId);
+    }
+    return HomePage(userId: widget.userId);
   }
 }

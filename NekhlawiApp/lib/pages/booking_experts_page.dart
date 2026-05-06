@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:nekhlawi_app/core/theme/app_colors.dart';
 import 'package:nekhlawi_app/core/widgets/header_background.dart';
 import 'package:nekhlawi_app/core/widgets/expert_card.dart';
 import '../core/data/expert_repo.dart';
 import '../core/models/expert_item.dart';
 import 'package:nekhlawi_app/pages/booking_page.dart';
 import 'package:nekhlawi_app/pages/expert_profile.dart';
-
 
 class BookingExpertsPage extends StatefulWidget {
   const BookingExpertsPage({super.key});
@@ -20,9 +18,6 @@ class _BookingExpertsPageState extends State<BookingExpertsPage> {
   final _searchController = TextEditingController();
 
   Future<List<ExpertItem>>? _future;
-
-  static const int pricePerHour = 300;
-  static const String locationText = 'السعودية';
 
   @override
   void initState() {
@@ -46,7 +41,9 @@ class _BookingExpertsPageState extends State<BookingExpertsPage> {
     Future.delayed(Duration.zero, () {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => ExpertProfilePage(expertId: expertId)),
+        MaterialPageRoute(
+          builder: (_) => ExpertProfilePage(expertId: expertId),
+        ),
       );
     });
   }
@@ -55,9 +52,7 @@ class _BookingExpertsPageState extends State<BookingExpertsPage> {
     Future.delayed(Duration.zero, () {
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => BookingPage(expertId: expertId),
-        ),
+        MaterialPageRoute(builder: (_) => BookingPage(expertId: expertId)),
       );
     });
   }
@@ -98,7 +93,6 @@ class _BookingExpertsPageState extends State<BookingExpertsPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 16),
-
 
                       Row(
                         children: [
@@ -166,7 +160,10 @@ class _BookingExpertsPageState extends State<BookingExpertsPage> {
                               itemBuilder: (context, index) {
                                 if (index == experts.length) {
                                   return const Padding(
-                                    padding: EdgeInsets.only(top: 10, bottom: 16),
+                                    padding: EdgeInsets.only(
+                                      top: 10,
+                                      bottom: 16,
+                                    ),
                                     child: Center(
                                       child: Text(
                                         '©️ 2025 - 2026',
