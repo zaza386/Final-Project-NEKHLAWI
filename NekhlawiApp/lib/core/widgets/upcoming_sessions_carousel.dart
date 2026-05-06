@@ -168,7 +168,7 @@ class _SessionHomeCard extends StatelessWidget {
     if (userRole == 'user' || userRole == 'مزارع') {
       return session.expertName;
     } else {
-      return session.userName ?? 'المزارع'; // تأكدي موجودة
+      return session.userName ?? 'المزارع';
     }
   }
 
@@ -196,6 +196,8 @@ class _SessionHomeCard extends StatelessWidget {
       },
       child: Stack(
         children: [
+          /// ✅ صورة من assets
+          /// وإذا فشل التحميل يطلع لون بني
           ClipRRect(
             borderRadius: BorderRadius.circular(18),
             child: Image.asset(
@@ -203,6 +205,14 @@ class _SessionHomeCard extends StatelessWidget {
               width: 260,
               height: 170,
               fit: BoxFit.cover,
+
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  width: 260,
+                  height: 170,
+                  color: Color(0xFF4C3D19),
+                );
+              },
             ),
           ),
 
@@ -214,7 +224,7 @@ class _SessionHomeCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'استشارة مع $displayName', // ✅ التعديل هنا
+                  'استشارة مع $displayName',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -291,7 +301,7 @@ class _SessionHomeCard extends StatelessWidget {
           color: Colors.white.withOpacity(0.8),
           shape: BoxShape.circle,
         ),
-        child: Icon(icon, size: 18, color: const Color(0xFF6B5A2A)),
+        child: Icon(icon, size: 18, color: Color(0xFF4C3D19)),
       ),
     );
   }
@@ -336,7 +346,7 @@ class _DotsIndicator extends StatelessWidget {
           width: isActive ? 10 : 6,
           height: isActive ? 10 : 6,
           decoration: BoxDecoration(
-            color: isActive ? const Color(0xFF6B5A2A) : Colors.grey.shade400,
+            color: isActive ? Color(0xFF4C3D19) : Colors.grey.shade400,
             shape: BoxShape.circle,
           ),
         );
