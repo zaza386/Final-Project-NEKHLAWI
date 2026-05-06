@@ -8,7 +8,8 @@ class ExpertSessionItem {
   final DateTime? endAt;
   final DateTime? bookedAt;
 
-  final String expertName; 
+  final String expertName;
+  final String userName;
 
   ExpertSessionItem({
     required this.expertSessionID,
@@ -19,11 +20,13 @@ class ExpertSessionItem {
     this.endAt,
     this.bookedAt,
     required this.expertName,
+    required this.userName,
   });
 
   factory ExpertSessionItem.fromMap(
     Map<String, dynamic> map, {
     required String expertName,
+    required String userName,
   }) {
     DateTime parseDT(dynamic v) => DateTime.parse(v.toString());
 
@@ -36,6 +39,7 @@ class ExpertSessionItem {
       endAt: map['EndAt'] == null ? null : parseDT(map['EndAt']),
       bookedAt: map['BookedAt'] == null ? null : parseDT(map['BookedAt']),
       expertName: expertName,
+      userName: userName,
     );
   }
 }

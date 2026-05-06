@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:nekhlawi_app/pages/to_do_page.dart';
-import 'package:nekhlawi_app/pages/mock_chat.dart';
+import 'package:nekhlawi_app/pages/chat.dart';
 
 import '../data/expert_session_repo.dart';
 import '../models/expert_session_item.dart';
@@ -11,12 +11,14 @@ class UserSessionsCarousel extends StatefulWidget {
   const UserSessionsCarousel({
     super.key,
     required this.userId,
+    required this.userRole, // ✅ أضفناها
     this.statuses = const ['لم تبدأ', 'بدأت'],
     this.iconAssetPath = 'images/home_brown_icon.png',
     this.isExpert = false,
   });
 
   final String userId;
+  final String userRole; // ✅
   final List<String> statuses;
   final String iconAssetPath;
   final bool isExpert;
@@ -130,6 +132,7 @@ class _UserSessionsCarouselState extends State<UserSessionsCarousel> {
                       child: _SessionHomeCard(
                         session: sessions[index],
                         iconAssetPath: widget.iconAssetPath,
+                        userRole: widget.userRole, // ✅ مهم
                       ),
                     ),
                   );
@@ -137,10 +140,7 @@ class _UserSessionsCarouselState extends State<UserSessionsCarousel> {
               ),
             ),
             const SizedBox(height: 15),
-            _DotsIndicator(
-              count: sessions.length,
-              activeIndex: _currentIndex,
-            ),
+            _DotsIndicator(count: sessions.length, activeIndex: _currentIndex),
           ],
         );
       },
@@ -152,16 +152,25 @@ class _SessionHomeCard extends StatelessWidget {
   const _SessionHomeCard({
     required this.session,
     required this.iconAssetPath,
+    required this.userRole,
   });
 
   final ExpertSessionItem session;
   final String iconAssetPath;
+  final String userRole;
 
-  String _formatDate(DateTime dt) =>
-      DateFormat('EEEE، d MMM yyyy').format(dt);
+  String _formatDate(DateTime dt) => DateFormat('EEEE، d MMM yyyy').format(dt);
 
-  String _formatTime(DateTime dt) =>
-      DateFormat('hh:mm a').format(dt);
+  String _formatTime(DateTime dt) => DateFormat('hh:mm a').format(dt);
+
+  /// ✅ تحديد الاسم حسب الدور
+  String get displayName {
+    if (userRole == 'user' || userRole == 'مزارع') {
+      return session.expertName;
+    } else {
+      return session.userName ?? 'المزارع'; // تأكدي موجودة
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -175,16 +184,13 @@ class _SessionHomeCard extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => ChatPage(
-                expertId: session.expertID!,
-              ),
+              builder: (_) =>
+                  ChatPage(expertId: session.expertID, userId: session.userID),
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('تقدر تدخل الشات بعد بدء الجلسة'),
-            ),
+            const SnackBar(content: Text('تقدر تدخل الشات بعد بدء الجلسة')),
           );
         }
       },
@@ -193,7 +199,7 @@ class _SessionHomeCard extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(18),
             child: Image.asset(
-              'images/home_brown_icon.png',
+              iconAssetPath,
               width: 260,
               height: 170,
               fit: BoxFit.cover,
@@ -208,7 +214,7 @@ class _SessionHomeCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'استشارة مع الخبير ${session.expertName}',
+                  'استشارة مع $displayName', // ✅ التعديل هنا
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -230,7 +236,6 @@ class _SessionHomeCard extends StatelessWidget {
             ),
           ),
 
-          // 💡 الأيقونات الدائرية المضافة (التقويم والمعلومات)
           Positioned(
             bottom: 12,
             left: 12,
@@ -241,7 +246,10 @@ class _SessionHomeCard extends StatelessWidget {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const TodoPage(title: 'إعادة جدولة السشن',)),
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const TodoPage(title: 'إعادة جدولة السشن'),
+                      ),
                     );
                   },
                 ),
@@ -251,7 +259,9 @@ class _SessionHomeCard extends StatelessWidget {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const TodoPage(title: 'معلومات السشن',)),
+                      MaterialPageRoute(
+                        builder: (_) => const TodoPage(title: 'معلومات السشن'),
+                      ),
                     );
                   },
                 ),
@@ -269,22 +279,19 @@ class _SessionHomeCard extends StatelessWidget {
     );
   }
 
-  // دالة بناء الزر الدائري الأبيض
-  Widget _buildCircularActionButton(
-      {required IconData icon, required VoidCallback onTap}) {
+  Widget _buildCircularActionButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(6),
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.8),
           shape: BoxShape.circle,
         ),
-        child: Icon(
-          icon,
-          size: 18,
-          color: const Color(0xFF6B5A2A), // اللون البني للكارت
-        ),
+        child: Icon(icon, size: 18, color: const Color(0xFF6B5A2A)),
       ),
     );
   }
@@ -311,10 +318,7 @@ class _StatusPill extends StatelessWidget {
 }
 
 class _DotsIndicator extends StatelessWidget {
-  const _DotsIndicator({
-    required this.count,
-    required this.activeIndex,
-  });
+  const _DotsIndicator({required this.count, required this.activeIndex});
 
   final int count;
   final int activeIndex;
