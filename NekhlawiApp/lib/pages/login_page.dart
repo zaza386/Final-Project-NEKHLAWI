@@ -268,7 +268,7 @@ class _LoginPageState extends State<LoginPage> {
                               //   onPressed: () => signInWithMagicLink(emailController),
                               // ),
                               // const SizedBox(height: 16),
-                              // const Center(child: SignUpLinkText()),
+                              const Center(child: SignUpLinkText()),
 
                               const Spacer(),
 
