@@ -69,4 +69,22 @@ class ExpertSessionRepo {
       );
     }).toList();
   }
+
+  Future<void> createBooking({
+    required String userId,
+    required String expertId,
+    required DateTime selectedDate,
+  }) async {
+    try {
+      await _db.from('ExpertSession').upsert({
+        'UserID': userId,
+        'ExpertID': expertId,
+        'Status': 'قيد الانتظار', // ✅ نحدد الحالة هنا لضمان عدم قبولها تلقائياً
+        'StartAt': selectedDate.toIso8601String(),
+        'BookedAt': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      throw Exception('فشل في عملية الحجز: $e');
+    }
+  }
 }
