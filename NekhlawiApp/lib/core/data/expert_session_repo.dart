@@ -10,21 +10,21 @@ class ExpertSessionRepo {
     int limit = 20,
     bool isExpert = false,
   }) async {
-    // 1) جيب السشنز
+
     final sessionsRes = await _db
         .from('ExpertSession')
         .select(
-          'ExpertSessionID, UserID, ExpertID, Status, StartAt, EndAt, BookedAt',
-        )
+      'ExpertSessionID, UserID, ExpertID, Status, StartAt, EndAt, BookedAt',
+    )
         .eq(isExpert ? 'ExpertID' : 'UserID', userId)
         .inFilter('Status', statuses)
         .order('StartAt', ascending: true)
         .limit(limit);
 
     final sessions = (sessionsRes as List).cast<Map<String, dynamic>>();
+
     if (sessions.isEmpty) return [];
 
-    // 2) اجمع كل IDs (خبراء + مزارعين)
     final expertIds = sessions
         .map((e) => e['ExpertID']?.toString())
         .where((id) => id != null && id.isNotEmpty)
@@ -41,7 +41,6 @@ class ExpertSessionRepo {
 
     final allIds = {...expertIds, ...userIds}.toList();
 
-    // 3) جيب كل الأسماء مرة وحدة
     final usersRes = await _db
         .from('User')
         .select('UserID, Name')
@@ -54,19 +53,17 @@ class ExpertSessionRepo {
         u['UserID'].toString(): (u['Name'] ?? 'مستخدم').toString(),
     };
 
-    // 4) ركّب الموديل (🔥 التعديل هنا)
     return sessions.map((s) {
-      final expertId = s['ExpertID'].toString();
-      final userId = s['UserID'].toString();
 
-      final expertName = idToName[expertId] ?? 'خبير';
-      final userName = idToName[userId] ?? 'مزارع';
+      final expertId = s['ExpertID']?.toString() ?? '';
+      final userId = s['UserID']?.toString() ?? '';
 
       return ExpertSessionItem.fromMap(
         s,
-        expertName: expertName,
-        userName: userName, // ✅ مهم
+        expertName: idToName[expertId] ?? 'خبير',
+        userName: idToName[userId] ?? 'مزارع',
       );
+
     }).toList();
   }
 
@@ -75,16 +72,32 @@ class ExpertSessionRepo {
     required String expertId,
     required DateTime selectedDate,
   }) async {
+
     try {
-      await _db.from('ExpertSession').upsert({
+
+      final existing = await _db
+          .from('ExpertSession')
+          .select('ExpertSessionID')
+          .eq('ExpertID', expertId)
+          .eq('StartAt', selectedDate.toIso8601String())
+          .maybeSingle();
+
+      if (existing != null) {
+        throw Exception('هذا الموعد محجوز مسبقاً');
+      }
+
+      await _db.from('ExpertSession').insert({
         'UserID': userId,
         'ExpertID': expertId,
-        'Status': 'قيد الانتظار', // ✅ نحدد الحالة هنا لضمان عدم قبولها تلقائياً
+        'Status': 'pending',
         'StartAt': selectedDate.toIso8601String(),
         'BookedAt': DateTime.now().toIso8601String(),
       });
+
     } catch (e) {
-      throw Exception('فشل في عملية الحجز: $e');
+      throw Exception('خطأ في الحجز: $e');
     }
   }
 }
+
+
