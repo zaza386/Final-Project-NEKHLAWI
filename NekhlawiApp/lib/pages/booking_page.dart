@@ -325,7 +325,7 @@ class _BookingPageState extends State<BookingPage> {
           'BookedAt': DateTime.now().toIso8601String(),
           'StartAt': startAt.toIso8601String(),
           'EndAt': endAt.toIso8601String(),
-          'Status': 'pending',
+          'Status': 'تحت المعاينة',
         });
 
         await supabase

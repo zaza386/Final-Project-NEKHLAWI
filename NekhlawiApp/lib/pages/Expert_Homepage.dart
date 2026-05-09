@@ -107,10 +107,11 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
                               UserSessionsCarousel(
                                 userId: widget.userId ?? 'default_user_id',
                                 statuses: const [
-                                  'pending',
-                                  'accepted',
-                                  'rejected',
-                                  'started',
+                                  'تحت المعاينة',
+                                  'لم تبدأ',
+                                  'بدأت',
+                                  'مرفوضة',
+                                  'أنتهت'
                                 ],
                                 iconAssetPath:
                                     'assets/images/home_brown_icon.png',
