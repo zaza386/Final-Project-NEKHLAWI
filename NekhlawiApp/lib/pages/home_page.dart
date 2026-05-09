@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:nekhlawi_app/core/theme/app_colors.dart';
 import '../core/widgets/header_background.dart';
 import 'package:nekhlawi_app/core/widgets/upcoming_sessions_carousel.dart';
-
 import '../core/widgets/home_search_bar.dart';
 import '../core/widgets/home_welcome_card.dart';
 import '../core/widgets/home_service_grid.dart';
@@ -80,7 +79,7 @@ class _HomePageState extends State<HomePage> {
                                 userId: widget.userId ?? 'default_user_id',
                                 statuses: const ['لم تبدأ', 'بدأت'],
                                 iconAssetPath:
-                                    'assets/images/home_brown_icon.png',
+                                'assets/images/home_brown_icon.png',
                                 userRole: userRole ?? '',
                               ),
 
