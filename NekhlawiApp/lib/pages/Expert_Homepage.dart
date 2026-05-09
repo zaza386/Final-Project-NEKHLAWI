@@ -106,7 +106,12 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
                               const SizedBox(height: 10),
                               UserSessionsCarousel(
                                 userId: widget.userId ?? 'default_user_id',
-                                statuses: const ['لم تبدأ', 'بدأت'],
+                                statuses: const [
+                                  'pending',
+                                  'accepted',
+                                  'rejected',
+                                  'started',
+                                ],
                                 iconAssetPath:
                                     'assets/images/home_brown_icon.png',
                                 isExpert: true,
