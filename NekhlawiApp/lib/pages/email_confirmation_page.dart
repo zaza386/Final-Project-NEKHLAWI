@@ -1,8 +1,6 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import '../core/theme/app_colors.dart';
 import '../core/widgets/primary_button.dart';
 import 'complete_profile_page.dart';
@@ -32,41 +30,61 @@ class _EmailConfirmationPageState extends State<EmailConfirmationPage> {
   @override
   void initState() {
     super.initState();
-    // استمع لتغيرات حالة المستخدم - عندما يتأكد البريد تلقائياً
+    // اللوجيك: الاستماع لتغير الحالة والتأكد من وجود User ID
     _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
       final user = data.session?.user;
-      
-      // إذا تأكد البريد تلقائياً (من الضغط على الرابط)
+
       if (user != null && user.emailConfirmedAt != null && mounted) {
-        setState(() {
-          statusMessage = '✅ تم تأكيد بريدك! يتم الانتقال...';
-        });
-        
-        // أدرج سجل أولي للمستخدم في جدول User
-        supabase.from('User').insert({
-          'UserID': user.id,
-          'Email': widget.email,
-          'Role': widget.role,
-        }).catchError((_) {
-          // إذا كان السجل موجود بالفعل، لا تفعل شيء
-        });
-        
-        // بعد ثانيتين، انتقل لصفحة استكمال البيانات
-        Future.delayed(const Duration(seconds: 2), () {
-          if (!mounted) return;
+        _performNavigation(user.id);
+      }
+    });
+  }
+
+  // دالة اللوجيك الخاصة بالحفظ والانتقال
+  Future<void> _performNavigation(String userId) async {
+    setState(() {
+      statusMessage = '✅ تم تأكيد بريدك! يتم الانتقال...';
+    });
+
+    try {
+      // إدراج البيانات (استخدام upsert يمنع الأخطاء إذا تكرر الطلب)
+      await supabase.from('User').upsert({
+        'UserID': userId,
+        'Email': widget.email,
+        'Role': widget.role,
+      });
+
+      if (!mounted) return;
+
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder: (_) => CompleteProfilePage(
-                userId: user.id,
+                userId: userId,
                 email: widget.email,
                 role: widget.role,
               ),
             ),
           );
-        });
+        }
+      });
+    } catch (e) {
+      // إذا صار خطأ في الداتابيس ننتقل برضو لأن الحساب تأكد في الـ Auth
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CompleteProfilePage(
+              userId: userId,
+              email: widget.email,
+              role: widget.role,
+            ),
+          ),
+        );
       }
-    });
+    }
   }
 
   @override
@@ -91,16 +109,10 @@ class _EmailConfirmationPageState extends State<EmailConfirmationPage> {
     setState(() => isLoading = true);
 
     try {
-      // 🔹 سجل دخول المستخدم
       final authResponse = await supabase.auth.signInWithPassword(
         email: widget.email,
         password: widget.password,
       );
-
-      if (authResponse.session == null) {
-        _showError('فشل تسجيل الدخول. تحقق من البيانات.');
-        return;
-      }
 
       final user = authResponse.user;
       if (user == null) {
@@ -108,45 +120,17 @@ class _EmailConfirmationPageState extends State<EmailConfirmationPage> {
         return;
       }
 
-      // 🔹 تحقق من تأكيد البريد
       if (user.emailConfirmedAt == null) {
         _showError('البريد ما زال غير مؤكد. افتح رابط التأكيد في صندوق البريد ثم حاول مرة أخرى.');
         setState(() => isLoading = false);
         return;
       }
 
-      // 🔹 أدرج سجل أولي للمستخدم في جدول User
-      try {
-        await supabase.from('User').insert({
-          'UserID': user.id,
-          'Email': widget.email,
-          'Role': widget.role,
-        });
-      } catch (e) {
-        // إذا كان السجل موجود بالفعل، لا تفعل شيء
-        if (!e.toString().contains('duplicate')) {
-          _showError('خطأ: $e');
-          setState(() => isLoading = false);
-          return;
-        }
-      }
+      // إذا تأكد البريد، نستخدم دالة التنقل
+      await _performNavigation(user.id);
 
-      if (!mounted) return;
-      // 🔹 انتقل لصفحة استكمال البيانات
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => CompleteProfilePage(
-              userId: user.id,
-              email: widget.email,
-              role: widget.role,
-            ),
-          ),
-        );
-      }
     } catch (e) {
-      _showError('❌ حدث خطأ: $e');
+      _showError('يرجى الضغط على رابط التأكيد في الإيميل أولاً.');
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -154,6 +138,7 @@ class _EmailConfirmationPageState extends State<EmailConfirmationPage> {
 
   @override
   Widget build(BuildContext context) {
+    // الـ UI كما هو في كودك الأصلي تماماً
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(

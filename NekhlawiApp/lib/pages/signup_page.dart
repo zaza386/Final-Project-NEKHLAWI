@@ -8,10 +8,9 @@ import '../core/widgets/primary_button.dart';
 import '../core/widgets/header_background.dart';
 import 'email_confirmation_page.dart';
 import 'terms_and_conditions_page.dart';
-import 'login_page.dart';
 
 class SignUpPage extends StatefulWidget {
-  final String role;
+  final String role; // يستقبل 'user' أو 'expert' من صفحة RoleSelection
 
   const SignUpPage({super.key, required this.role});
 
@@ -43,6 +42,7 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   void _showError(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -53,23 +53,18 @@ class _SignUpPageState extends State<SignUpPage> {
     );
   }
 
-  List<String> _missingFields() {
-    final missing = <String>[];
-    if (emailController.text.trim().isEmpty) missing.add('البريد الإلكتروني');
-    if (passwordController.text.trim().isEmpty) missing.add('كلمة المرور');
-    return missing;
-  }
-
+  // دالة التسجيل الأساسية (تم تعديل اللوجيك فقط)
   Future<void> _signUpWithPassword() async {
     if (isLoading) return;
     setState(() => submitted = true);
 
-    final missing = _missingFields();
-    if (missing.isNotEmpty || !isEmailValid || !passwordsMatch || !isAccepted) {
-      if (missing.isNotEmpty) _showError('الحقول مطلوبة: ${missing.join(', ')}');
-      else if (!isEmailValid) _showError('البريد غير صحيح');
-      else if (!passwordsMatch) _showError('كلمة المرور غير متطابقة');
-      else _showError('يجب الموافقة على الشروط');
+    // التحقق من المدخلات
+    if (emailController.text.trim().isEmpty ||
+        passwordController.text.trim().isEmpty ||
+        !isEmailValid ||
+        !passwordsMatch ||
+        !isAccepted) {
+      _showError('يرجى التأكد من تعبئة جميع الحقول والموافقة على الشروط');
       return;
     }
 
@@ -79,15 +74,18 @@ class _SignUpPageState extends State<SignUpPage> {
       final email = emailController.text.trim();
       final password = passwordController.text.trim();
 
-      // 🔹 تسجيل المستخدم بالباسوورد
-      // البيانات الأخرى سيتم حفظها بعد تأكيد البريد
+      // 1. تسجيل الحساب في Supabase Auth فقط
+      // حذفنا الـ insert من هنا لأن مكانه الصحيح في صفحة التأكيد لضمان نجاح العملية
       await supabase.auth.signUp(
         email: email,
         password: password,
-        emailRedirectTo: 'io.supabase.flutter://signup-callback/',
+        data: {'role': widget.role},
+        emailRedirectTo: 'io.supabase.flutter://login-callback/',
       );
 
       if (!mounted) return;
+
+      // 2. الانتقال لصفحة تأكيد الإيميل وتمرير البيانات
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -98,8 +96,9 @@ class _SignUpPageState extends State<SignUpPage> {
           ),
         ),
       );
+
     } catch (e) {
-      _showError('❌ حدث خطأ: $e');
+      _showError('❌ حدث خطأ أثناء إنشاء الحساب: $e');
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -114,13 +113,16 @@ class _SignUpPageState extends State<SignUpPage> {
         body: Stack(
           children: [
             Container(color: Colors.white),
-            HeaderBackground(title: 'إنشاء حساب جديد', showBack: true),
+            const HeaderBackground(title: 'إنشاء حساب جديد', showBack: true),
             Positioned(
               top: 140, left: 0, right: 0, bottom: 0,
               child: Container(
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
+                  borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(30),
+                      topRight: Radius.circular(30)
+                  ),
                 ),
                 child: SafeArea(
                   top: false,
@@ -129,6 +131,7 @@ class _SignUpPageState extends State<SignUpPage> {
                     child: Column(
                       children: [
                         const SizedBox(height: 30),
+                        // حقل البريد
                         CustomInput(
                             hint: 'البريد الإلكتروني',
                             icon: Icons.email_outlined,
@@ -136,12 +139,14 @@ class _SignUpPageState extends State<SignUpPage> {
                             showError: submitted,
                             onValidationChanged: (v) => setState(() => isEmailValid = v)),
                         const SizedBox(height: 16),
+                        // حقل كلمة المرور
                         CustomInput(
                             hint: 'كلمة المرور',
                             icon: Icons.lock_outline,
                             isPassword: true,
                             controller: passwordController),
                         const SizedBox(height: 16),
+                        // تأكيد كلمة المرور
                         CustomInput(
                             hint: 'تأكيد كلمة المرور',
                             icon: Icons.lock_outline,
@@ -149,6 +154,7 @@ class _SignUpPageState extends State<SignUpPage> {
                             controller: confirmPasswordController,
                             matchWith: passwordController),
                         const SizedBox(height: 20),
+                        // الموافقة على الشروط
                         Row(
                           children: [
                             Checkbox(
@@ -158,26 +164,27 @@ class _SignUpPageState extends State<SignUpPage> {
                             Expanded(
                                 child: RichText(
                                     text: TextSpan(children: [
-                              const TextSpan(
-                                  text: 'أوافق على ',
-                                  style: TextStyle(color: AppColors.primary, fontFamily: 'Tajawal')),
-                              TextSpan(
-                                  text: 'الشروط والخصوصية',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.primary,
-                                      decoration: TextDecoration.underline),
-                                  recognizer: TapGestureRecognizer()
-                                    ..onTap = () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                            builder: (_) => const TermsAndConditionsPage()))),
-                            ]))),
+                                      const TextSpan(
+                                          text: 'أوافق على ',
+                                          style: TextStyle(color: AppColors.primary, fontFamily: 'Tajawal')),
+                                      TextSpan(
+                                          text: 'الشروط والخصوصية',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.primary,
+                                              decoration: TextDecoration.underline),
+                                          recognizer: TapGestureRecognizer()
+                                            ..onTap = () => Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                    builder: (_) => const TermsAndConditionsPage()))),
+                                    ]))),
                           ],
                         ),
                         const SizedBox(height: 30),
+                        // زر الإنشاء
                         PrimaryButton(
-                          title: isLoading ? 'جاري العمل...' : 'إنشاء حساب',
+                          title: isLoading ? 'جاري إنشاء الحساب...' : 'إنشاء حساب',
                           onPressed: _signUpWithPassword,
                         ),
                         const SizedBox(height: 40),

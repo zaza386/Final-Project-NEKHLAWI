@@ -70,7 +70,7 @@ class _ProfileGateState extends State<_ProfileGate> {
         .eq('UserID', widget.userId)
         .maybeSingle();
 
-    final role = userData?['Role'] ?? 'farmer';
+    final role = userData?['Role'] ?? 'user';
     final hasBasicProfile =
         userData != null &&
         userData['Name'] != null &&

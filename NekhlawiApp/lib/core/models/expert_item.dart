@@ -12,13 +12,28 @@ class ExpertItem {
   });
 
   factory ExpertItem.fromMap(Map<String, dynamic> map) {
-    final user = map['User'] as Map<String, dynamic>?;
+    // 1. الوصول لكائن المستخدم (الجزء المربوط)
+    final userPart = map['User'];
 
+    // 2. استخراج الاسم والصورة بحذر
+    String extractedName = '';
+    String? extractedAvatar;
+
+    if (userPart is Map) {
+      extractedName = (userPart['Name'] ?? '').toString();
+      extractedAvatar = userPart['ProfilePicturePath']?.toString();
+    } else if (userPart is List && userPart.isNotEmpty) {
+      // احتياطاً إذا رجعت كقائمة
+      extractedName = (userPart[0]['Name'] ?? '').toString();
+      extractedAvatar = userPart[0]['ProfilePicturePath']?.toString();
+    }
+
+    // 3. بناء الكائن
     return ExpertItem(
       expertId: (map['ExpertID'] ?? '').toString(),
-      name: (user?['Name'] ?? '').toString(),
+      name: extractedName,
       specialization: (map['Specialization'] ?? '').toString(),
-      avatarUrl: user?['ProfilePicturePath']?.toString(),
+      avatarUrl: extractedAvatar,
     );
   }
 }

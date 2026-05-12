@@ -21,6 +21,7 @@ class ExpertRepo {
         ''')
         .limit(200) // خله 100/200 حسب عددكم
         .timeout(const Duration(seconds: 10));
+    print('RAW DATA FROM SUPABASE: $res');
 
     final all = (res as List)
         .map((e) => ExpertItem.fromMap(e as Map<String, dynamic>))

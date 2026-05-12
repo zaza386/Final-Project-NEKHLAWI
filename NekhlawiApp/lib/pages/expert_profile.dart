@@ -1,61 +1,29 @@
 import 'package:flutter/material.dart';
-import 'package:nekhlawi_app/core/theme/app_colors.dart';
-import '../core/widgets/custom_input.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/theme/app_colors.dart';
+import '../core/widgets/header_background.dart';
 
 class ExpertProfilePage extends StatefulWidget {
   final String expertId;
-  final String? expertName;
-  final String? profilePicture;
-  final String? specialty;
-  final int yearsOfExperience;
-  final String? bio;
-  final double rating;
-  final int reviewsCount;
-  final double consultationPrice;
-  final bool isVerified;
-  final List<String>? availableTimeSlots;
-  final VoidCallback? onBookNow;
 
-  const ExpertProfilePage({
-    super.key,
-    required this.expertId,
-    this.expertName = 'اسم الخبير',
-    this.profilePicture,
-    this.specialty = 'أمراض النبات',
-    this.yearsOfExperience = 0,
-    this.bio = '',
-    this.rating = 0.0,
-    this.reviewsCount = 0,
-    this.consultationPrice = 0.0,
-    this.isVerified = false,
-    this.availableTimeSlots,
-    this.onBookNow,
-  });
+  const ExpertProfilePage({super.key, required this.expertId});
 
   @override
   State<ExpertProfilePage> createState() => _ExpertProfilePageState();
 }
 
 class _ExpertProfilePageState extends State<ExpertProfilePage> {
-  late final specialtyCtrl = TextEditingController(text: widget.specialty ?? '');
-  late final yearsCtrl =
-      TextEditingController(text: '${widget.yearsOfExperience} سنوات');
-  late final bioCtrl = TextEditingController(text: widget.bio ?? '');
-  late final priceCtrl =
-      TextEditingController(text: '${widget.consultationPrice} ر.س');
-  late final ratingCtrl = TextEditingController(text: '${widget.rating}');
-  late final reviewsCtrl =
-      TextEditingController(text: '${widget.reviewsCount} تقييم');
+  final supabase = Supabase.instance.client;
+  late Future<Map<String, dynamic>> _expertFuture;
 
   @override
-  void dispose() {
-    specialtyCtrl.dispose();
-    yearsCtrl.dispose();
-    bioCtrl.dispose();
-    priceCtrl.dispose();
-    ratingCtrl.dispose();
-    reviewsCtrl.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _expertFuture = supabase
+        .from('ExpertProfile')
+        .select('*, User(Name, ProfilePicturePath)')
+        .eq('ExpertID', widget.expertId)
+        .single();
   }
 
   @override
@@ -63,524 +31,158 @@ class _ExpertProfilePageState extends State<ExpertProfilePage> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF6F7FB),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 24),
-            child: Column(
+        backgroundColor: Colors.white,
+        body: FutureBuilder<Map<String, dynamic>>(
+          future: _expertFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final data = snapshot.data ?? {};
+            final user = data['User'] as Map<String, dynamic>? ?? {};
+
+            // --- لوجيك جلب رابط الصورة الكامل ---
+            String? imageUrl;
+            if (user['ProfilePicturePath'] != null && user['ProfilePicturePath'].toString().isNotEmpty) {
+              final path = user['ProfilePicturePath'].toString();
+
+              // إذا كان المسار مخزن في قاعدة البيانات كـ 'image.png' والـ Bucket اسمه 'avatars'
+              // الرابط العام في سوبابيس يكون بهذا التنسيق:
+              final projectId = 'your-project-id'; // 👈 استبدلي هذا بـ Project ID حقك من إعدادات سوبابيس
+
+              //imageUrl = 'https://$projectId.supabase.co/storage/v1/object/public/pic/$path';
+
+              // أو استخدمي الدالة الأصلية مع التأكد من اسم الـ Bucket
+              imageUrl = supabase.storage.from('pic').getPublicUrl(path);
+            }
+
+            return Stack(
               children: [
-                // ── Header with profile picture ────────────
-                _ExpertHeader(
-                  profilePicture: widget.profilePicture,
-                  name: widget.expertName ?? '',
-                  specialty: widget.specialty ?? '',
-                  isVerified: widget.isVerified,
-                  onBack: () => Navigator.pop(context),
-                  avatarRadius: 58,
-                  headerHeight: MediaQuery.of(context).size.height * 0.25,
-                ),
-                const SizedBox(height: 16),
+                Container(color: Colors.white),
+                // تم الإبقاء على الهيدر فقط، وحذف الـ Positioned الخاص بالدائرة والسهم
+                const HeaderBackground(title: ''),
 
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // ── Rating & Reviews ───────────────────
-                      _RatingReviewsBar(
-                        rating: widget.rating,
-                        reviewsCount: widget.reviewsCount,
-                      ),
-                      const SizedBox(height: 20),
+                Positioned(
+                  top: 100,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        CircleAvatar(
+                          radius: 70,
+                          backgroundColor: Colors.white,
+                          child: CircleAvatar(
+                            radius: 65,
+                            backgroundColor: Colors.grey[200],
+                            backgroundImage: imageUrl != null
+                                ? NetworkImage(imageUrl)
+                                : null,
+                            child: imageUrl == null
+                                ? const Icon(Icons.person, size: 60, color: Colors.grey)
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
 
-                      // ── Specialty ──────────────────────────
-                      CustomInput(
-                        hint: 'التخصص',
-                        icon: Icons.school_outlined,
-                        controller: specialtyCtrl,
-                        enabled: false,
-                      ),
-                      const SizedBox(height: 12),
+                        Text(
+                          user['Name'] ?? 'اسم الخبير',
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                        ),
 
-                      // ── Years of Experience ────────────────
-                      CustomInput(
-                        hint: 'سنوات الخبرة',
-                        icon: Icons.work_history_outlined,
-                        controller: yearsCtrl,
-                        enabled: false,
-                      ),
-                      const SizedBox(height: 12),
+                        Text(
+                          data['Specialization'] ?? 'تخصص الخبير',
+                          style: const TextStyle(fontSize: 16, color: Color(0xFF9EAD76)),
+                        ),
 
-                      // ── Consultation Price ─────────────────
-                      CustomInput(
-                        hint: 'سعر الاستشارة',
-                        icon: Icons.attach_money_outlined,
-                        controller: priceCtrl,
-                        enabled: false,
-                      ),
-                      const SizedBox(height: 20),
+                        const SizedBox(height: 24),
 
-                      // ── Bio Section ────────────────────────
-                      const _SectionTitle(title: 'نبذة تعريفية'),
-                      const SizedBox(height: 10),
-                      _BioCard(bio: widget.bio ?? ''),
-                      const SizedBox(height: 20),
+                        _buildInfoContainer(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('${data['RatingAvg'] ?? 0}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                                  const Text('تقييم', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                ],
+                              ),
+                              Row(
+                                children: List.generate(5, (index) => const Icon(Icons.star_border, color: Colors.orange, size: 20)),
+                              ),
+                              const Text('0.0 من 5', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                            ],
+                          ),
+                        ),
 
-                      // ── Available Time Slots ───────────────
-                      if (widget.availableTimeSlots != null &&
-                          widget.availableTimeSlots!.isNotEmpty) ...[
-                        const _SectionTitle(title: 'أوقات الاستشارة المتاحة'),
-                        const SizedBox(height: 10),
-                        _TimeSlotsList(
-                            timeSlots: widget.availableTimeSlots ?? []),
+                        _buildInfoContainer(
+                          child: _buildRow(Icons.school_outlined, data['Specialization'] ?? 'أمراض النبات'),
+                        ),
+
+                        _buildInfoContainer(
+                          child: _buildRow(Icons.work_outline, '${data['ExperienceYears'] ?? 0} سنوات'),
+                        ),
+
+                        _buildInfoContainer(
+                          child: _buildRow(Icons.attach_money, '${data['Price'] ?? 300} ر.س'),
+                        ),
+
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: Text('نبذة تعريفية', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+
+                        _buildInfoContainer(
+                          child: Text(
+                            (data['Bio'] == null || data['Bio'].isEmpty)
+                                ? 'لا توجد نبذة متاحة حالياً'
+                                : data['Bio'],
+                            style: const TextStyle(color: Colors.black87),
+                          ),
+                        ),
+
                         const SizedBox(height: 20),
                       ],
-
-                      // ── Book Now Button ────────────────────
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: widget.onBookNow ?? () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('حجز الاستشارة قريبًا'),
-                                backgroundColor: AppColors.primary,
-                              ),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                          icon: const Icon(Icons.calendar_today),
-                          label: const Text(
-                            'احجز الآن',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // ── Back Button ────────────────────────
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF6B7280),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              side: const BorderSide(
-                                color: Color(0xFFE9ECF3),
-                              ),
-                            ),
-                          ),
-                          child: const Text(
-                            'العودة',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ],
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
   }
-}
 
-// ══════════════════════════════════════════════
-// Expert Header
-// ══════════════════════════════════════════════
-
-class _ExpertHeader extends StatelessWidget {
-  final String? profilePicture;
-  final String name;
-  final String specialty;
-  final bool isVerified;
-  final VoidCallback onBack;
-  final double avatarRadius;
-  final double headerHeight;
-
-  const _ExpertHeader({
-    required this.profilePicture,
-    required this.name,
-    required this.specialty,
-    required this.isVerified,
-    required this.onBack,
-    required this.avatarRadius,
-    required this.headerHeight,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final avatarDiameter = avatarRadius * 2;
-
-    return SizedBox(
-      height: headerHeight + avatarRadius + 100,
-      child: Stack(
-        alignment: Alignment.topCenter,
-        children: [
-          // ── Header Background ──────────────
-          ClipPath(
-            clipper: _CurvedHeaderClipper(),
-            child: SizedBox(
-              height: headerHeight,
-              width: double.infinity,
-              child: Container(
-                color: AppColors.header,
-                child: const Center(
-                  child: Icon(
-                    Icons.agriculture,
-                    color: Colors.white,
-                    size: 64,
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          // ── Back Button ────────────────────
-          Positioned(
-            top: 6,
-            right: 12,
-            child: _CircleIconButton(icon: Icons.arrow_back, onTap: onBack),
-          ),
-
-          // ── Avatar ─────────────────────────
-          Positioned(
-            top: headerHeight - avatarRadius,
-            child: Stack(
-              children: [
-                Container(
-                  width: avatarDiameter,
-                  height: avatarDiameter,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        blurRadius: 18,
-                        offset: const Offset(0, 8),
-                        color: Colors.black.withOpacity(0.12),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(4),
-                  child: CircleAvatar(
-                    backgroundColor: const Color(0xFFEFF2F8),
-                    backgroundImage: profilePicture == null
-                        ? null
-                        : NetworkImage(profilePicture!),
-                    child: profilePicture == null
-                        ? const Icon(
-                            Icons.person,
-                            size: 48,
-                            color: Color(0xFF8B95A5),
-                          )
-                        : null,
-                  ),
-                ),
-                // ── Verified Badge ────────────────
-                if (isVerified)
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.check_circle,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-
-          // ── Name & Specialty ───────────────
-          Positioned(
-            top: headerHeight + avatarRadius + 10,
-            child: Column(
-              children: [
-                Text(
-                  name.isEmpty ? '—' : name,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF1F2937),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  specialty.isEmpty ? '—' : specialty,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ══════════════════════════════════════════════
-// Rating & Reviews Bar
-// ══════════════════════════════════════════════
-
-class _RatingReviewsBar extends StatelessWidget {
-  final double rating;
-  final int reviewsCount;
-
-  const _RatingReviewsBar({
-    required this.rating,
-    required this.reviewsCount,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildInfoContainer({required Widget child}) {
     return Container(
       width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE9ECF3)),
-      ),
-      child: Row(
-        children: [
-          // ── Stars ──────────────────────────
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  for (int i = 0; i < 5; i++)
-                    Icon(
-                      i < rating.toInt()
-                          ? Icons.star_rounded
-                          : (i < rating
-                              ? Icons.star_half_rounded
-                              : Icons.star_outline_rounded),
-                      color: const Color(0xFFFDB022),
-                      size: 18,
-                    ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                '$rating من 5',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF6B7280),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          // ── Reviews Count ──────────────────
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '$reviewsCount',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1F2937),
-                ),
-              ),
-              const SizedBox(height: 2),
-              const Text(
-                'تقييم',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF6B7280),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 4)),
         ],
       ),
+      child: child,
     );
   }
-}
 
-// ══════════════════════════════════════════════
-// Bio Card
-// ══════════════════════════════════════════════
-
-class _BioCard extends StatelessWidget {
-  final String bio;
-
-  const _BioCard({required this.bio});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE9ECF3)),
-      ),
-      child: Text(
-        bio.isEmpty
-            ? 'لا توجد نبذة متاحة حاليًا'
-            : bio,
-        style: const TextStyle(
-          fontSize: 14,
-          color: Color(0xFF4B5563),
-          fontWeight: FontWeight.w500,
-          height: 1.6,
-        ),
-        textAlign: TextAlign.right,
-      ),
-    );
-  }
-}
-
-// ══════════════════════════════════════════════
-// Time Slots List
-// ══════════════════════════════════════════════
-
-class _TimeSlotsList extends StatelessWidget {
-  final List<String> timeSlots;
-
-  const _TimeSlotsList({required this.timeSlots});
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      alignment: WrapAlignment.center,
+  Widget _buildRow(IconData icon, String text) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        for (final slot in timeSlots)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.primary.withOpacity(0.3),
-              ),
-            ),
-            child: Text(
-              slot,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
-              ),
-            ),
-          ),
+        Text(text, style: const TextStyle(fontSize: 15, color: Colors.grey)),
+        Icon(icon, color: Colors.grey, size: 22),
       ],
     );
   }
-}
-
-// ══════════════════════════════════════════════
-// Section Title
-// ══════════════════════════════════════════════
-
-class _SectionTitle extends StatelessWidget {
-  final String title;
-
-  const _SectionTitle({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w900,
-          color: Color(0xFF111827),
-        ),
-      ),
-    );
-  }
-}
-
-// ══════════════════════════════════════════════
-// Circle Icon Button
-// ══════════════════════════════════════════════
-
-class _CircleIconButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _CircleIconButton({
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(999),
-      onTap: onTap,
-      child: Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.95),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: const Color(0xFF1F2937)),
-      ),
-    );
-  }
-}
-
-// ══════════════════════════════════════════════
-// Curved Header Clipper
-// ══════════════════════════════════════════════
-
-class _CurvedHeaderClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    final path = Path();
-    path.lineTo(0, size.height - 50);
-    path.quadraticBezierTo(
-        size.width * 0.5, size.height, size.width, size.height - 50);
-    path.lineTo(size.width, 0);
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }

@@ -11,6 +11,7 @@ class ExpertAccountPage extends StatefulWidget {
   const ExpertAccountPage({super.key});
 
   @override
+
   State<ExpertAccountPage> createState() => _ExpertAccountPageState();
 }
 
@@ -270,64 +271,47 @@ class _ExpertAccountPageState extends State<ExpertAccountPage> {
   // ── Save all changes to DB ──────────────────
 
   Future<void> _saveChanges() async {
-    // Run validation before saving
-    _validateName();
-    _validatePhone();
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
 
-    if (!_isFormValid) {
-      final firstError = _nameError ?? _phoneError;
-      if (firstError != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(firstError),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-      return;
-    }
-
-    final userId = supabase.auth.currentUser?.id;
-    if (userId == null) return;
+    setState(() => isLoading = true);
 
     try {
+      // 1. تحديث الاسم والهاتف في جدول User
       await supabase.from('User').update({
         'Name': nameCtrl.text.trim(),
         'Phone': phoneCtrl.text.trim(),
-      }).eq('UserID', userId);
+      }).eq('UserID', user.id);
 
-      await supabase.from('ExpertProfile').update({
+      // 2. تحديث بيانات الخبير في جدول ExpertProfile
+      // ملاحظة: الـ upsert هنا زيادة أمان لضمان الحفظ
+      await supabase.from('ExpertProfile').upsert({
+        'ExpertID': user.id,
         'Specialization': specializationCtrl.text.trim(),
         'ExperienceYears': int.tryParse(experienceYearsCtrl.text.trim()) ?? 0,
         'Bio': bioCtrl.text.trim(),
-      }).eq('ExpertID', userId);
-
-      if (newPassCtrl.text.trim().isNotEmpty &&
-          newPassCtrl.text == confirmPassCtrl.text) {
-        await supabase.auth.updateUser(
-          UserAttributes(password: newPassCtrl.text.trim()),
-        );
-        newPassCtrl.clear();
-        confirmPassCtrl.clear();
-      }
+      }).eq('ExpertID', user.id);
 
       if (mounted) {
-        await _loadExpertData();
+        await _loadExpertData(); // إعادة تحميل البيانات للعرض
         setState(() => isEditing = false);
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ تم حفظ التعديلات بنجاح'),
-            backgroundColor: Color(0xFF7B8646),
+            content: Text('✅ تم حفظ بياناتك بنجاح يا خبير'),
+            backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
+      debugPrint("Error saving expert data: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ حدث خطأ: $e')),
+          SnackBar(content: Text('❌ فشل الحفظ: $e')),
         );
       }
+    } finally {
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
