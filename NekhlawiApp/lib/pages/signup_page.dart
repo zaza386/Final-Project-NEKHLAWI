@@ -1,3 +1,4 @@
+import 'dart:math'; // ضروري لتوليد الكابتشا العشوائية
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -27,18 +28,47 @@ class _SignUpPageState extends State<SignUpPage> {
   final passwordController = TextEditingController();
   final confirmPasswordController = TextEditingController();
 
+  // Controller للكابتشا
+  final captchaController = TextEditingController();
+
   bool isEmailValid = false;
   bool get passwordsMatch =>
       passwordController.text == confirmPasswordController.text;
 
+  // حالة التحقق من الكابتشا والنص العشوائي
+  bool isCaptchaVerified = false;
+  String randomString = "";
+
   final supabase = Supabase.instance.client;
+
+  @override
+  void initState() {
+    super.initState();
+    // توليد الكابتشا عند تحميل الصفحة
+    buildCaptcha();
+  }
 
   @override
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
+    captchaController.dispose();
     super.dispose();
+  }
+
+  // دالة توليد الكابتشا
+  void buildCaptcha() {
+    const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
+    const length = 6;
+    final random = Random();
+    randomString = String.fromCharCodes(
+      List.generate(
+        length,
+            (index) => letters.codeUnitAt(random.nextInt(letters.length)),
+      ),
+    );
+    setState(() {});
   }
 
   void _showError(String message) {
@@ -57,6 +87,16 @@ class _SignUpPageState extends State<SignUpPage> {
   Future<void> _signUpWithPassword() async {
     if (isLoading) return;
     setState(() => submitted = true);
+
+    // التحقق من الكابتشا أولاً
+    isCaptchaVerified = captchaController.text.trim() == randomString;
+
+    if (!isCaptchaVerified) {
+      _showError('الرجاء إدخال رمز التحقق بشكل صحيح');
+      buildCaptcha(); // إعادة توليد رمز جديد عند الخطأ
+      captchaController.clear();
+      return;
+    }
 
     // التحقق من المدخلات
     if (emailController.text.trim().isEmpty ||
@@ -129,6 +169,7 @@ class _SignUpPageState extends State<SignUpPage> {
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 30),
                         // حقل البريد
@@ -153,6 +194,42 @@ class _SignUpPageState extends State<SignUpPage> {
                             isPassword: true,
                             controller: confirmPasswordController,
                             matchWith: passwordController),
+
+                        const SizedBox(height: 24),
+                        // قسم الكابتشا
+                        const Text("رمز التحقق", style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                  color: Colors.grey[200],
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppColors.primary.withOpacity(0.5))
+                              ),
+                              child: Text(
+                                randomString,
+                                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 2),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: buildCaptcha,
+                              icon: const Icon(Icons.refresh, color: AppColors.primary),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        TextFormField(
+                          controller: captchaController,
+                          textAlign: TextAlign.center,
+                          decoration: InputDecoration(
+                            hintText: 'أدخل الرمز الظاهر أعلاه',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                        ),
+
                         const SizedBox(height: 20),
                         // الموافقة على الشروط
                         Row(
