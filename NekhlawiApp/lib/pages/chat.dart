@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:nekhlawi_app/core/theme/app_colors.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:nekhlawi_app/pages/expert_profile.dart';
+import 'package:uuid/uuid.dart';
 
 class ChatPage extends StatefulWidget {
   final String expertId;
   final String userId;
 
-  const ChatPage({super.key, required this.expertId, required this.userId});
+  const ChatPage({
+    super.key,
+    required this.expertId,
+    required this.userId,
+  });
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -16,13 +21,40 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final supabase = Supabase.instance.client;
 
+  final TextEditingController _controller = TextEditingController();
+
+  final _uuid = const Uuid();
+
+  List<Map<String, dynamic>> messages = [];
+
   String? expertName;
   String? expertImage;
+
+  RealtimeChannel? _channel;
+
+  String get roomId {
+    final ids = [widget.userId, widget.expertId]..sort();
+    return ids.join("_");
+  }
 
   @override
   void initState() {
     super.initState();
+
     _loadExpert();
+    _loadMessages();
+    _listenForMessages();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+
+    if (_channel != null) {
+      supabase.removeChannel(_channel!);
+    }
+
+    super.dispose();
   }
 
   Future<void> _loadExpert() async {
@@ -44,6 +76,95 @@ class _ChatPageState extends State<ChatPage> {
         expertImage = imageUrl;
       });
     } catch (e) {
+      debugPrint("LOAD EXPERT ERROR:");
+      debugPrint(e.toString());
+    }
+  }
+
+  Future<void> _loadMessages() async {
+    try {
+      final response = await supabase
+          .from('messages')
+          .select()
+          .eq('room_id', roomId)
+          .order('created_at');
+
+      setState(() {
+        messages = List<Map<String, dynamic>>.from(response);
+      });
+
+      debugPrint("MESSAGES LOADED: ${messages.length}");
+    } catch (e) {
+      debugPrint("LOAD MESSAGES ERROR:");
+      debugPrint(e.toString());
+    }
+  }
+
+  void _listenForMessages() {
+    _channel = supabase
+        .channel('chat-$roomId')
+        .onPostgresChanges(
+      event: PostgresChangeEvent.insert,
+      schema: 'public',
+      table: 'messages',
+      filter: PostgresChangeFilter(
+        type: PostgresChangeFilterType.eq,
+        column: 'room_id',
+        value: roomId,
+      ),
+      callback: (payload) {
+        debugPrint("REALTIME MESSAGE RECEIVED");
+
+        final data = payload.newRecord;
+
+        final alreadyExists = messages.any(
+              (m) => m['id'] == data['id'],
+        );
+
+        if (alreadyExists) return;
+
+        setState(() {
+          messages.add(data);
+        });
+      },
+    )
+        .subscribe();
+
+    debugPrint("REALTIME SUBSCRIBED");
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _controller.text.trim();
+
+    debugPrint("SEND BUTTON CLICKED");
+
+    if (text.isEmpty) {
+      debugPrint("TEXT EMPTY");
+      return;
+    }
+
+    try {
+      final payload = {
+        'id': _uuid.v4(),
+        'room_id': roomId,
+        'sender_id': widget.userId,
+        'receiver_id': widget.expertId,
+        'text': text,
+        'created_at': DateTime.now().toIso8601String(),
+      };
+
+      debugPrint("INSERTING:");
+      debugPrint(payload.toString());
+
+      await supabase.from('messages').insert(payload);
+
+      debugPrint("INSERT SUCCESS");
+
+      _controller.clear();
+
+      await _loadMessages();
+    } catch (e) {
+      debugPrint("INSERT ERROR:");
       debugPrint(e.toString());
     }
   }
@@ -52,9 +173,15 @@ class _ChatPageState extends State<ChatPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ExpertProfilePage(expertId: widget.expertId),
+        builder: (_) => ExpertProfilePage(
+          expertId: widget.expertId,
+        ),
       ),
     );
+  }
+
+  bool _isMine(Map<String, dynamic> msg) {
+    return msg['sender_id'] == widget.userId;
   }
 
   @override
@@ -64,11 +191,9 @@ class _ChatPageState extends State<ChatPage> {
       child: Scaffold(
         backgroundColor: AppColors.background,
 
-        /// 🔥 HEADER الجديد
         appBar: AppBar(
           backgroundColor: AppColors.header,
           elevation: 0,
-
           title: GestureDetector(
             onTap: _openProfile,
             child: Row(
@@ -80,7 +205,9 @@ class _ChatPageState extends State<ChatPage> {
                   backgroundImage: expertImage != null
                       ? NetworkImage(expertImage!)
                       : null,
-                  child: expertImage == null ? const Icon(Icons.person) : null,
+                  child: expertImage == null
+                      ? const Icon(Icons.person)
+                      : null,
                 ),
 
                 const SizedBox(width: 10),
@@ -104,18 +231,26 @@ class _ChatPageState extends State<ChatPage> {
         body: Column(
           children: [
             Expanded(
-              child: ListView(
+              child: messages.isEmpty
+                  ? const Center(
+                child: Text("لا توجد رسائل"),
+              )
+                  : ListView.builder(
+                reverse: true,
                 padding: const EdgeInsets.all(12),
-                children: [
-                  _buildReceived("Hi 👋"),
-                  _buildSent("اهلا"),
-                  _buildDate("اليوم"),
-                  _buildReceived("كيف أقدر أساعدك؟"),
-                  _buildFile(),
-                  _buildSent("تمام شكراً"),
-                ],
+                itemCount: messages.length,
+                itemBuilder: (context, index) {
+                  final msg = messages[index];
+
+                  if (_isMine(msg)) {
+                    return _buildSent(msg['text'] ?? '');
+                  }
+
+                  return _buildReceived(msg['text'] ?? '');
+                },
               ),
             ),
+
             _buildInputBar(),
           ],
         ),
@@ -133,7 +268,12 @@ class _ChatPageState extends State<ChatPage> {
           color: AppColors.primary,
           borderRadius: BorderRadius.circular(16),
         ),
-        child: Text(text, style: const TextStyle(color: AppColors.white)),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: AppColors.white,
+          ),
+        ),
       ),
     );
   }
@@ -142,6 +282,7 @@ class _ChatPageState extends State<ChatPage> {
     return Align(
       alignment: Alignment.centerLeft,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
             radius: 14,
@@ -149,61 +290,23 @@ class _ChatPageState extends State<ChatPage> {
                 ? NetworkImage(expertImage!)
                 : null,
           ),
-          const SizedBox(width: 8),
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 6),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Text(
-              text,
-              style: const TextStyle(color: AppColors.darkGreen),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildDate(String text) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Text(text, style: const TextStyle(color: AppColors.grey)),
-      ),
-    );
-  }
-
-  Widget _buildFile() {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 14,
-            backgroundImage: expertImage != null
-                ? NetworkImage(expertImage!)
-                : null,
-          ),
           const SizedBox(width: 8),
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 6),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: const [
-                Icon(Icons.insert_drive_file, color: AppColors.grey),
-                SizedBox(width: 8),
-                Text(
-                  "project_report.pdf",
-                  style: TextStyle(color: AppColors.darkGrey),
+
+          Flexible(
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                text,
+                style: const TextStyle(
+                  color: AppColors.darkGreen,
                 ),
-              ],
+              ),
             ),
           ),
         ],
@@ -213,12 +316,13 @@ class _ChatPageState extends State<ChatPage> {
 
   Widget _buildInputBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 8,
+      ),
       color: AppColors.white,
       child: Row(
         children: [
-          const Icon(Icons.mic, color: AppColors.grey),
-          const SizedBox(width: 8),
           Expanded(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -226,20 +330,16 @@ class _ChatPageState extends State<ChatPage> {
                 color: AppColors.background,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const TextField(
-                decoration: InputDecoration(
+              child: TextField(
+                controller: _controller,
+                decoration: const InputDecoration(
                   hintText: "اكتب رسالة...",
                   border: InputBorder.none,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          const Icon(Icons.attach_file, color: AppColors.grey),
-          const SizedBox(width: 8),
-          const Icon(Icons.camera_alt, color: AppColors.grey),
-          const SizedBox(width: 8),
-          const Icon(Icons.emoji_emotions_outlined, color: AppColors.grey),
+
           const SizedBox(width: 8),
 
           Container(
@@ -247,8 +347,13 @@ class _ChatPageState extends State<ChatPage> {
               color: AppColors.primary,
               shape: BoxShape.circle,
             ),
-            padding: const EdgeInsets.all(10),
-            child: const Icon(Icons.send, color: AppColors.white),
+            child: IconButton(
+              onPressed: _sendMessage,
+              icon: const Icon(
+                Icons.send,
+                color: AppColors.white,
+              ),
+            ),
           ),
         ],
       ),
