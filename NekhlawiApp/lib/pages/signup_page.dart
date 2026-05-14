@@ -86,46 +86,66 @@ class _SignUpPageState extends State<SignUpPage> {
   // دالة التسجيل الأساسية (تم تعديل اللوجيك فقط)
   Future<void> _signUpWithPassword() async {
     if (isLoading) return;
-    setState(() => submitted = true);
 
-    // التحقق من الكابتشا أولاً
+    // 1. التحقق من الكابتشا أولاً
     isCaptchaVerified = captchaController.text.trim() == randomString;
-
     if (!isCaptchaVerified) {
       _showError('الرجاء إدخال رمز التحقق بشكل صحيح');
-      buildCaptcha(); // إعادة توليد رمز جديد عند الخطأ
+      buildCaptcha();
       captchaController.clear();
       return;
     }
 
-    // التحقق من المدخلات
-    if (emailController.text.trim().isEmpty ||
-        passwordController.text.trim().isEmpty ||
-        !isEmailValid ||
-        !passwordsMatch ||
-        !isAccepted) {
-      _showError('يرجى التأكد من تعبئة جميع الحقول والموافقة على الشروط');
+    // 2. التحقق من الحقول الفارغة
+    if (emailController.text.trim().isEmpty || passwordController.text.trim().isEmpty) {
+      _showError('يرجى إدخال البريد الإلكتروني وكلمة المرور');
       return;
     }
 
-    setState(() => isLoading = true);
+    // 3. التحقق من صحة صيغة الإيميل (المحلي)
+    if (!isEmailValid) {
+      _showError('صيغة البريد الإلكتروني غير صحيحة');
+      return;
+    }
+
+    // 4. التحقق من تطابق كلمات المرور
+    if (!passwordsMatch) {
+      _showError('كلمات المرور غير متطابقة');
+      return;
+    }
+
+    // 5. التحقق من الموافقة على الشروط
+    if (!isAccepted) {
+      _showError('يجب الموافقة على الشروط والأحكام للمتابعة');
+      return;
+    }
+
+    // إذا اجتاز كل الفحوصات المحلية، نبدأ عملية التسجيل الفعلي
+    setState(() {
+      submitted = true;
+      isLoading = true;
+    });
 
     try {
       final email = emailController.text.trim();
       final password = passwordController.text.trim();
 
-      // 1. تسجيل الحساب في Supabase Auth فقط
-      // حذفنا الـ insert من هنا لأن مكانه الصحيح في صفحة التأكيد لضمان نجاح العملية
-      await supabase.auth.signUp(
+      final AuthResponse res = await supabase.auth.signUp(
         email: email,
         password: password,
         data: {'role': widget.role},
         emailRedirectTo: 'io.supabase.flutter://login-callback/',
       );
 
+      // فحص إضافي: إذا نجح الطلب ولكن لم يتم إنشاء هوية (Identity) فهذا يعني أن الإيميل مستخدم مسبقاً
+      if (res.user != null && (res.user?.identities?.isEmpty ?? true)) {
+        _showError('يوجد حساب مسجل بهذا البريد الإلكتروني مسبقاً');
+        setState(() => isLoading = false);
+        return;
+      }
+
       if (!mounted) return;
 
-      // 2. الانتقال لصفحة تأكيد الإيميل وتمرير البيانات
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -137,8 +157,18 @@ class _SignUpPageState extends State<SignUpPage> {
         ),
       );
 
+    } on AuthException catch (error) {
+      // فحص رسائل الخطأ من السيرفر
+      if (error.message.contains('already registered') ||
+          error.message.contains('already exists') ||
+          error.statusCode == '422' ||
+          error.statusCode == '400') {
+        _showError('يوجد حساب مسجل بهذا البريد الإلكتروني مسبقاً');
+      } else {
+        _showError('خطأ: ${error.message}');
+      }
     } catch (e) {
-      _showError('❌ حدث خطأ أثناء إنشاء الحساب: $e');
+      _showError('❌ حدث خطأ غير متوقع: $e');
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
