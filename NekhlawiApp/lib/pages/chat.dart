@@ -323,6 +323,9 @@ class _ChatPageState extends State<ChatPage> {
       color: AppColors.white,
       child: Row(
         children: [
+          const Icon(Icons.mic, color: AppColors.grey),
+          const SizedBox(width: 8),
+
           Expanded(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -330,16 +333,31 @@ class _ChatPageState extends State<ChatPage> {
                 color: AppColors.background,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: TextField(
-                controller: _controller,
-                decoration: const InputDecoration(
-                  hintText: "اكتب رسالة...",
-                  border: InputBorder.none,
+
+              // IMPORTANT FIX: isolate text field direction handling
+              child: Directionality(
+                textDirection: TextDirection.ltr, // FIXES Arabic keyboard bugs
+                child: TextField(
+                  controller: _controller,
+                  textDirection: TextDirection.rtl, // Arabic typing direction
+                  textAlign: TextAlign.right,
+                  keyboardType: TextInputType.multiline,
+                  maxLines: null,
+                  decoration: const InputDecoration(
+                    hintText: "اكتب رسالة...",
+                    border: InputBorder.none,
+                  ),
                 ),
               ),
             ),
           ),
 
+          const SizedBox(width: 8),
+          const Icon(Icons.attach_file, color: AppColors.grey),
+          const SizedBox(width: 8),
+          const Icon(Icons.camera_alt, color: AppColors.grey),
+          const SizedBox(width: 8),
+          const Icon(Icons.emoji_emotions_outlined, color: AppColors.grey),
           const SizedBox(width: 8),
 
           Container(
@@ -349,10 +367,7 @@ class _ChatPageState extends State<ChatPage> {
             ),
             child: IconButton(
               onPressed: _sendMessage,
-              icon: const Icon(
-                Icons.send,
-                color: AppColors.white,
-              ),
+              icon: const Icon(Icons.send, color: AppColors.white),
             ),
           ),
         ],
