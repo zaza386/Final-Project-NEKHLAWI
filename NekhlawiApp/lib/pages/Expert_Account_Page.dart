@@ -320,6 +320,29 @@ class _ExpertAccountPageState extends State<ExpertAccountPage> {
   void goHome() => Navigator.pop(context, true);
 
   Future<void> goLogout() async {
+    // 1. Show Confirmation Dialog
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('تسجيل الخروج'),
+        content: const Text('هل تريد تسجيل الخروج من حسابك؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false), // User canceled
+            child: const Text('إلغاء'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true), // User confirmed
+            child: const Text('نعم', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    // 2. If user canceled or dismissed the dialog, stop here
+    if (confirm != true) return;
+
+    // 3. Proceed with Logout
     try {
       await supabase.auth.signOut();
     } catch (e) {
@@ -328,11 +351,13 @@ class _ExpertAccountPageState extends State<ExpertAccountPage> {
             .showSnackBar(SnackBar(content: Text('خطأ: $e')));
       }
     }
+
+    // 4. Navigate to Login
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const LoginPage()),
-      (route) => false,
+          (route) => false,
     );
   }
 

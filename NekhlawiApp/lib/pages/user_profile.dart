@@ -304,6 +304,33 @@ class _UserProfilePageState extends State<UserProfilePage> {
   void goHome() => Navigator.pop(context, true);
 
   Future<void> goLogin() async {
+    // 1. إظهار نافذة التأكيد
+    final bool? shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          title: const Text('تسجيل الخروج'),
+          content: const Text('هل تريد تسجيل الخروج من حسابك؟'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('نعم', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // 2. التحقق مما إذا كان المستخدم اختار "نعم"
+    if (shouldLogout != true) return;
+
+    // 3. تنفيذ عملية تسجيل الخروج
     try {
       await supabase.auth.signOut();
     } catch (e) {
@@ -312,11 +339,14 @@ class _UserProfilePageState extends State<UserProfilePage> {
             .showSnackBar(SnackBar(content: Text('خطأ في تسجيل الخروج: $e')));
       }
     }
+
     if (!mounted) return;
+
+    // 4. الانتقال لصفحة تسجيل الدخول
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => const LoginPage()),
-      (route) => false,
+          (route) => false,
     );
   }
 
