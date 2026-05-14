@@ -241,7 +241,7 @@ class _ChatPageState extends State<ChatPage> {
           const SizedBox(width: 8),
           const Icon(Icons.emoji_emotions_outlined, color: AppColors.grey),
           const SizedBox(width: 8),
-          
+
           Container(
             decoration: const BoxDecoration(
               color: AppColors.primary,
