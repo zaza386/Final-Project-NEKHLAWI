@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:nekhlawi_app/core/theme/app_colors.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:nekhlawi_app/pages/expert_profile.dart';
-import 'package:uuid/uuid.dart';
+import "package:uuid/uuid.dart";
 
 class ChatPage extends StatefulWidget {
   final String expertId;

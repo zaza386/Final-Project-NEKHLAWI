@@ -51,14 +51,9 @@ class _ExpertProfilePageState extends State<ExpertProfilePage> {
             return Stack(
               children: [
                 Container(color: Colors.white),
-
-                // 1. إعادة الهيدر الأصلي وتفعيل سهم الرجوع
                 HeaderBackground(
                   title: '',
-                  // تأكدي من تمرير الـ context أو تفعيل خاصية الرجوع إذا كانت متوفرة في الـ Widget
                 ),
-
-                // 2. تفعيل ضغط السهم الموجود "أصلاً" في الهيدر
                 Positioned(
                   top: 40,
                   right: 10,
@@ -67,7 +62,7 @@ class _ExpertProfilePageState extends State<ExpertProfilePage> {
                     child: Container(
                       width: 50,
                       height: 50,
-                      color: Colors.transparent, // شفاف تماماً، فقط ليعطيكِ مساحة ضغط فوق السهم الأصلي
+                      color: Colors.transparent,
                     ),
                   ),
                 ),
@@ -183,7 +178,6 @@ class _ExpertProfilePageState extends State<ExpertProfilePage> {
     );
   }
 
-  // الدوال المساعدة بقيت كما هي لضمان عدم تغير الشكل
   Widget _buildInfoContainer({required Widget child}) {
     return Container(
       width: double.infinity,
