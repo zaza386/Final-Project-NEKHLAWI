@@ -59,8 +59,7 @@ class _AcceptDeclineSessionPageState extends State<AcceptDeclineSessionPage> {
   Future<void> _onDeclinePressed() async {
     setState(() => isLoading = true);
     try {
-      // 1. نجلب وقت البداية ومعرف الخبير من الجلسة الحالية
-      // نطلب StartAt و ExpertID لأننا سنستخدمهم للوصول للـ Slot الصحيح
+
       final sessionData = await supabase
           .from('ExpertSession')
           .select('StartAt, ExpertID')
@@ -70,20 +69,19 @@ class _AcceptDeclineSessionPageState extends State<AcceptDeclineSessionPage> {
       final String? startTime = sessionData['StartAt'];
       final String? expertId = sessionData['ExpertID'];
 
-      // 2. نحدث حالة الجلسة لتصبح "مرفوضة" في جدول الاستشارات
+
       await supabase
           .from('ExpertSession')
           .update({'Status': 'مرفوضة'})
           .eq('ExpertSessionID', widget.sessionId!);
 
-      // 3. نحدث جدول time_slots لفتح الموعد في الكالندر
-      // نبحث عن الموعد الذي يطابق وقت الجلسة ومعرف الخبير
+
       if (startTime != null && expertId != null) {
         await supabase
             .from('time_slots')
-            .update({'is_available': true}) // نجعله TRUE ليظهر في الكالندر
-            .eq('slot_time', startTime)    // مطابقة الوقت
-            .eq('ExpertID', expertId);     // مطابقة الخبير
+            .update({'is_available': true})
+            .eq('slot_time', startTime)
+            .eq('ExpertID', expertId);
       }
 
       if (mounted) Navigator.pop(context, true);
@@ -103,7 +101,7 @@ class _AcceptDeclineSessionPageState extends State<AcceptDeclineSessionPage> {
     final bool isExpert = widget.userRole?.toLowerCase() == 'expert' || widget.userRole == 'خبير';
     final bool canDecide = isExpert && (currentStatus == 'تحت المعاينة');
 
-    // اللون المطلوب CFD1AAFF
+
     const Color customGreen = Color(0xFFCFD1AA);
 
     return Directionality(
@@ -114,13 +112,13 @@ class _AcceptDeclineSessionPageState extends State<AcceptDeclineSessionPage> {
             widget.title,
             style: const TextStyle(
               fontWeight: FontWeight.bold,
-              color: Color(0xFF4C3D19), // لون الخط بني غامق ليتناسب مع الخلفية الفاتحة
+              color: Color(0xFF4C3D19),
             ),
           ),
-          backgroundColor: customGreen, // الدرجة المطلوبة
-          centerTitle: false, // النص لجهة اليمين
+          backgroundColor: customGreen,
+          centerTitle: false,
           elevation: 0,
-          iconTheme: const IconThemeData(color: Color(0xFF4C3D19)), // لون سهم الرجوع بني
+          iconTheme: const IconThemeData(color: Color(0xFF4C3D19)),
         ),
         body: isLoading
             ? const Center(child: CircularProgressIndicator(color: customGreen))
