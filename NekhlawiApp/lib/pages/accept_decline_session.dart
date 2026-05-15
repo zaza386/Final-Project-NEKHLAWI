@@ -59,12 +59,41 @@ class _AcceptDeclineSessionPageState extends State<AcceptDeclineSessionPage> {
   Future<void> _onDeclinePressed() async {
     setState(() => isLoading = true);
     try {
-      await supabase.from('ExpertSession').update({'Status': 'مرفوضة'}).eq('ExpertSessionID', widget.sessionId!);
+      // 1. نجلب وقت البداية ومعرف الخبير من الجلسة الحالية
+      // نطلب StartAt و ExpertID لأننا سنستخدمهم للوصول للـ Slot الصحيح
+      final sessionData = await supabase
+          .from('ExpertSession')
+          .select('StartAt, ExpertID')
+          .eq('ExpertSessionID', widget.sessionId!)
+          .single();
+
+      final String? startTime = sessionData['StartAt'];
+      final String? expertId = sessionData['ExpertID'];
+
+      // 2. نحدث حالة الجلسة لتصبح "مرفوضة" في جدول الاستشارات
+      await supabase
+          .from('ExpertSession')
+          .update({'Status': 'مرفوضة'})
+          .eq('ExpertSessionID', widget.sessionId!);
+
+      // 3. نحدث جدول time_slots لفتح الموعد في الكالندر
+      // نبحث عن الموعد الذي يطابق وقت الجلسة ومعرف الخبير
+      if (startTime != null && expertId != null) {
+        await supabase
+            .from('time_slots')
+            .update({'is_available': true}) // نجعله TRUE ليظهر في الكالندر
+            .eq('slot_time', startTime)    // مطابقة الوقت
+            .eq('ExpertID', expertId);     // مطابقة الخبير
+      }
+
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
+      debugPrint("Error details: $e");
       if (mounted) {
         setState(() => isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في الرفض: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في العملية: $e')),
+        );
       }
     }
   }
