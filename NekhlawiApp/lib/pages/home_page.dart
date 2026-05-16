@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nekhlawi_app/core/theme/app_colors.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // 🔹 استيراد سوبابيس للجلب الآمن
 import '../core/widgets/header_background.dart';
 import '../core/widgets/upcoming_sessions_carousel.dart';
 
@@ -20,6 +21,12 @@ class _HomePageState extends State<HomePage> {
   String? userName;
   String? userRole;
   String greeting = 'صباح الخير';
+  final supabase = Supabase.instance.client;
+
+  // 🔹 جلب الـ ID الحقيقي والآمن للمزارع الحالي من سوبابيس
+  String get activeUserId {
+    return widget.userId ?? supabase.auth.currentUser?.id ?? '';
+  }
 
   @override
   void initState() {
@@ -77,7 +84,8 @@ class _HomePageState extends State<HomePage> {
                               const SizedBox(height: 10),
 
                               UserSessionsCarousel(
-                                userId: widget.userId ?? 'default_user_id',
+                                // 🔹 تم التعديل هنا: استخدام المعرف النشط لإنهاء مشكلة الـ UUID
+                                userId: activeUserId,
                                 statuses: const [
                                   'تحت المعاينة',
                                   'لم تبدأ',
@@ -86,20 +94,20 @@ class _HomePageState extends State<HomePage> {
                                   'أنتهت'
                                 ],
                                 iconAssetPath:
-                                    'assets/images/home_brown_icon.png',
+                                'assets/images/home_brown_icon.png',
                                 userRole: 'user',
                               ),
 
                               const SizedBox(height: 24),
 
                               HomeWelcomeCard(
-                                userId: widget.userId,
+                                userId: activeUserId, // 🔹 استخدام المعرف النشط هنا أيضاً
                                 greeting: greeting,
                               ),
 
                               const SizedBox(height: 24),
 
-                              HomeServiceGrid(userId: widget.userId),
+                              HomeServiceGrid(userId: activeUserId), // 🔹 وهنا أيضاً
 
                               const SizedBox(height: 40),
 

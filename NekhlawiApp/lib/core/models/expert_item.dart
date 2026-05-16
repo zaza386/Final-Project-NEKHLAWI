@@ -4,6 +4,7 @@ class ExpertItem {
   final String specialization;
   final String? avatarUrl;
 
+
   ExpertItem({
     required this.expertId,
     required this.name,

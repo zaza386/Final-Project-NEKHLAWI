@@ -12,6 +12,8 @@ import '../core/widgets/header_background.dart';
 import 'role_selection_page.dart';
 import 'forgot_password_page.dart';
 import 'home_page.dart';
+import 'Expert_Homepage.dart';
+import 'complete_profile_page.dart'; // استيراد صفحة استكمال البيانات لحماية المسار
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -45,9 +47,7 @@ class _LoginPageState extends State<LoginPage> {
   void buildCaptcha() {
     const letters =
         "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
-
     const length = 6;
-
     final random = Random();
 
     randomString = String.fromCharCodes(
@@ -65,33 +65,71 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
-
     buildCaptcha();
 
-    _authSubscription =
-        supabase.auth.onAuthStateChange.listen((data) {
-          final session = data.session;
+    // الـ Listener الذكي لفحص الـ Role والتوجيه التلقائي الآمن
+    _authSubscription = supabase.auth.onAuthStateChange.listen((data) async {
+      final session = data.session;
 
-          if (session != null && mounted) {
+      if (session != null && mounted) {
+        final user = session.user;
+
+        try {
+          // جلب بيانات المستخدم للتأكد من اكتمال الملف ومعرفة الـ Role
+          final userRecord = await supabase
+              .from('User')
+              .select('Name, Role')
+              .eq('UserID', user.id)
+              .maybeSingle();
+
+          if (!mounted) return;
+
+          // التحقق أولاً إذا كان قد استكمل بيانات الملف الشخصي (يملك اسماً)
+          if (userRecord != null && userRecord['Name'] != null) {
+            final String role = userRecord['Role']?.toString().toLowerCase() ?? 'user';
+
+            // التوجيه بناءً على نوع الحساب (Role)
+            if (role == 'expert' || role == 'خبير') {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const ExpertHomePage()),
+                    (route) => false,
+              );
+            } else {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const HomePage()),
+                    (route) => false,
+              );
+            }
+          } else {
+            // إذا كان مستخدم جديد تماماً ولم يستكمل ملفه الشخصي بعد
+            final userRole = user.userMetadata?['role'] ?? 'user';
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(
-                builder: (_) => const HomePage(),
+                builder: (_) => CompleteProfilePage(
+                  userId: user.id,
+                  email: user.email ?? '',
+                  role: userRole,
+                ),
               ),
                   (route) => false,
             );
           }
-        });
+        } catch (e) {
+          debugPrint("Auth Routing Error: $e");
+        }
+      }
+    });
   }
 
   @override
   void dispose() {
     _authSubscription?.cancel();
-
     emailController.dispose();
     passwordController.dispose();
     captchaController.dispose();
-
     super.dispose();
   }
 
@@ -104,15 +142,12 @@ class _LoginPageState extends State<LoginPage> {
     isCaptchaVerified =
         captchaController.text.trim() == randomString;
 
-    // تحقق من الكابتشا
     if (!isCaptchaVerified) {
       setState(() {});
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'الرجاء إدخال رمز التحقق بشكل صحيح',
-          ),
+          content: Text('الرجاء إدخال رمز التحقق بشكل صحيح'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -120,7 +155,6 @@ class _LoginPageState extends State<LoginPage> {
 
       buildCaptcha();
       captchaController.clear();
-
       return;
     }
 
@@ -148,6 +182,7 @@ class _LoginPageState extends State<LoginPage> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
+        resizeToAvoidBottomInset: true, // يضمن تفاعل العناصر بمرونة مع الكيبورد
         body: Stack(
           children: [
             Container(color: Colors.white),
@@ -156,33 +191,15 @@ class _LoginPageState extends State<LoginPage> {
               title: 'تسجيل دخول',
             ),
 
-            Positioned(
-              top: 140,
-              left: 0,
-              right: 0,
-              bottom: 0,
+            SafeArea(
               child: SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Column(
-                      children: [
-                      const SizedBox(height: 20),
-
-                  const Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      'هلا بالنخلاوي 🌴',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.darkBrown,
-                      ),
-                    ),
-                  ),
-
-                      const SizedBox(height: 50),
+                    children: [
+                      // مسافة علوية ممتازة لدفع البوكسات تحت الهيدر ومنع الـ Overflow
+                      const SizedBox(height: 220),
 
                       // الإيميل
                       CustomInput(
@@ -191,9 +208,7 @@ class _LoginPageState extends State<LoginPage> {
                         controller: emailController,
                         showError: submitted,
                         onValidationChanged: (v) =>
-                            setState(
-                                  () => isEmailValid = v,
-                            ),
+                            setState(() => isEmailValid = v),
                       ),
 
                       const SizedBox(height: 20),
@@ -213,18 +228,14 @@ class _LoginPageState extends State<LoginPage> {
                       Row(
                         children: [
                           Container(
-                            padding:
-                            const EdgeInsets.symmetric(
+                            padding: const EdgeInsets.symmetric(
                               horizontal: 20,
                               vertical: 14,
                             ),
                             decoration: BoxDecoration(
                               color: Colors.grey.shade100,
-                              border: Border.all(
-                                color: AppColors.primary,
-                              ),
-                              borderRadius:
-                              BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.primary),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
                               randomString,
@@ -234,12 +245,9 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                           ),
-
                           IconButton(
                             onPressed: buildCaptcha,
-                            icon: const Icon(
-                              Icons.refresh,
-                            ),
+                            icon: const Icon(Icons.refresh),
                           ),
                         ],
                       ),
@@ -249,8 +257,7 @@ class _LoginPageState extends State<LoginPage> {
                       TextFormField(
                         controller: captchaController,
                         decoration: const InputDecoration(
-                          hintText:
-                          "أدخل رمز التحقق",
+                          hintText: "أدخل رمز التحقق",
                           border: OutlineInputBorder(),
                         ),
                       ),
@@ -271,6 +278,7 @@ class _LoginPageState extends State<LoginPage> {
                       Center(
                         child: SignUpLinkText(),
                       ),
+                      const SizedBox(height: 20), // مسافة أمان سفلية للكيبورد
                     ],
                   ),
                 ),
@@ -283,46 +291,36 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-// زر نسيت كلمة المرور
 class ForgotPasswordButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Align(
-      alignment: Alignment.centerLeft,
+      // 🔹 تم تعديل المحاذاة هنا لتصبح اليمين متناسقة مع واجهة اللغة العربية
+      alignment: Alignment.centerRight,
       child: TextButton(
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) =>
-              const ForgotPasswordPage(),
-            ),
+            MaterialPageRoute(builder: (_) => const ForgotPasswordPage()),
           );
         },
         child: const Text(
           'نسيت كلمة المرور؟',
-          style: TextStyle(
-            color: AppColors.primary,
-          ),
+          style: TextStyle(color: AppColors.primary),
         ),
       ),
     );
   }
 }
 
-// رابط إنشاء حساب
 class SignUpLinkText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return RichText(
       text: TextSpan(
-        style: const TextStyle(
-          color: Colors.black,
-        ),
+        style: const TextStyle(color: Colors.black),
         children: [
-          const TextSpan(
-            text: 'ليس لديك حساب؟ ',
-          ),
+          const TextSpan(text: 'ليس لديك حساب؟ '),
           TextSpan(
             text: 'إنشاء حساب',
             style: const TextStyle(
@@ -333,10 +331,7 @@ class SignUpLinkText extends StatelessWidget {
               ..onTap = () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                    const RoleSelectionPage(),
-                  ),
+                  MaterialPageRoute(builder: (_) => const RoleSelectionPage()),
                 );
               },
           ),

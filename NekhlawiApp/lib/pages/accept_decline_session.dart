@@ -21,6 +21,7 @@ class _AcceptDeclineSessionPageState extends State<AcceptDeclineSessionPage> {
   final supabase = Supabase.instance.client;
   bool isLoading = true;
   String? currentStatus;
+  String? dbDeclineReason; // 🔹 متغير لتخزين سبب الرفض القادم من الداتابيز
 
   @override
   void initState() {
@@ -30,10 +31,17 @@ class _AcceptDeclineSessionPageState extends State<AcceptDeclineSessionPage> {
 
   Future<void> _fetchCurrentStatus() async {
     try {
-      final data = await supabase.from('ExpertSession').select('Status').eq('ExpertSessionID', widget.sessionId!).maybeSingle();
+      // 🔹 تم إضافة DeclineReason هنا في الـ select لجلب النص من سوبابيس
+      final data = await supabase
+          .from('ExpertSession')
+          .select('Status, DeclineReason')
+          .eq('ExpertSessionID', widget.sessionId!)
+          .maybeSingle();
+
       if (mounted) {
         setState(() {
           currentStatus = data != null ? data['Status'] : null;
+          dbDeclineReason = data != null ? data['DeclineReason'] : null; // 🔹 تخزين السبب المجلوب
           isLoading = false;
         });
       }
@@ -57,9 +65,68 @@ class _AcceptDeclineSessionPageState extends State<AcceptDeclineSessionPage> {
   }
 
   Future<void> _onDeclinePressed() async {
+    final TextEditingController reasonController = TextEditingController();
+
+    // إظهار نافذة منبثقة للخبير لكتابة سبب الرفض
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            title: const Text(
+              'سبب رفض الاستشارة',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4C3D19)),
+            ),
+            content: TextField(
+              controller: reasonController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'اكتب سبب الرفض هنا ليظهر للمزارع...',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFF4C3D19)),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () async {
+                  final String reason = reasonController.text.trim();
+                  if (reason.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('الرجاء كتابة سبب الرفض أولاً')),
+                    );
+                    return;
+                  }
+
+                  Navigator.pop(context); // إغلاق الـ Dialog
+                  _executeDecline(reason); // تنفيذ الرفع لقاعدة البيانات
+                },
+                child: const Text('تأكيد الرفض'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _executeDecline(String reason) async {
     setState(() => isLoading = true);
     try {
-
       final sessionData = await supabase
           .from('ExpertSession')
           .select('StartAt, ExpertID')
@@ -69,12 +136,14 @@ class _AcceptDeclineSessionPageState extends State<AcceptDeclineSessionPage> {
       final String? startTime = sessionData['StartAt'];
       final String? expertId = sessionData['ExpertID'];
 
-
+      // تحديث الحالة وحفظ نص الرفض في سوبابيس
       await supabase
           .from('ExpertSession')
-          .update({'Status': 'مرفوضة'})
+          .update({
+        'Status': 'مرفوضة',
+        'DeclineReason': reason,
+      })
           .eq('ExpertSessionID', widget.sessionId!);
-
 
       if (startTime != null && expertId != null) {
         await supabase
@@ -100,7 +169,6 @@ class _AcceptDeclineSessionPageState extends State<AcceptDeclineSessionPage> {
   Widget build(BuildContext context) {
     final bool isExpert = widget.userRole?.toLowerCase() == 'expert' || widget.userRole == 'خبير';
     final bool canDecide = isExpert && (currentStatus == 'تحت المعاينة');
-
 
     const Color customGreen = Color(0xFFCFD1AA);
 
@@ -171,15 +239,18 @@ class _AcceptDeclineSessionPageState extends State<AcceptDeclineSessionPage> {
                     color: customGreen,
                   ),
                   const SizedBox(height: 30),
+
+                  // 🔹 السطر المستهدف: تم دمج عرض المتغير الديناميكي بنجاح هنا
                   Text(
                     (currentStatus == 'لم تبدأ' || currentStatus == 'بدأت' || currentStatus == 'أنتهت')
                         ? (isExpert ? 'تم قبول هذه الاستشارة بنجاح' : 'وافق الخبير على طلب الاستشارة')
                         : (currentStatus == 'مرفوضة')
-                        ? 'تم رفض هذه الاستشارة'
+                        ? 'تم رفض هذه الاستشارة بسبب: ${dbDeclineReason ?? "لم يذكر الخبير سبباً"}'
                         : 'حالة الاستشارة الحالية: ${currentStatus ?? "غير معروفة"}',
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
+
                   const SizedBox(height: 20),
                   Text(
                     (currentStatus == 'لم تبدأ' && !isExpert) ? 'يمكنك الآن متابعة الجلسة في موعدها المحدد.' : 'يمكنك متابعة حالة الاستشارة من الصفحة الرئيسية.',

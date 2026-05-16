@@ -10,8 +10,6 @@ import 'package:nekhlawi_app/pages/wiki_article_details_page.dart';
 import 'package:nekhlawi_app/core/data/wiki_article_repo.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// import 'package:nekhlawi_app/pages/expert_sessions_page.dart';
-
 class ExpertHomePage extends StatefulWidget {
   final String? userId;
 
@@ -24,13 +22,17 @@ class ExpertHomePage extends StatefulWidget {
 class _ExpertHomePageState extends State<ExpertHomePage> {
   String? userName;
   String greeting = 'صباح الخير';
+  final supabase = Supabase.instance.client;
+
+  // 🔹 جلب المعرف الحقيقي النشط من سوبابيس لتجنب أي نص افتراضي خاطئ
+  String get activeUserId {
+    return widget.userId ?? supabase.auth.currentUser?.id ?? '';
+  }
 
   @override
   void initState() {
     super.initState();
-    if (widget.userId != null) {
-      _loadUserData();
-    }
+    _loadUserData(); // تم إزالة الشرط لكي تبدأ المحاولة دائماً باستخدام الـ ID النشط
     _setGreeting();
   }
 
@@ -42,14 +44,13 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
   }
 
   Future<void> _loadUserData() async {
-    if (widget.userId == null) return;
+    if (activeUserId.isEmpty) return; // استخدام المعرف النشط والآمن
 
     try {
-      final supabase = Supabase.instance.client;
       final response = await supabase
           .from('User')
           .select('Name')
-          .eq('UserID', widget.userId!)
+          .eq('UserID', activeUserId)
           .single();
 
       if (mounted) {
@@ -105,7 +106,8 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
                             children: [
                               const SizedBox(height: 10),
                               UserSessionsCarousel(
-                                userId: widget.userId ?? 'default_user_id',
+                                // 🔹 تم التعديل هنا: استخدام المعرف النشط لإنهاء مشكلة الـ UUID
+                                userId: activeUserId,
                                 statuses: const [
                                   'تحت المعاينة',
                                   'لم تبدأ',
@@ -114,7 +116,7 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
                                   'أنتهت'
                                 ],
                                 iconAssetPath:
-                                    'assets/images/home_brown_icon.png',
+                                'assets/images/home_brown_icon.png',
                                 isExpert: true,
                                 userRole: 'expert',
                               ),
@@ -289,7 +291,6 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
     );
   }
 
-  /// ← بطاقة الترحيب تفتح صفحة حساب الخبير
   Widget _buildWelcomeCard(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(20),
@@ -298,7 +299,6 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
           context,
           MaterialPageRoute(builder: (_) => const ExpertAccountPage()),
         );
-        // أعِد تحميل اسم المستخدم بعد العودة من صفحة التعديل
         _loadUserData();
       },
       child: Container(
@@ -348,12 +348,9 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
   }
 
   void _goToAiDiagnosis(BuildContext context, String title) async {
-    final supabase = Supabase.instance.client;
-
     await Future.delayed(Duration.zero);
-    final user = supabase.auth.currentUser;
 
-    if (user == null) {
+    if (activeUserId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('الرجاء تسجيل الدخول أولاً لتتمكن من استخدام التشخيص'),
@@ -375,9 +372,9 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
       final sessionResponse = await supabase
           .from('AISession')
           .insert({
-            'UserID': user.id,
-            'CreatedAt': DateTime.now().toIso8601String(),
-          })
+        'UserID': activeUserId, // 🔹 استخدام المعرف النشط
+        'CreatedAt': DateTime.now().toIso8601String(),
+      })
           .select('AISessionID')
           .single();
 
@@ -404,8 +401,6 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
   }
 
   void _goToManageSessions(BuildContext context) {
-    // TODO: replace with ExpertSessionsPage when ready
-    // Navigator.push(context, MaterialPageRoute(builder: (_) => const ExpertSessionsPage()));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('صفحة إدارة الجلسات قيد التطوير'),
@@ -414,8 +409,6 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
     );
   }
 }
-
-// ── Reusable card widget ──────────────────────────────────────────────────────
 
 class _HomeCard extends StatelessWidget {
   final IconData icon;

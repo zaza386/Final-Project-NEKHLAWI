@@ -14,7 +14,8 @@ class ExpertSessionRepo {
     final sessionsRes = await _db
         .from('ExpertSession')
         .select(
-      'ExpertSessionID, UserID, ExpertID, Status, StartAt, EndAt, BookedAt',
+      // 🔹 تم إضافة 'DeclineReason' هنا لجلب قيمته من جدول قاعدة البيانات في سوبابيس
+      'ExpertSessionID, UserID, ExpertID, Status, StartAt, EndAt, BookedAt, DeclineReason',
     )
         .eq(isExpert ? 'ExpertID' : 'UserID', userId)
         .inFilter('Status', statuses)
@@ -58,6 +59,7 @@ class ExpertSessionRepo {
       final expertId = s['ExpertID']?.toString() ?? '';
       final userId = s['UserID']?.toString() ?? '';
 
+      // 🔹 دالة الـ fromMap المحدثة ستقرأ الآن الـ DeclineReason تلقائياً من داخل كائن المتغير s بأمان كامل
       return ExpertSessionItem.fromMap(
         s,
         expertName: idToName[expertId] ?? 'خبير',
@@ -99,5 +101,3 @@ class ExpertSessionRepo {
     }
   }
 }
-
-

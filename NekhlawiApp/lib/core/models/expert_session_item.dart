@@ -10,6 +10,7 @@ class ExpertSessionItem {
 
   final String expertName;
   final String userName;
+  final String? declineReason;
 
   ExpertSessionItem({
     required this.expertSessionID,
@@ -21,6 +22,7 @@ class ExpertSessionItem {
     this.bookedAt,
     required this.expertName,
     required this.userName,
+    this.declineReason
   });
 
   factory ExpertSessionItem.fromMap(
