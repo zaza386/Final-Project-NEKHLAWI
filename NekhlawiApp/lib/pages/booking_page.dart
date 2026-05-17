@@ -372,7 +372,7 @@ class _BookingPageState extends State<BookingPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          backgroundColor: const Color(0xFFF5F3EE),
+          backgroundColor: const Color(0xFFF0EEF8),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
             child: Column(
