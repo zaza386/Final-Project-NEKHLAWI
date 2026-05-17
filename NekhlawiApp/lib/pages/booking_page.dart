@@ -372,7 +372,7 @@ class _BookingPageState extends State<BookingPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          backgroundColor: const Color(0xFFF0EEF8),
+          backgroundColor: const Color(0xFFF5F3EE),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
             child: Column(
@@ -380,7 +380,7 @@ class _BookingPageState extends State<BookingPage> {
               children: [
                 // Close button
                 Align(
-                  alignment: Alignment.topRight,
+                  alignment: Alignment.topLeft,
                   child: GestureDetector(
                     onTap: () {
                       Navigator.of(ctx).pop();
