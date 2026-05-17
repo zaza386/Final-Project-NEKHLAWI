@@ -155,7 +155,7 @@ class _ExpertAccountPageState extends State<ExpertAccountPage> {
 
       final userData = await supabase
           .from('User')
-          .select('Name, Phone, Email, CreatedAt')
+          .select('Name, Phone, Email, CreatedAt, ProfilePicturePath')
           .eq('UserID', userId)
           .maybeSingle();
 
@@ -170,28 +170,29 @@ class _ExpertAccountPageState extends State<ExpertAccountPage> {
       debugPrint('✅ expertData: $expertData');
 
       if (mounted) {
-        setState(() {
-          nameCtrl.text = userData?['Name'] ?? '';
-          emailCtrl.text =
-              userData?['Email'] ?? supabase.auth.currentUser?.email ?? '';
-          phoneCtrl.text = userData?['Phone'] ?? '';
+setState(() {
+  nameCtrl.text = userData?['Name'] ?? '';
+  emailCtrl.text =
+      userData?['Email'] ?? supabase.auth.currentUser?.email ?? '';
+  phoneCtrl.text = userData?['Phone'] ?? '';
+  avatarUrl = userData?['ProfilePicturePath']; // ← ADD THIS
 
-          final rawDate = userData?['CreatedAt'];
-          if (rawDate != null) {
-            final dt = DateTime.tryParse(rawDate.toString());
-            if (dt != null) {
-              memberSinceCtrl.text =
-                  '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
-            }
-          }
+  final rawDate = userData?['CreatedAt'];
+  if (rawDate != null) {
+    final dt = DateTime.tryParse(rawDate.toString());
+    if (dt != null) {
+      memberSinceCtrl.text =
+          '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+    }
+  }
 
-          specializationCtrl.text = expertData?['Specialization'] ?? '';
-          experienceYearsCtrl.text =
-              (expertData?['ExperienceYears'] ?? 0).toString();
-          bioCtrl.text = expertData?['Bio'] ?? '';
-          ratingAvg = (expertData?['RatingAvg'] ?? 0.0).toDouble();
-          isLoading = false;
-        });
+  specializationCtrl.text = expertData?['Specialization'] ?? '';
+  experienceYearsCtrl.text =
+      (expertData?['ExperienceYears'] ?? 0).toString();
+  bioCtrl.text = expertData?['Bio'] ?? '';
+  ratingAvg = (expertData?['RatingAvg'] ?? 0.0).toDouble();
+  isLoading = false;
+});
       }
     } catch (e) {
       debugPrint('❌ Error loading expert data: $e');
@@ -220,54 +221,59 @@ class _ExpertAccountPageState extends State<ExpertAccountPage> {
   }
 
   Future<void> _changeProfilePicture() async {
-    final picker = ImagePicker();
-    final XFile? image = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 80,
+  final picker = ImagePicker();
+  final XFile? image = await picker.pickImage(
+    source: ImageSource.gallery,
+    imageQuality: 80,
+  );
+  if (image == null) return;
+
+  // Wait for the next frame so Navigator is unlocked
+  await Future.delayed(Duration.zero);
+
+  if (!mounted) return;
+
+  try {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    final bytes = await image.readAsBytes();
+    final fileName = 'avatar_$userId.jpg';
+
+    await supabase.storage.from('pic').uploadBinary(
+      'avatars/$fileName',
+      bytes,
+      fileOptions: const FileOptions(
+        contentType: 'image/jpeg',
+        upsert: true,
+      ),
     );
-    if (image == null) return;
 
-    try {
-      final userId = supabase.auth.currentUser?.id;
-      if (userId == null) return;
+    final url =
+        supabase.storage.from('pic').getPublicUrl('avatars/$fileName');
+    final urlWithCache = '$url?t=${DateTime.now().millisecondsSinceEpoch}';
 
-      final bytes = await image.readAsBytes();
-      final fileName = 'avatar_$userId.jpg';
+    await supabase.from('User').update({
+      'ProfilePicturePath': urlWithCache,
+    }).eq('UserID', userId);
 
-      await supabase.storage.from('pic').uploadBinary(
-        'avatars/$fileName',
-        bytes,
-        fileOptions: const FileOptions(
-          contentType: 'image/jpeg',
-          upsert: true,
+    if (mounted) {
+      setState(() => avatarUrl = urlWithCache);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ تم تغيير الصورة بنجاح'),
+          backgroundColor: Color(0xFF7B8646),
         ),
       );
-
-      final url =
-          supabase.storage.from('pic').getPublicUrl('avatars/$fileName');
-      final urlWithCache = '$url?t=${DateTime.now().millisecondsSinceEpoch}';
-
-      await supabase.from('User').update({
-        'ProfilePicturePath': urlWithCache,
-      }).eq('UserID', userId);
-
-      if (mounted) {
-        setState(() => avatarUrl = urlWithCache);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ تم تغيير الصورة بنجاح'),
-            backgroundColor: Color(0xFF7B8646),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ خطأ: $e')),
-        );
-      }
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ خطأ: $e')),
+      );
     }
   }
+}
 
   // ── Save all changes to DB ──────────────────
 
@@ -397,10 +403,8 @@ class _ExpertAccountPageState extends State<ExpertAccountPage> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: true,
-      onPopInvoked: (didPop) {
-        if (didPop) Navigator.pop(context, true);
-      },
+  canPop: true,
+  onPopInvoked: (didPop) {},
       child: Directionality(
         textDirection: TextDirection.rtl,
         child: Scaffold(
@@ -746,7 +750,7 @@ class _ExpertHeader extends StatelessWidget {
           Positioned(
             top: headerHeight - _avatarRadius,
             child: GestureDetector(
-              onTap: onChangeAvatar,
+              onTap: isEditing ? onChangeAvatar : null,
               child: Stack(
                 children: [
                   Container(
@@ -775,6 +779,7 @@ class _ExpertHeader extends StatelessWidget {
                           : null,
                     ),
                   ),
+                  if (isEditing)
                   Positioned(
                     bottom: 4,
                     right: 4,
