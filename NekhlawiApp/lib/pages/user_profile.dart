@@ -247,15 +247,16 @@ class _UserProfilePageState extends State<UserProfilePage> {
         ),
       );
 
-      final url =
+final url =
           supabase.storage.from('pic').getPublicUrl('avatars/$fileName');
+      final urlWithCache = '$url?t=${DateTime.now().millisecondsSinceEpoch}';
 
       await supabase.from('User').update({
-        'ProfilePicturePath': url,
+        'ProfilePicturePath': urlWithCache,
       }).eq('UserID', userId);
 
       if (mounted) {
-        setState(() => avatarUrl = url);
+        setState(() => avatarUrl = urlWithCache);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('✅ تم تغيير الصورة بنجاح'),
