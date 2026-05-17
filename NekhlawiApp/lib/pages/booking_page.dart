@@ -334,11 +334,12 @@ class _BookingPageState extends State<BookingPage> {
             .filter('id', 'in', bookedSlotIds);
 
         if (mounted) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => HomePage(userId: supabase.auth.currentUser?.id),
-            ),
-            (route) => false,
+          await _showBookingSuccessDialog(
+            expertName: _expert?.name ?? 'الخبير',
+            expertTitle: _expert?.title ?? '',
+            date: '${startAt.day}/${startAt.month}/${startAt.year}',
+            time: '${_formatSlotTime(startAt)} - ${_formatSlotTime(endAt)}',
+            amountSAR: _totalPrice,
           );
         }
       } catch (e) {
@@ -349,6 +350,215 @@ class _BookingPageState extends State<BookingPage> {
       }
     }
     // success == false/null → user cancelled, stay on page, nothing happens
+  }
+
+  // ─────────────────────────────────────────────
+  // BOOKING SUCCESS DIALOG
+  // ─────────────────────────────────────────────
+
+  Future<void> _showBookingSuccessDialog({
+    required String expertName,
+    required String expertTitle,
+    required String date,
+    required String time,
+    required int amountSAR,
+  }) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          backgroundColor: const Color(0xFFF5F3EE),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Close button
+                Align(
+                  alignment: Alignment.topRight,
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              HomePage(userId: supabase.auth.currentUser?.id),
+                        ),
+                        (route) => false,
+                      );
+                    },
+                    child: const Icon(Icons.close,
+                        color: Color(0xFF9E9E9E), size: 22),
+                  ),
+                ),
+                const SizedBox(height: 4),
+
+                // Title
+                const Text(
+                  'تم الحجز بنجاح',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF43321A),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Green check icon circle
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF797F3D),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check_rounded,
+                      color: Colors.white, size: 36),
+                ),
+                const SizedBox(height: 20),
+
+                // Invoice card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE0DDD6)),
+                  ),
+                  child: Column(
+                    children: [
+                      // Expert name & title row
+                      Row(
+                        children: [
+                          const Icon(Icons.person_pin_outlined,
+                              color: Color(0xFF797F3D), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              expertName,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF43321A),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            expertTitle,
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 20),
+
+                      // Date row
+                      _invoiceRow(
+                          Icons.calendar_today_outlined, 'التاريخ', date),
+                      const SizedBox(height: 10),
+
+                      // Time row
+                      _invoiceRow(Icons.access_time_outlined, 'الوقت', time),
+                      const Divider(height: 20),
+
+                      // Total amount row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'المبلغ الإجمالي',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF43321A),
+                              fontSize: 14,
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF797F3D),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '$amountSAR ريال',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Confirm button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF797F3D),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      textStyle: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              HomePage(userId: supabase.auth.currentUser?.id),
+                        ),
+                        (route) => false,
+                      );
+                    },
+                    child: const Text('حسناً'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _invoiceRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, color: const Color(0xFF797F3D), size: 16),
+        const SizedBox(width: 6),
+        Text(
+          '$label: ',
+          style: const TextStyle(fontSize: 13, color: Colors.grey),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF43321A),
+            ),
+            textAlign: TextAlign.left,
+          ),
+        ),
+      ],
+    );
   }
 
   // ─────────────────────────────────────────────
