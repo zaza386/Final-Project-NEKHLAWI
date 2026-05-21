@@ -236,7 +236,7 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('✅ تم حفظ أوقات التوفر بنجاح'),
-            backgroundColor: kPrimary,
+            backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
         );
