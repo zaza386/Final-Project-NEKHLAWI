@@ -9,6 +9,7 @@ import 'package:nekhlawi_app/core/widgets/upcoming_sessions_carousel.dart';
 import 'package:nekhlawi_app/pages/wiki_article_details_page.dart';
 import 'package:nekhlawi_app/core/data/wiki_article_repo.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:nekhlawi_app/pages/expert_sessions_page.dart';
 
 class ExpertHomePage extends StatefulWidget {
   final String? userId;
@@ -401,12 +402,7 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
   }
 
   void _goToManageSessions(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('صفحة إدارة الجلسات قيد التطوير'),
-        backgroundColor: AppColors.darkBrown,
-      ),
-    );
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const ExpertSessionsPage()));
   }
 }
 
