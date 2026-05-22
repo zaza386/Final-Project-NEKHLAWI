@@ -310,6 +310,252 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  // ── Show Professional Review Dialog ────────────────────────
+  void _showRatingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        int selectedRating = 0;
+        final commentController = TextEditingController();
+        final List<String> ratingLabels = ['سيئة', 'مقبولة', 'متوسطة', 'جيدة', 'ممتازة'];
+
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: Dialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Elegant Top Close Action Row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'تقييم الجلسة والاستشارة',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, size: 18, color: Colors.black54),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24, thickness: 0.8),
+                  
+                  const Text(
+                    'قيم تجربتك مع الخبير',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF4A3E25),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  
+                  // Professional Wrapped Avatar Design
+                  Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF7A8256),
+                      shape: BoxShape.circle,
+                    ),
+                    child: CircleAvatar(
+                      radius: 44,
+                      backgroundColor: Colors.grey[100],
+                      backgroundImage: expertImage != null
+                          ? NetworkImage(expertImage!)
+                          : const AssetImage('images/nekhlawi_icon.png') as ImageProvider,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  Text(
+                    expertName != null ? 'م. $expertName' : 'م. خالد العتيبي',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF4A3E25),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'كيف كانت تجربتك مع الخبير خلال المحادثة؟',
+                    style: TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  // Stars + Label List Row Setup
+                  StatefulBuilder(
+                    builder: (context, setDialogState) {
+                      return Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List.generate(5, (index) {
+                              final starValue = index + 1;
+                              return IconButton(
+                                icon: Icon(
+                                  starValue <= selectedRating ? Icons.star : Icons.star_border,
+                                  color: const Color(0xFFF2A649),
+                                  size: 36,
+                                ),
+                                onPressed: () {
+                                  setDialogState(() => selectedRating = starValue);
+                                },
+                              );
+                            }),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: List.generate(5, (index) {
+                              final isSelected = selectedRating == (index + 1);
+                              return Expanded(
+                                child: Text(
+                                  ratingLabels[index],
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    color: isSelected ? const Color(0xFFF2A649) : Colors.grey[500],
+                                  ),
+                                ),
+                              );
+                            }),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Comment Input Box Field
+                  TextField(
+                    controller: commentController,
+                    maxLines: 3,
+                    maxLength: 500,
+                    style: const TextStyle(fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: 'لا تنسى تشاركنا رأيك ، لأن رأيك يهمنا ..',
+                      hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+                      counterText: '',
+                      contentPadding: const EdgeInsets.all(14),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF7A8256), width: 1.5),
+                      ),
+                    ),
+                  ),
+                  
+                  // Character Counter Row
+                  StatefulBuilder(
+                    builder: (context, setCounterState) {
+                      commentController.addListener(() => setCounterState(() {}));
+                      return Align(
+                        alignment: Alignment.centerLeft,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 4, left: 4),
+                          child: Text(
+                            '${commentController.text.length}/500',
+                            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Professional Action Buttons
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF7A8256),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onPressed: () async {
+                        if (selectedRating == 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('الرجاء اختيار التقييم بالنجوم أولاً')),
+                          );
+                          return;
+                        }
+                        
+                        try {
+                          // Insert directly to table structure matches completely
+                          await supabase.from('Review').insert({
+                            'Rating': selectedRating,
+                            'Comment': commentController.text.trim(),
+                            'CreatedAt': DateTime.now().toUtc().toIso8601String(),
+                            'ExpertID': cleanExpertId,
+                            'ExpertSessionID': _expertSessionId,
+                          });
+
+                          if (_expertSessionId != null) {
+                            await supabase
+                                .from('ExpertSession')
+                                .update({'Status': 'completed'})
+                                .eq('ExpertSessionID', _expertSessionId!);
+                          }
+
+                          if (context.mounted) {
+                            Navigator.pop(context); // Close rating dialog card
+                            Navigator.pop(context); // Gracefully leave ChatPage view
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('شكراً لتقييمك!')),
+                            );
+                          }
+                        } catch (e) {
+                          debugPrint('Error inserting review record: $e');
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('خطأ في الاتصال بقاعدة البيانات: $e')),
+                            );
+                          }
+                        }
+                      },
+                      child: const Text(
+                        'إرسال التقييم',
+                        style: TextStyle(fontSize: 15, color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // ── Helpers ───────────────────────────────────────────────
   String _plainText(Map<String, dynamic> msg) =>
       msg['_plain'] as String? ?? msg['MessageText'] as String? ?? '';
@@ -364,6 +610,30 @@ class _ChatPageState extends State<ChatPage> {
   PreferredSizeWidget _buildAppBar() => AppBar(
         backgroundColor: AppColors.header,
         elevation: 0,
+        actions: [
+          // Professional Session Ending Text Action Button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+            child: OutlinedButton(
+              onPressed: _showRatingDialog,
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Colors.redAccent, width: 1.2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+              ),
+              child: const Text(
+                'إنهاء الجلسة',
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+        ],
         title: GestureDetector(
           onTap: () => Navigator.push(
             context,
@@ -415,7 +685,6 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  // رسايلك (المرسل) -> أقصى اليمين تماماً
   Widget _buildSent(Map<String, dynamic> msg) => Align(
         alignment: Alignment.centerRight,
         child: Container(
@@ -458,7 +727,6 @@ class _ChatPageState extends State<ChatPage> {
         ),
       );
 
-  // رسايل الخبير (المستقبل) -> أقصى اليسار تماماً بدون صور داخل المحادثة
   Widget _buildReceived(Map<String, dynamic> msg) => Align(
         alignment: Alignment.centerLeft,
         child: Container(
