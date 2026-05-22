@@ -178,7 +178,7 @@ class _BookingExpertsPageState extends State<BookingExpertsPage> {
                                 return ExpertCard(
                                   name: e.name,
                                   specialization: e.specialization,
-                                  pricePerHour: 300,
+                                  pricePerHour: 150,
                                   expertId: e.expertId,
                                   avatarUrl: e.avatarUrl,
                                   onOpenProfile: () =>

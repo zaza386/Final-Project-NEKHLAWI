@@ -37,7 +37,7 @@ class ExpertModel {
       name: userData['Name'] ?? 'خبير غير معروف',
       title: map['Specialization'] ?? '',
       location: userData['Location'] ?? '',
-      priceLabel: 'الاستشارة تبدأ من ٣٠٠ ريال',
+      priceLabel: 'الاستشارة تبدأ من ١٥٠ ريال',
       avatarUrl: userData['ProfilePicturePath'],
       pricePerHour: 300,
     );
@@ -725,7 +725,7 @@ class _BookingPageState extends State<BookingPage> {
             children: [
               _infoChip(
                 Icons.monetization_on_outlined,
-                'الاستشارة تبدأ من ٣٠٠ ريال',
+                'الاستشارة تبدأ من ١٥٠ ريال',
               ),
               _infoChip(Icons.location_on_outlined, 'السعودية'),
             ],
