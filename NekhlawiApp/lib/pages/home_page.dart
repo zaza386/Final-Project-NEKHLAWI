@@ -94,7 +94,7 @@ class _HomePageState extends State<HomePage> {
                                   'أنتهت'
                                 ],
                                 iconAssetPath:
-                                'assets/images/home_brown_icon.png',
+                                'images/home_brown_icon.png',
                                 userRole: 'user',
                               ),
 

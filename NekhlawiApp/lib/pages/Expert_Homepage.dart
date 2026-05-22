@@ -158,7 +158,7 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
         builder: (context, controller) {
           return SearchBar(
             controller: controller,
-            hintText: 'ابحث عن أمراض، مقالات، أو جلسات...',
+            hintText: 'ابحث عن أمراض، مقالات...',
             leading: const Icon(Icons.search, color: Colors.grey),
             backgroundColor: WidgetStateProperty.all(Colors.grey.shade100),
             elevation: WidgetStateProperty.all(0),
