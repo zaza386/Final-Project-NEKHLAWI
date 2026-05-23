@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+    <string>نحتاج إذن الميكروفون لتسجيل الرسائل الصوتية</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>نحتاج إذن المعرض لإرفاق الصور</string>
 </dict>
 </plist>

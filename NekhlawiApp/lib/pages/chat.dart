@@ -1,7 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:nekhlawi_app/core/theme/app_colors.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:nekhlawi_app/pages/expert_profile.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:record/record.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:path_provider/path_provider.dart';
 
 class ChatPage extends StatefulWidget {
   final String expertId;
@@ -18,24 +24,30 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
-  final supabase = Supabase.instance.client;
-  final TextEditingController _controller = TextEditingController();
-  final ScrollController _scrollCtrl = ScrollController();
+  final supabase      = Supabase.instance.client;
+  final _controller   = TextEditingController();
+  final _scrollCtrl   = ScrollController();
+  final _imagePicker  = ImagePicker();
+  final _recorder     = AudioRecorder();
 
   List<Map<String, dynamic>> messages = [];
   String? expertName;
   String? expertImage;
   String? _expertSessionId;
   bool _loadingSession = true;
+  bool _isSending      = false;
+  bool _isRecording    = false;
+  String? _recordingPath;
   RealtimeChannel? _channel;
-
-  // Fetched from DB — determines if review dialog shows
   String? _currentUserRole;
 
-  String cleanUserId = '';
+  // Track which audio message is currently playing
+  String? _playingMessageId;
+  final Map<String, AudioPlayer> _audioPlayers = {};
+
+  String cleanUserId  = '';
   String cleanExpertId = '';
 
-  // True only if role fetched from DB is 'expert'
   bool get _isExpert =>
       (_currentUserRole ?? '').toLowerCase().trim() == 'expert';
 
@@ -53,25 +65,22 @@ class _ChatPageState extends State<ChatPage> {
   void dispose() {
     _controller.dispose();
     _scrollCtrl.dispose();
+    _recorder.dispose();
+    for (final p in _audioPlayers.values) p.dispose();
     if (_channel != null) supabase.removeChannel(_channel!);
     super.dispose();
   }
 
-  // ── Fetch current user role from User table ───────────────
+  // ── Load current user role ────────────────────────────────
   Future<void> _loadCurrentUserRole() async {
     try {
-      // SUPABASE: Fetch Role for the logged-in user
+      // SUPABASE: Fetch Role from User table
       final res = await supabase
           .from('User')                          // SUPABASE: table name
-          .select('Role')                        // SUPABASE: User.Role column
-          .eq('UserID', cleanUserId)             // SUPABASE: match logged-in user
+          .select('Role')                        // SUPABASE: User.Role
+          .eq('UserID', cleanUserId)             // SUPABASE: filter by user ID
           .single();
-      if (mounted) {
-        setState(() {
-          _currentUserRole = (res['Role'] as String?) ?? 'user';
-        });
-      }
-      debugPrint('Current user role: $_currentUserRole');
+      if (mounted) setState(() => _currentUserRole = (res['Role'] as String?) ?? 'user');
     } catch (e) {
       debugPrint('_loadCurrentUserRole: $e');
       if (mounted) setState(() => _currentUserRole = 'user');
@@ -81,18 +90,19 @@ class _ChatPageState extends State<ChatPage> {
   // ── Load expert info ──────────────────────────────────────
   Future<void> _loadExpert() async {
     try {
-      // SUPABASE: Fetch expert name and profile picture from User table
+      // SUPABASE: Fetch expert name and avatar from User table
       final res = await supabase
           .from('User')                          // SUPABASE: table name
           .select('Name, ProfilePicturePath')    // SUPABASE: columns
           .eq('UserID', cleanExpertId)           // SUPABASE: filter by expert ID
           .single();
-      final imagePath = res['ProfilePicturePath'] as String?;
+      final path = res['ProfilePicturePath'] as String?;
       if (mounted) {
         setState(() {
           expertName  = res['Name'] as String?;
-          expertImage = (imagePath != null && imagePath.isNotEmpty)
-              ? imagePath
+          // SUPABASE: Build public URL from Supabase Storage bucket 'pic'
+          expertImage = (path != null && path.isNotEmpty)
+              ? supabase.storage.from('pic').getPublicUrl(path)
               : null;
         });
       }
@@ -101,10 +111,10 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // ── Resolve or reuse ExpertSession ────────────────────────
+  // ── Resolve or create session ─────────────────────────────
   Future<void> _resolveSession() async {
     try {
-      // SUPABASE: Find existing session between user and expert
+      // SUPABASE: Find most recent session between these two users
       final rows = await supabase
           .from('ExpertSession')                 // SUPABASE: table name
           .select('ExpertSessionID')
@@ -112,7 +122,7 @@ class _ChatPageState extends State<ChatPage> {
             'and(UserID.eq.$cleanUserId,ExpertID.eq.$cleanExpertId),'
             'and(UserID.eq.$cleanExpertId,ExpertID.eq.$cleanUserId)',
           )
-          .order('StartAt', ascending: false)
+          .order('BookedAt', ascending: false)
           .limit(1);
 
       String sessionId;
@@ -125,7 +135,7 @@ class _ChatPageState extends State<ChatPage> {
             .insert({
               'UserID':   cleanUserId,           // SUPABASE: ExpertSession.UserID
               'ExpertID': cleanExpertId,         // SUPABASE: ExpertSession.ExpertID
-              'Status':   'active',              // SUPABASE: ExpertSession.Status
+              'Status':   'لم تبدأ',             // SUPABASE: ExpertSession.Status
             })
             .select('ExpertSessionID')
             .single();
@@ -139,7 +149,6 @@ class _ChatPageState extends State<ChatPage> {
         });
         await _loadMessages();
         _listenForMessages();
-        await _markAllSeen();
       }
     } catch (e) {
       debugPrint('_resolveSession: $e');
@@ -153,23 +162,20 @@ class _ChatPageState extends State<ChatPage> {
     try {
       // SUPABASE: Fetch all messages for this session ordered by time
       final rows = await supabase
-          .from('ChatMessage')                   // SUPABASE: table name
-          .select()
-          .eq('ExpertSessionID', _expertSessionId!) // SUPABASE: filter by session
+          .from('ChatMessage')                        // SUPABASE: table name
+          .select('MessageID, ExpertSessionID, SenderID, MessageText, AttachmentURL, SentAt')
+          .eq('ExpertSessionID', _expertSessionId!)   // SUPABASE: filter by session
           .order('SentAt', ascending: true);
 
       if (mounted) {
         setState(() {
           messages = (rows as List).map((r) {
             final m = Map<String, dynamic>.from(r);
-            if (m['MessageText'] != null) m['_plain'] = m['MessageText'] as String;
+            m['_plain'] = m['MessageText'] as String? ?? '';
             return m;
           }).toList();
         });
         _scrollToBottom();
-
-        // Mark all received messages as seen after loading
-        await _markAllSeen();
       }
     } catch (e) {
       debugPrint('_loadMessages: $e');
@@ -179,7 +185,6 @@ class _ChatPageState extends State<ChatPage> {
   // ── Realtime listener ─────────────────────────────────────
   void _listenForMessages() {
     if (_expertSessionId == null) return;
-
     _channel = supabase
         .channel('chat:$_expertSessionId')
         .onPostgresChanges(
@@ -191,148 +196,186 @@ class _ChatPageState extends State<ChatPage> {
             column: 'ExpertSessionID',
             value:  _expertSessionId!,
           ),
-          callback: (payload) async {
+          callback: (payload) {
             final data = Map<String, dynamic>.from(payload.newRecord);
             final exists = messages.any((m) => m['MessageID'] == data['MessageID']);
             if (exists || !mounted) return;
-
-            if (data['MessageText'] != null) {
-              data['_plain'] = data['MessageText'] as String;
-            }
-
+            data['_plain'] = data['MessageText'] as String? ?? '';
             setState(() => messages.add(data));
             _scrollToBottom();
-
-            // If message is from the other party mark delivered + seen immediately
-            final senderId = data['SenderID']?.toString().trim().toLowerCase() ?? '';
-            if (senderId != cleanUserId.toLowerCase()) {
-              await _markDelivered(data['MessageID'] as String);
-              await _markSeen(data['MessageID'] as String);
-            }
-          },
-        )
-        .onPostgresChanges(
-          event:  PostgresChangeEvent.update,
-          schema: 'public',
-          table:  'ChatMessage',
-          filter: PostgresChangeFilter(
-            type:   PostgresChangeFilterType.eq,
-            column: 'ExpertSessionID',
-            value:  _expertSessionId!,
-          ),
-          callback: (payload) {
-            final updated = payload.newRecord;
-            if (!mounted) return;
-            setState(() {
-              final idx = messages.indexWhere(
-                  (m) => m['MessageID'] == updated['MessageID']);
-              if (idx != -1) {
-                messages[idx] = {
-                  ...messages[idx],
-                  'IsDelivered': updated['IsDelivered'],
-                  'IsSeen':      updated['IsSeen'],
-                };
-              }
-            });
           },
         )
         .subscribe();
   }
 
-  // ── Mark delivered ────────────────────────────────────────
-  Future<void> _markDelivered(String messageId) async {
-    try {
-      // SUPABASE: Update IsDelivered flag on ChatMessage
-      await supabase
-          .from('ChatMessage')                   // SUPABASE: table name
-          .update({'IsDelivered': true})          // SUPABASE: ChatMessage.IsDelivered
-          .eq('MessageID', messageId)
-          .eq('IsDelivered', false);
-    } catch (e) {
-      debugPrint('_markDelivered: $e');
-    }
-  }
-
-  // ── Mark seen ─────────────────────────────────────────────
-  Future<void> _markSeen(String messageId) async {
-    try {
-      // SUPABASE: Update IsSeen flag on ChatMessage
-      await supabase
-          .from('ChatMessage')                   // SUPABASE: table name
-          .update({'IsDelivered': true, 'IsSeen': true}) // SUPABASE: both flags
-          .eq('MessageID', messageId)
-          .eq('IsSeen', false);
-    } catch (e) {
-      debugPrint('_markSeen: $e');
-    }
-  }
-
-  // ── Mark ALL unseen messages from other party as seen ─────
-  Future<void> _markAllSeen() async {
-    if (_expertSessionId == null) return;
-    try {
-      // SUPABASE: Bulk update all unread messages from the other party
-      await supabase
-          .from('ChatMessage')                   // SUPABASE: table name
-          .update({'IsDelivered': true, 'IsSeen': true})
-          .eq('ExpertSessionID', _expertSessionId!)
-          .neq('SenderID', cleanUserId)          // SUPABASE: only other party's messages
-          .eq('IsSeen', false);
-
-      // Reflect seen status in local state immediately
-      if (mounted) {
-        setState(() {
-          messages = messages.map((m) {
-            final senderId = m['SenderID']?.toString().trim() ?? '';
-            if (senderId != cleanUserId && m['IsSeen'] == false) {
-              return {...m, 'IsDelivered': true, 'IsSeen': true};
-            }
-            return m;
-          }).toList();
-        });
-      }
-    } catch (e) {
-      debugPrint('_markAllSeen: $e');
-    }
-  }
-
-  // ── Send message ──────────────────────────────────────────
+  // ── Send text message ─────────────────────────────────────
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
-    if (text.isEmpty || _expertSessionId == null) return;
+    if (text.isEmpty || _expertSessionId == null || _isSending) return;
     _controller.clear();
+    await _insertMessage(text: text, attachmentUrl: null);
+  }
 
+  // ── Microphone: start recording ───────────────────────────
+  Future<void> _startRecording() async {
+    try {
+      final hasPermission = await _recorder.hasPermission();
+      if (!hasPermission) {
+        _showError('لا يوجد إذن للميكروفون');
+        return;
+      }
+      final dir  = await getTemporaryDirectory();
+      final path = '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
+      setState(() {
+        _isRecording    = true;
+        _recordingPath  = path;
+      });
+    } catch (e) {
+      debugPrint('_startRecording: $e');
+      _showError('فشل في بدء التسجيل');
+    }
+  }
+
+  // ── Microphone: stop recording and send ───────────────────
+  Future<void> _stopAndSendRecording() async {
+    try {
+      final path = await _recorder.stop();
+      setState(() => _isRecording = false);
+      if (path == null) return;
+      final file = File(path);
+      if (!await file.exists()) return;
+      await _uploadAndSend(file, 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a', bucket: 'chat_audio');
+    } catch (e) {
+      debugPrint('_stopAndSendRecording: $e');
+      _showError('فشل في إرسال الرسالة الصوتية');
+      setState(() => _isRecording = false);
+    }
+  }
+
+  // ── Cancel recording ──────────────────────────────────────
+  Future<void> _cancelRecording() async {
+    try {
+      await _recorder.cancel();
+    } catch (_) {}
+    setState(() {
+      _isRecording   = false;
+      _recordingPath = null;
+    });
+  }
+
+  // ── Play / pause audio message ────────────────────────────
+  Future<void> _toggleAudio(String messageId, String url) async {
+    if (_playingMessageId == messageId) {
+      // Pause current
+      await _audioPlayers[messageId]?.pause();
+      setState(() => _playingMessageId = null);
+      return;
+    }
+
+    // Stop any other playing
+    if (_playingMessageId != null) {
+      await _audioPlayers[_playingMessageId!]?.stop();
+    }
+
+    final player = _audioPlayers.putIfAbsent(messageId, () => AudioPlayer());
+    try {
+      await player.setUrl(url);
+      player.playerStateStream.listen((state) {
+        if (state.processingState == ProcessingState.completed && mounted) {
+          setState(() => _playingMessageId = null);
+        }
+      });
+      await player.play();
+      setState(() => _playingMessageId = messageId);
+    } catch (e) {
+      debugPrint('_toggleAudio: $e');
+      _showError('فشل في تشغيل الصوت');
+    }
+  }
+
+  // ── Pick image ────────────────────────────────────────────
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final picked = await _imagePicker.pickImage(source: source, imageQuality: 80);
+      if (picked == null) return;
+      await _uploadAndSend(File(picked.path), picked.name, bucket: 'chat_attachments');
+    } catch (e) {
+      debugPrint('_pickImage: $e');
+      _showError('فشل في اختيار الصورة');
+    }
+  }
+
+  // ── Pick file ─────────────────────────────────────────────
+  Future<void> _pickFile() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx', 'mp4', 'mov'],
+      );
+      if (result == null || result.files.single.path == null) return;
+      final f = result.files.single;
+      await _uploadAndSend(File(f.path!), f.name, bucket: 'chat_attachments');
+    } catch (e) {
+      debugPrint('_pickFile: $e');
+      _showError('فشل في اختيار الملف');
+    }
+  }
+
+  // ── Upload to Supabase Storage then send ──────────────────
+  Future<void> _uploadAndSend(File file, String fileName, {required String bucket}) async {
+    if (_expertSessionId == null) return;
+    setState(() => _isSending = true);
+    try {
+      final ext  = fileName.split('.').last.toLowerCase();
+      final path = '$_expertSessionId/${DateTime.now().millisecondsSinceEpoch}.$ext';
+
+      // SUPABASE: Upload file to storage bucket
+      await supabase.storage
+          .from(bucket)                          // SUPABASE: bucket name (chat_attachments or chat_audio)
+          .upload(path, file);
+
+      // SUPABASE: Get public URL of uploaded file
+      final url = supabase.storage
+          .from(bucket)                          // SUPABASE: same bucket
+          .getPublicUrl(path);
+
+      await _insertMessage(text: fileName, attachmentUrl: url);
+    } catch (e) {
+      debugPrint('_uploadAndSend: $e');
+      _showError('فشل في رفع الملف');
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
+  // ── Insert message into DB ────────────────────────────────
+  Future<void> _insertMessage({required String text, required String? attachmentUrl}) async {
     final now    = DateTime.now().toUtc().toIso8601String();
     final tempId = 'opt_${DateTime.now().millisecondsSinceEpoch}';
 
-    final optimistic = {
+    setState(() => messages.add({
       'MessageID':       tempId,
       'ExpertSessionID': _expertSessionId,
       'SenderID':        cleanUserId,
       'MessageText':     text,
       '_plain':          text,
-      'AttachmentURL':   null,
-      'IsDelivered':     false,
-      'IsSeen':          false,
+      'AttachmentURL':   attachmentUrl,
       'SentAt':          now,
       '_isOptimistic':   true,
-    };
-
-    setState(() => messages.add(optimistic));
+    }));
     _scrollToBottom();
 
     try {
-      // SUPABASE: Insert new message into ChatMessage table
+      // SUPABASE: Insert message into ChatMessage table
       final inserted = await supabase
           .from('ChatMessage')                   // SUPABASE: table name
           .insert({
             'ExpertSessionID': _expertSessionId, // SUPABASE: ChatMessage.ExpertSessionID
             'SenderID':        cleanUserId,      // SUPABASE: ChatMessage.SenderID
             'MessageText':     text,             // SUPABASE: ChatMessage.MessageText
-            'AttachmentURL':   null,
-            'IsDelivered':     false,
-            'IsSeen':          false,
-            'SentAt':          now,
+            'AttachmentURL':   attachmentUrl,    // SUPABASE: ChatMessage.AttachmentURL
+            'SentAt':          now,              // SUPABASE: ChatMessage.SentAt
           })
           .select()
           .single();
@@ -344,40 +387,70 @@ class _ChatPageState extends State<ChatPage> {
         });
       }
     } catch (e) {
-      debugPrint('_sendMessage: $e');
+      debugPrint('_insertMessage: $e');
       if (mounted) {
         setState(() => messages.removeWhere((m) => m['MessageID'] == tempId));
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('فشل في إرسال الرسالة')));
+        _showError('فشل في إرسال الرسالة');
       }
     }
   }
 
-  // ── End session handler ───────────────────────────────────
-  void _onEndSession() {
-    debugPrint('End session tapped — role: $_currentUserRole, isExpert: $_isExpert');
-    if (_isExpert) {
-      // Expert just ends session without review
-      _endSessionOnly();
-    } else {
-      // Regular user sees review dialog
-      _showRatingDialog();
-    }
-  }
+  // ── End session ───────────────────────────────────────────
+  void _onEndSession() => _isExpert ? _endSessionOnly() : _showRatingDialog();
 
   Future<void> _endSessionOnly() async {
     try {
       if (_expertSessionId != null) {
-        // SUPABASE: Update session status to completed
+        // SUPABASE: Mark session as completed
         await supabase
             .from('ExpertSession')               // SUPABASE: table name
             .update({'Status': 'أكتملت'})        // SUPABASE: ExpertSession.Status
             .eq('ExpertSessionID', _expertSessionId!);
       }
-    } catch (e) {
-      debugPrint('_endSessionOnly: $e');
-    }
+    } catch (e) { debugPrint('_endSessionOnly: $e'); }
     if (mounted) Navigator.pop(context);
+  }
+
+  // ── Attachment options bottom sheet ───────────────────────
+  void _showAttachmentOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40, height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                ),
+                ListTile(
+                  leading: const CircleAvatar(backgroundColor: Color(0xFF7A8256), child: Icon(Icons.camera_alt, color: Colors.white)),
+                  title: const Text('التقاط صورة'),
+                  onTap: () { Navigator.pop(context); _pickImage(ImageSource.camera); },
+                ),
+                ListTile(
+                  leading: const CircleAvatar(backgroundColor: Color(0xFF7A8256), child: Icon(Icons.photo_library, color: Colors.white)),
+                  title: const Text('اختيار من المعرض'),
+                  onTap: () { Navigator.pop(context); _pickImage(ImageSource.gallery); },
+                ),
+                ListTile(
+                  leading: const CircleAvatar(backgroundColor: Color(0xFF7A8256), child: Icon(Icons.insert_drive_file, color: Colors.white)),
+                  title: const Text('إرفاق ملف'),
+                  onTap: () { Navigator.pop(context); _pickFile(); },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   // ── Review dialog ─────────────────────────────────────────
@@ -399,232 +472,148 @@ class _ChatPageState extends State<ChatPage> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
               child: StatefulBuilder(
-                builder: (context, setDialogState) {
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-
-                      // ── Top row: title + close ──────────
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const SizedBox(width: 32),
-                          const Text(
-                            'قيم تجربتك مع الخبير',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF4A3E25),
+                builder: (context, setDialogState) => Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const SizedBox(width: 32),
+                        const Text('قيم تجربتك مع الخبير',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF4A3E25))),
+                        GestureDetector(
+                          onTap: () => Navigator.pop(dialogContext),
+                          child: Container(
+                            width: 32, height: 32,
+                            decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
+                            child: const Icon(Icons.close, size: 18, color: Colors.black54),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: const BoxDecoration(color: Color(0xFF7A8256), shape: BoxShape.circle),
+                      child: CircleAvatar(
+                        radius: 44,
+                        backgroundColor: Colors.grey.shade100,
+                        backgroundImage: expertImage != null
+                            ? NetworkImage(expertImage!) as ImageProvider
+                            : const AssetImage('images/nekhlawi_icon.png'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(expertName != null ? 'م. $expertName' : 'الخبير',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF4A3E25))),
+                    const SizedBox(height: 6),
+                    const Text('كيف كانت تجربتك مع الخبير ؟',
+                        style: TextStyle(fontSize: 13, color: Colors.grey)),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(5, (i) {
+                        final val = i + 1;
+                        return GestureDetector(
+                          onTap: () => setDialogState(() => selectedRating = val),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Icon(
+                              val <= selectedRating ? Icons.star : Icons.star_border,
+                              color: const Color(0xFFF2A649), size: 38,
                             ),
                           ),
-                          GestureDetector(
-                            onTap: () => Navigator.pop(dialogContext),
-                            child: Container(
-                              width: 32, height: 32,
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.close, size: 18, color: Colors.black54),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // ── Expert avatar ───────────────────
-                      Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF7A8256),
-                          shape: BoxShape.circle,
-                        ),
-                        child: CircleAvatar(
-                          radius: 44,
-                          backgroundColor: Colors.grey.shade100,
-                          backgroundImage: expertImage != null
-                              ? NetworkImage(expertImage!)
-                              : const AssetImage('images/nekhlawi_icon.png')
-                                  as ImageProvider,
-                        ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      // ── Expert name ─────────────────────
-                      Text(
-                        expertName != null ? 'م. $expertName' : 'الخبير',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF4A3E25),
-                        ),
-                      ),
-
-                      const SizedBox(height: 6),
-
-                      const Text(
-                        'كيف كانت تجربتك مع الخبير ؟',
-                        style: TextStyle(fontSize: 13, color: Colors.grey),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // ── Stars row ───────────────────────
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(5, (i) {
-                          final val = i + 1;
-                          return GestureDetector(
-                            onTap: () => setDialogState(() => selectedRating = val),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
-                              child: Icon(
-                                val <= selectedRating
-                                    ? Icons.star
-                                    : Icons.star_border,
-                                color: const Color(0xFFF2A649),
-                                size: 38,
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      // ── Rating labels ───────────────────
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: List.generate(5, (i) {
-                          final isActive = selectedRating == i + 1;
-                          return Expanded(
-                            child: Text(
-                              ratingLabels[i],
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: List.generate(5, (i) {
+                        final isActive = selectedRating == i + 1;
+                        return Expanded(
+                          child: Text(ratingLabels[i],
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 11,
-                                fontWeight: isActive
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                                color: isActive
-                                    ? const Color(0xFFF2A649)
-                                    : Colors.grey.shade400,
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // ── Comment box ─────────────────────
-                      TextField(
-                        controller: commentController,
-                        maxLines: 4,
-                        maxLength: 500,
-                        textDirection: TextDirection.rtl,
-                        onChanged: (_) => setDialogState(() {}),
-                        style: const TextStyle(fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: 'لا تنسى تشاركنا رأيك ، لأن رأيك يهمنا ..',
-                          hintStyle: TextStyle(
-                              fontSize: 13, color: Colors.grey.shade400),
-                          counterText:
-                              '${commentController.text.length}/500',
-                          counterStyle: TextStyle(
-                              fontSize: 11, color: Colors.grey.shade400),
-                          contentPadding: const EdgeInsets.all(14),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide:
-                                BorderSide(color: Colors.grey.shade300),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                                color: Color(0xFF7A8256), width: 1.5),
-                          ),
+                                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                                color: isActive ? const Color(0xFFF2A649) : Colors.grey.shade400,
+                              )),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: commentController,
+                      maxLines: 4, maxLength: 500,
+                      textDirection: TextDirection.rtl,
+                      onChanged: (_) => setDialogState(() {}),
+                      style: const TextStyle(fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'لا تنسى تشاركنا رأيك ، لأن رأيك يهمنا ..',
+                        hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+                        counterText: '${commentController.text.length}/500',
+                        counterStyle: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                        contentPadding: const EdgeInsets.all(14),
+                        filled: true, fillColor: Colors.grey.shade50,
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFF7A8256), width: 1.5),
                         ),
                       ),
-
-                      const SizedBox(height: 20),
-
-                      // ── Submit button ───────────────────
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF7A8256),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: () async {
-                            if (selectedRating == 0) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text(
-                                        'الرجاء اختيار التقييم بالنجوم أولاً')),
-                              );
-                              return;
-                            }
-                            try {
-                              // SUPABASE: Insert review into Review table
-                              await supabase.from('Review').insert({
-                                'Rating':          selectedRating,                         // SUPABASE: Review.Rating
-                                'Comment':         commentController.text.trim(),          // SUPABASE: Review.Comment
-                                'CreatedAt':       DateTime.now().toUtc().toIso8601String(), // SUPABASE: Review.CreatedAt
-                                'ExpertID':        cleanExpertId,                          // SUPABASE: Review.ExpertID
-                                'ExpertSessionID': _expertSessionId,                       // SUPABASE: Review.ExpertSessionID
-                              });
-
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity, height: 50,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF7A8256), elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () async {
+                          if (selectedRating == 0) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('الرجاء اختيار التقييم بالنجوم أولاً')));
+                            return;
+                          }
+                          try {
+                            // SUPABASE: Insert review into Review table
+                            await supabase.from('Review').insert({
+                              'Rating':          selectedRating,                           // SUPABASE: Review.Rating
+                              'Comment':         commentController.text.trim(),             // SUPABASE: Review.Comment
+                              'CreatedAt':       DateTime.now().toUtc().toIso8601String(),  // SUPABASE: Review.CreatedAt
+                              'ExpertID':        cleanExpertId,                             // SUPABASE: Review.ExpertID
+                              'ExpertSessionID': _expertSessionId,                          // SUPABASE: Review.ExpertSessionID
+                            });
+                            if (_expertSessionId != null) {
                               // SUPABASE: Mark session as completed
-                              if (_expertSessionId != null) {
-                                await supabase
-                                    .from('ExpertSession')               // SUPABASE: table name
-                                    .update({'Status': 'أكتملت'})        // SUPABASE: ExpertSession.Status
-                                    .eq('ExpertSessionID', _expertSessionId!);
-                              }
-
-                              if (dialogContext.mounted) {
-                                Navigator.pop(dialogContext);
-                              }
-                              if (mounted) {
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('شكراً لتقييمك! ✨')),
-                                );
-                              }
-                            } catch (e) {
-                              debugPrint('Review insert error: $e');
-                              if (dialogContext.mounted) {
-                                ScaffoldMessenger.of(dialogContext)
-                                    .showSnackBar(
-                                  SnackBar(content: Text('خطأ: $e')),
-                                );
-                              }
+                              await supabase
+                                  .from('ExpertSession')             // SUPABASE: table name
+                                  .update({'Status': 'أكتملت'})      // SUPABASE: ExpertSession.Status
+                                  .eq('ExpertSessionID', _expertSessionId!);
                             }
-                          },
-                          child: const Text(
-                            'تقييم',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
+                            if (dialogContext.mounted) Navigator.pop(dialogContext);
+                            if (mounted) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('شكراً لتقييمك! ✨')));
+                            }
+                          } catch (e) {
+                            debugPrint('Review error: $e');
+                            if (dialogContext.mounted) {
+                              ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text('خطأ: $e')));
+                            }
+                          }
+                        },
+                        child: const Text('تقييم',
+                            style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
                       ),
-                    ],
-                  );
-                },
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -634,6 +623,11 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   // ── Helpers ───────────────────────────────────────────────
+  void _showError(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
   String _plainText(Map<String, dynamic> msg) =>
       msg['_plain'] as String? ?? msg['MessageText'] as String? ?? '';
 
@@ -649,20 +643,30 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
-  Widget _buildTicks(Map<String, dynamic> msg) {
-    final isSeen       = msg['IsSeen']        == true;
-    final isDelivered  = msg['IsDelivered']   == true;
-    final isOptimistic = msg['_isOptimistic'] == true;
-    if (isOptimistic) {
-      return const Icon(Icons.access_time, size: 12, color: Colors.white54);
-    }
-    if (isSeen) {
-      return const Icon(Icons.done_all, size: 14, color: Colors.lightBlueAccent);
-    }
-    if (isDelivered) {
-      return const Icon(Icons.done_all, size: 14, color: Colors.white70);
-    }
-    return const Icon(Icons.done, size: 14, color: Colors.white70);
+  String _formatTime(String? iso) {
+    if (iso == null) return '';
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) { return ''; }
+  }
+
+  bool _isImageUrl(String? url) {
+    if (url == null) return false;
+    final l = url.toLowerCase();
+    return l.endsWith('.jpg') || l.endsWith('.jpeg') || l.endsWith('.png') || l.endsWith('.webp');
+  }
+
+  bool _isAudioUrl(String? url) {
+    if (url == null) return false;
+    final l = url.toLowerCase();
+    return l.endsWith('.m4a') || l.endsWith('.mp3') || l.endsWith('.aac') || l.endsWith('.wav');
+  }
+
+  bool _isVideoUrl(String? url) {
+    if (url == null) return false;
+    final l = url.toLowerCase();
+    return l.endsWith('.mp4') || l.endsWith('.mov') || l.endsWith('.avi');
   }
 
   // ── Build ─────────────────────────────────────────────────
@@ -674,9 +678,14 @@ class _ChatPageState extends State<ChatPage> {
         backgroundColor: AppColors.background,
         appBar: _buildAppBar(),
         body: _loadingSession
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(child: CircularProgressIndicator(color: AppColors.darkBrown))
             : Column(children: [
                 Expanded(child: _buildMessageList()),
+                if (_isSending)
+                  LinearProgressIndicator(
+                    backgroundColor: AppColors.header,
+                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                  ),
                 _buildInputBar(),
               ]),
       ),
@@ -693,49 +702,32 @@ class _ChatPageState extends State<ChatPage> {
               onPressed: _onEndSession,
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Colors.redAccent, width: 1.2),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                 padding: const EdgeInsets.symmetric(horizontal: 14),
               ),
-              child: const Text(
-                'إنهاء الجلسة',
-                style: TextStyle(
-                  color: Colors.redAccent,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                ),
-              ),
+              child: const Text('إنهاء الجلسة',
+                  style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13)),
             ),
           ),
         ],
         title: GestureDetector(
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (_) =>
-                    ExpertProfilePage(expertId: cleanExpertId)),
-          ),
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => ExpertProfilePage(expertId: cleanExpertId))),
           child: Row(children: [
             const SizedBox(width: 8),
             CircleAvatar(
               radius: 22,
               backgroundColor: AppColors.grey.withOpacity(0.2),
               backgroundImage: expertImage != null
-                  ? NetworkImage(expertImage!)
-                  : const AssetImage('images/nekhlawi_icon.png')
-                      as ImageProvider,
+                  ? NetworkImage(expertImage!) as ImageProvider
+                  : const AssetImage('images/nekhlawi_icon.png'),
+              onBackgroundImageError: (_, __) {},
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(
-                expertName ?? '...',
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                  fontSize: 18,
-                  color: AppColors.darkGreen,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              child: Text(expertName ?? '...',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(fontSize: 18, color: AppColors.darkGreen, fontWeight: FontWeight.w700)),
             ),
           ]),
         ),
@@ -743,9 +735,7 @@ class _ChatPageState extends State<ChatPage> {
 
   Widget _buildMessageList() {
     if (messages.isEmpty) {
-      return const Center(
-          child: Text('لا توجد رسائل',
-              style: TextStyle(color: AppColors.grey)));
+      return const Center(child: Text('لا توجد رسائل', style: TextStyle(color: AppColors.grey)));
     }
     return ListView.builder(
       controller: _scrollCtrl,
@@ -753,137 +743,211 @@ class _ChatPageState extends State<ChatPage> {
       itemCount: messages.length,
       itemBuilder: (context, i) {
         final msg    = messages[i];
-        final isMine = msg['SenderID']
-                .toString()
-                .trim()
-                .toLowerCase() ==
-            cleanUserId.toLowerCase();
+        final isMine = msg['SenderID'].toString().trim().toLowerCase() == cleanUserId.toLowerCase();
         return isMine ? _buildSent(msg) : _buildReceived(msg);
       },
     );
   }
 
-  Widget _buildSent(Map<String, dynamic> msg) => Align(
-        alignment: Alignment.centerRight,
-        child: Container(
-          margin: const EdgeInsets.only(
-              top: 4, bottom: 4, right: 8, left: 40),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.75),
-          decoration: const BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.only(
-              topLeft:     Radius.circular(16),
-              topRight:    Radius.circular(4),
-              bottomLeft:  Radius.circular(16),
-              bottomRight: Radius.circular(16),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(_plainText(msg),
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                      color: AppColors.white, fontSize: 15)),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(_formatTime(msg['SentAt'] as String?),
-                      style: const TextStyle(
-                          fontSize: 10, color: Colors.white70)),
-                  const SizedBox(width: 4),
-                  _buildTicks(msg),
-                ],
-              ),
-            ],
+  Widget _buildSent(Map<String, dynamic> msg) {
+    final url = msg['AttachmentURL'] as String?;
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Container(
+        margin: const EdgeInsets.only(top: 4, bottom: 4, right: 8, left: 60),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        decoration: const BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(16), topRight: Radius.circular(4),
+            bottomLeft: Radius.circular(16), bottomRight: Radius.circular(16),
           ),
         ),
-      );
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            _buildContentWidget(msg, url, isMine: true),
+            const SizedBox(height: 4),
+            Text(_formatTime(msg['SentAt'] as String?),
+                style: const TextStyle(fontSize: 10, color: Colors.white70)),
+          ],
+        ),
+      ),
+    );
+  }
 
-  Widget _buildReceived(Map<String, dynamic> msg) => Align(
-        alignment: Alignment.centerLeft,
-        child: Container(
-          padding: const EdgeInsets.only(
-              top: 4, bottom: 4, left: 8, right: 40),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Flexible(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
+  Widget _buildReceived(Map<String, dynamic> msg) {
+    final url = msg['AttachmentURL'] as String?;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(top: 4, bottom: 4, left: 8, right: 60),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(4), topRight: Radius.circular(16),
+            bottomLeft: Radius.circular(16), bottomRight: Radius.circular(16),
+          ),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildContentWidget(msg, url, isMine: false),
+            const SizedBox(height: 4),
+            Text(_formatTime(msg['SentAt'] as String?),
+                style: const TextStyle(fontSize: 10, color: Colors.grey)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContentWidget(Map<String, dynamic> msg, String? url, {required bool isMine}) {
+    final textColor = isMine ? AppColors.white : AppColors.darkGreen;
+    final msgId     = msg['MessageID'] as String? ?? '';
+
+    // Image
+    if (_isImageUrl(url)) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.network(url!, width: 200, fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.grey)),
+      );
+    }
+
+    // Audio / voice message
+    if (_isAudioUrl(url)) {
+      final isPlaying = _playingMessageId == msgId;
+      return GestureDetector(
+        onTap: () => _toggleAudio(msgId, url!),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                color: isMine ? Colors.white : AppColors.primary, size: 36),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('رسالة صوتية', style: TextStyle(color: textColor, fontSize: 13)),
+                Container(
+                  width: 100, height: 3, margin: const EdgeInsets.only(top: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: const BorderRadius.only(
-                      topLeft:     Radius.circular(4),
-                      topRight:    Radius.circular(16),
-                      bottomLeft:  Radius.circular(16),
-                      bottomRight: Radius.circular(16),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                          color:      Colors.black.withOpacity(0.05),
-                          blurRadius: 4,
-                          offset:     const Offset(0, 2)),
-                    ],
+                    color: isMine ? Colors.white38 : Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(_plainText(msg),
-                          textAlign: TextAlign.left,
-                          style: const TextStyle(
-                              color: AppColors.darkGreen,
-                              fontSize: 15)),
-                      const SizedBox(height: 4),
-                      Text(_formatTime(msg['SentAt'] as String?),
-                          style: const TextStyle(
-                              fontSize: 10, color: Colors.grey)),
-                    ],
-                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Video
+    if (_isVideoUrl(url)) {
+      return Container(
+        width: 200, height: 110,
+        decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(10)),
+        child: const Center(child: Icon(Icons.play_circle_fill, color: Colors.white, size: 48)),
+      );
+    }
+
+    // Other file
+    if (url != null) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.insert_drive_file, color: textColor, size: 20),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(url.split('/').last,
+                style: TextStyle(color: textColor, fontSize: 13, decoration: TextDecoration.underline),
+                overflow: TextOverflow.ellipsis),
+          ),
+        ],
+      );
+    }
+
+    // Plain text
+    return Text(_plainText(msg),
+        textAlign: isMine ? TextAlign.right : TextAlign.left,
+        style: TextStyle(color: textColor, fontSize: 15));
+  }
+
+  // ── Input bar ─────────────────────────────────────────────
+  Widget _buildInputBar() {
+    // Recording UI
+    if (_isRecording) {
+      return Container(
+        color: AppColors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: SafeArea(
+          child: Row(
+            children: [
+              // Cancel
+              GestureDetector(
+                onTap: _cancelRecording,
+                child: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 28),
+              ),
+              const SizedBox(width: 12),
+              // Animated indicator
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(Icons.circle, color: Colors.redAccent, size: 10),
+                    const SizedBox(width: 8),
+                    Text('جاري التسجيل...', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                  ],
+                ),
+              ),
+              // Send recording
+              GestureDetector(
+                onTap: _stopAndSendRecording,
+                child: Container(
+                  width: 48, height: 48,
+                  decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                  child: const Icon(Icons.send, color: Colors.white, size: 22),
                 ),
               ),
             ],
           ),
         ),
       );
+    }
 
-  Widget _buildInputBar() => Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        color: AppColors.white,
+    // Normal input UI
+    return Container(
+      color: AppColors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: SafeArea(
         child: Row(
           children: [
-            const Icon(Icons.mic, color: AppColors.grey),
-            const SizedBox(width: 10),
+            // Attach button
+            IconButton(
+              icon: const Icon(Icons.attach_file, color: AppColors.primary),
+              onPressed: _showAttachmentOptions,
+              tooltip: 'إرفاق',
+            ),
+            // Text field
             Expanded(
               child: Container(
                 constraints: const BoxConstraints(maxHeight: 120),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppColors.white,
+                  color: Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                      color: AppColors.grey.withOpacity(0.2), width: 1),
                 ),
                 child: TextField(
                   controller: _controller,
                   textDirection: TextDirection.rtl,
                   textAlign: TextAlign.right,
                   keyboardType: TextInputType.multiline,
-                  maxLines: null,
-                  minLines: 1,
-                  style: const TextStyle(
-                      fontSize: 16,
-                      height: 1.4,
-                      color: AppColors.darkGreen),
+                  maxLines: null, minLines: 1,
+                  style: const TextStyle(fontSize: 15, color: AppColors.darkGreen),
                   decoration: const InputDecoration(
                     hintText: 'اكتب رسالة...',
                     hintTextDirection: TextDirection.rtl,
@@ -895,34 +959,32 @@ class _ChatPageState extends State<ChatPage> {
                 ),
               ),
             ),
-            const SizedBox(width: 10),
-            const Icon(Icons.attach_file, color: AppColors.grey),
             const SizedBox(width: 8),
-            const Icon(Icons.camera_alt, color: AppColors.grey),
-            const SizedBox(width: 8),
-            const Icon(Icons.emoji_emotions_outlined,
-                color: AppColors.grey),
-            const SizedBox(width: 10),
-            Container(
-              width: 44,
-              height: 44,
-              decoration: const BoxDecoration(
-                  color: AppColors.primary, shape: BoxShape.circle),
-              child: IconButton(
-                onPressed: _sendMessage,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: const Icon(Icons.send,
-                    color: AppColors.white, size: 21),
+            // Mic / send button
+            GestureDetector(
+              onLongPressStart: (_) => _startRecording(),
+              onLongPressEnd:   (_) => _stopAndSendRecording(),
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, _) {
+                  final hasText = _controller.text.trim().isNotEmpty;
+                  return GestureDetector(
+                    onTap: hasText ? _sendMessage : null,
+                    child: Container(
+                      width: 44, height: 44,
+                      decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                      child: Icon(
+                        hasText ? Icons.send : Icons.mic,
+                        color: Colors.white, size: 22,
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ],
         ),
-      );
-
-  String _formatTime(String? iso) {
-    if (iso == null) return '';
-    final dt = DateTime.parse(iso).toLocal();
-    return '${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+      ),
+    );
   }
 }
