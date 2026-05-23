@@ -117,7 +117,7 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
                                   'أنتهت'
                                 ],
                                 iconAssetPath:
-                                'assets/images/home_brown_icon.png',
+                                'images/home_brown_icon.png',
                                 isExpert: true,
                                 userRole: 'expert',
                               ),
