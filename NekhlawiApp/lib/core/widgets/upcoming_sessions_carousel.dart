@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:nekhlawi_app/pages/to_do_page.dart';
+import 'package:nekhlawi_app/pages/session_info_page.dart';
 import 'package:nekhlawi_app/pages/chat.dart';
 import '../data/expert_session_repo.dart';
 import '../models/expert_session_item.dart';
@@ -329,8 +330,8 @@ class _SessionHomeCard extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) =>
-                            const TodoPage(
+                            builder: (_) => SessionInfoPage(
+                              sessionId: session.expertSessionID,
                               title: 'معلومات السشن',
                             ),
                           ),
