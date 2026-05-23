@@ -311,7 +311,7 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
               bottom: false,
               child: SizedBox(
                 height: 90,
-                child: HeaderBackground(title: 'إدارة الجلسات'),
+                child: HeaderBackground(title: 'إدارة أوقات التوفر'),
               ),
             ),
             Expanded(

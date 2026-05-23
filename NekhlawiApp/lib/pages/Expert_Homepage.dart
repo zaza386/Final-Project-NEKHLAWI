@@ -277,7 +277,7 @@ class _ExpertHomePageState extends State<ExpertHomePage> {
         ),
         _HomeCard(
           icon: Icons.calendar_month_outlined,
-          title: 'إدارة الجلسات',
+          title: 'إدارة أوقات التوفر',
           onTap: () => _goToManageSessions(context),
         ),
         _HomeCard(
