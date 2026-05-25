@@ -5,7 +5,7 @@ import '../core/widgets/header_background.dart';
 import '../core/widgets/consultation_card.dart';
 
 class ConsultationsPage2 extends StatefulWidget {
-  const ConsultationsPage2({super.key}); // لم تعد تستقبل أي ID
+  const ConsultationsPage2({super.key}); 
 
   @override
   State<ConsultationsPage2> createState() => _ConsultationsPageState();
@@ -26,46 +26,53 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
   }
 
   Future<void> _loadReviews() async {
-    // 1. جلب ID المستخدم الحالي المسجل في التطبيق
-    final currentUser = supabase.auth.currentUser;
-    if (currentUser == null) return;
+  final currentUser = supabase.auth.currentUser;
+  if (currentUser == null) return;
 
-    if (!mounted) return;
-    setState(() => _isLoading = true);
+  if (!mounted) return;
+  setState(() => _isLoading = true);
 
-    try {
-      // 2. الفلترة باستخدام ID المستخدم الحالي مباشرة
-      final response = await supabase
-          .from('Review')
-          .select('ReviewID, Rating, Comment, CreatedAt')
-          .eq('ExpertID', currentUser.id) // نستخدم id المستخدم المسجل
-          .order('CreatedAt', ascending: false);
+  try {
+    final expertProfile = await supabase
+        .from('ExpertProfile') 
+        .select('ExpertID')
+        .eq('ExpertID', currentUser.id) 
+        .single();
 
-      final list = List<Map<String, dynamic>>.from(response);
+    final realExpertId = expertProfile['ExpertID'];
 
-      double avg = 0;
-      if (list.isNotEmpty) {
-        final total = list.fold<int>(
-          0,
-          (sum, r) => sum + ((r['Rating'] as int?) ?? 0),
-        );
-        avg = total / list.length;
-      }
+    final response = await supabase
+        .from('Review')
+        .select('ReviewID, Rating, Comment, CreatedAt')
+        .eq('ExpertID', realExpertId) 
+        .order('CreatedAt', ascending: false);
 
-      if (mounted) {
-        setState(() {
-          _reviews = list;
-          _averageRating = avg;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      debugPrint('Reviews error: $e');
-      if (mounted) setState(() => _isLoading = false);
+    final list = List<Map<String, dynamic>>.from(response);
+
+    double avg = 0.0;
+    if (list.isNotEmpty) {
+      final total = list.fold<int>(
+        0,
+        (sum, r) => sum + ((r['Rating'] as int?) ?? 0),
+      );
+      avg = total / list.length;
+    }
+
+    if (mounted) {
+      setState(() {
+        _reviews = list;
+        _averageRating = avg;
+        _isLoading = false;
+      });
+    }
+  } catch (e) {
+    debugPrint('Reviews error: $e');
+    if (mounted) {
+      setState(() => _isLoading = false);
     }
   }
+}
 
-  // ... بقية دوال الـ UI (build, _buildStars, إلخ) كما هي في الكود السابق
 
   String _formatDate(String? raw) {
     if (raw == null) return '';
@@ -329,7 +336,6 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
               time: "${createdAt.hour}:${createdAt.minute}",
               isAi: true,
               onTap: () async {
-                // ... (منطق جلب بيانات التشخيص كما هو في كودك الأصلي)
               },
             );
           },
