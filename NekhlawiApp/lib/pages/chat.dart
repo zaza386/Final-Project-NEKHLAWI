@@ -883,7 +883,7 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     return Container(
-      color: Colors.white,
+      color: const Color.fromARGB(255, 237, 237, 237),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: SafeArea(
         child: Row(
@@ -899,7 +899,7 @@ class _ChatPageState extends State<ChatPage> {
                 constraints: const BoxConstraints(maxHeight: 120),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: TextField(
