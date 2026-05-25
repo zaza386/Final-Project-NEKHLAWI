@@ -25,13 +25,33 @@ class ExpertCard extends StatelessWidget {
     this.avatarUrl,
   });
 
+  // دالة الفحص الشاملة لكل الاحتمالات (روابط، ملفات محلية، أو سوبابيز)
+  ImageProvider _getAvatarImage(String? url) {
+    if (url == null || url.isEmpty) {
+      return const AssetImage('images/nekhlawi_icon.png');
+    }
+
+    // 1. احتمال أن يكون رابط كامل (https link)
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return NetworkImage(url);
+    }
+
+    // 2. احتمال أن يكون مسار Asset محلي داخل المشروع
+    if (url.startsWith('assets/') || url.startsWith('images/')) {
+      return AssetImage(url);
+    }
+
+    // 3. الاحتمال الاحتياطي: مجرد اسم ملف أو مسار نسبي في السوبابيز ستورج
+    return NetworkImage(supabase.storage.from('pic').getPublicUrl(url));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100, // light grey background
+        color: Colors.grey.shade100,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.black.withOpacity(.06)),
         boxShadow: [
@@ -56,9 +76,7 @@ class ExpertCard extends StatelessWidget {
             child: CircleAvatar(
               radius: 32,
               backgroundColor: AppColors.header,
-              backgroundImage: avatarUrl != null && avatarUrl!.isNotEmpty
-                  ? NetworkImage(supabase.storage.from('pic').getPublicUrl(avatarUrl!))
-                  : AssetImage('images/nekhlawi_icon.png'),
+              backgroundImage: _getAvatarImage(avatarUrl), // استدعاء دالة الفحص الشاملة
               child: null,
             ),
           ),

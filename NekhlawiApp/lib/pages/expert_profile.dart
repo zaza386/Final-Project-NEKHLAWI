@@ -27,6 +27,26 @@ class _ExpertProfilePageState extends State<ExpertProfilePage> {
         .single();
   }
 
+  // دالة الفحص الشاملة والذكية لتحديد نوع الصورة وعرضها بدون مشاكل
+  ImageProvider? _getAvatarImage(String? path) {
+    if (path == null || path.isEmpty) {
+      return null; // سيتم عرض الأيقونة الافتراضية في الـ child
+    }
+
+    // 1. احتمال أن يكون رابط كامل (https link)
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return NetworkImage(path);
+    }
+
+    // 2. احتمال أن يكون مسار Asset محلي داخل المشروع
+    if (path.startsWith('assets/') || path.startsWith('images/')) {
+      return AssetImage(path);
+    }
+
+    // 3. الاحتمال الاحتياطي: مسار نسبي مخزن في سوبابيز ستورج
+    return NetworkImage(supabase.storage.from('pic').getPublicUrl(path));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -42,11 +62,7 @@ class _ExpertProfilePageState extends State<ExpertProfilePage> {
 
             final data = snapshot.data ?? {};
             final user = data['User'] as Map<String, dynamic>? ?? {};
-
-            String? imageUrl;
-            if (user['ProfilePicturePath'] != null && user['ProfilePicturePath'].toString().isNotEmpty) {
-              imageUrl = supabase.storage.from('pic').getPublicUrl(user['ProfilePicturePath']);
-            }
+            final profilePath = user['ProfilePicturePath']?.toString();
 
             return Stack(
               children: [
@@ -82,8 +98,11 @@ class _ExpertProfilePageState extends State<ExpertProfilePage> {
                           child: CircleAvatar(
                             radius: 65,
                             backgroundColor: Colors.grey[200],
-                            backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
-                            child: imageUrl == null ? const Icon(Icons.person, size: 60, color: Colors.grey) : null,
+                            // استدعاء دالة الفحص الشاملة والذكية هنا مباشرة
+                            backgroundImage: _getAvatarImage(profilePath),
+                            child: (profilePath == null || profilePath.isEmpty)
+                                ? const Icon(Icons.person, size: 60, color: Colors.grey)
+                                : null,
                           ),
                         ),
                         const SizedBox(height: 12),

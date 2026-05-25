@@ -12,7 +12,7 @@ import 'package:path_provider/path_provider.dart';
 class ChatPage extends StatefulWidget {
   final String expertId;
   final String userId;
-  final String sessionId; 
+  final String sessionId;
 
   const ChatPage({
     super.key,
@@ -34,7 +34,7 @@ class _ChatPageState extends State<ChatPage> {
 
   List<Map<String, dynamic>> messages = [];
   String? expertName;
-  String? expertImage;
+  String? expertRawImage; // قمنا بتغييره للاحتفاظ بالمسار الخام لفحصه ذكياً لاحقاً
   bool   _loadingSession = true;
   bool   _isSending      = false;
   bool   _isRecording    = false;
@@ -71,12 +71,32 @@ class _ChatPageState extends State<ChatPage> {
     super.dispose();
   }
 
+  // دالة الفحص الذكية والشاملة لجميع أنواع الصور (روابط، أصول محلية، أو سوبابيز)
+  ImageProvider _getAvatarImage(String? path) {
+    if (path == null || path.isEmpty) {
+      return const AssetImage('images/nekhlawi_icon.png');
+    }
+
+    // 1. إذا كان رابط كامل يبدأ بـ http أو https
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return NetworkImage(path);
+    }
+
+    // 2. إذا كان مسار Asset محلي
+    if (path.startsWith('assets/') || path.startsWith('images/')) {
+      return AssetImage(path);
+    }
+
+    // 3. الاحتياطي: مسار نسبي مخزن في سوبابيز ستورج
+    return NetworkImage(supabase.storage.from('pic').getPublicUrl(path));
+  }
+
   Future<void> _loadCurrentUserRole() async {
     try {
       final res = await supabase
-          .from('User')                        
-          .select('Role')                     
-          .eq('UserID', cleanUserId)           
+          .from('User')
+          .select('Role')
+          .eq('UserID', cleanUserId)
           .single();
       if (mounted) {
         setState(() => _currentUserRole = (res['Role'] as String?) ?? 'user');
@@ -90,17 +110,15 @@ class _ChatPageState extends State<ChatPage> {
   Future<void> _loadExpert() async {
     try {
       final res = await supabase
-          .from('User')                       
-          .select('Name, ProfilePicturePath')  
-          .eq('UserID', cleanExpertId)         
+          .from('User')
+          .select('Name, ProfilePicturePath')
+          .eq('UserID', cleanExpertId)
           .single();
       final path = res['ProfilePicturePath'] as String?;
       if (mounted) {
         setState(() {
-          expertName  = res['Name'] as String?;
-          expertImage = (path != null && path.isNotEmpty)
-              ? supabase.storage.from('pic').getPublicUrl(path)
-              : null;
+          expertName     = res['Name'] as String?;
+          expertRawImage = path; // نحتفظ بالمسار هنا كما هو لتمريره للدالة الذكية
         });
       }
     } catch (e) {
@@ -112,9 +130,9 @@ class _ChatPageState extends State<ChatPage> {
     setState(() => _loadingSession = true);
     try {
       final rows = await supabase
-          .from('ChatMessage')                      
+          .from('ChatMessage')
           .select('MessageID, ExpertSessionID, SenderID, MessageText, AttachmentURL, SentAt')
-          .eq('ExpertSessionID', _sessionId)      
+          .eq('ExpertSessionID', _sessionId)
           .order('SentAt', ascending: true);
 
       if (mounted) {
@@ -138,23 +156,23 @@ class _ChatPageState extends State<ChatPage> {
     _channel = supabase
         .channel('chat:$_sessionId')
         .onPostgresChanges(
-          event:  PostgresChangeEvent.insert,
-          schema: 'public',
-          table:  'ChatMessage',
-          filter: PostgresChangeFilter(
-            type:   PostgresChangeFilterType.eq,
-            column: 'ExpertSessionID',
-            value:  _sessionId,
-          ),
-          callback: (payload) {
-            final data = Map<String, dynamic>.from(payload.newRecord);
-            final exists = messages.any((m) => m['MessageID'] == data['MessageID']);
-            if (exists || !mounted) return;
-            data['_plain'] = data['MessageText'] as String? ?? '';
-            setState(() => messages.add(data));
-            _scrollToBottom();
-          },
-        )
+      event:  PostgresChangeEvent.insert,
+      schema: 'public',
+      table:  'ChatMessage',
+      filter: PostgresChangeFilter(
+        type:   PostgresChangeFilterType.eq,
+        column: 'ExpertSessionID',
+        value:  _sessionId,
+      ),
+      callback: (payload) {
+        final data = Map<String, dynamic>.from(payload.newRecord);
+        final exists = messages.any((m) => m['MessageID'] == data['MessageID']);
+        if (exists || !mounted) return;
+        data['_plain'] = data['MessageText'] as String? ?? '';
+        setState(() => messages.add(data));
+        _scrollToBottom();
+      },
+    )
         .subscribe();
   }
 
@@ -162,21 +180,21 @@ class _ChatPageState extends State<ChatPage> {
     supabase
         .channel('session_status:$_sessionId')
         .onPostgresChanges(
-          event:  PostgresChangeEvent.update,
-          schema: 'public',
-          table:  'ExpertSession',               
-          filter: PostgresChangeFilter(
-            type:   PostgresChangeFilterType.eq,
-            column: 'ExpertSessionID',          
-            value:  _sessionId,
-          ),
-          callback: (payload) {
-            final status = payload.newRecord['Status'] as String?;
-            if (status == 'أكتملت' && mounted) {
-              _showSessionEndedDialog();
-            }
-          },
-        )
+      event:  PostgresChangeEvent.update,
+      schema: 'public',
+      table:  'ExpertSession',
+      filter: PostgresChangeFilter(
+        type:   PostgresChangeFilterType.eq,
+        column: 'ExpertSessionID',
+        value:  _sessionId,
+      ),
+      callback: (payload) {
+        final status = payload.newRecord['Status'] as String?;
+        if (status == 'أكتملت' && mounted) {
+          _showSessionEndedDialog();
+        }
+      },
+    )
         .subscribe();
   }
 
@@ -309,7 +327,7 @@ class _ChatPageState extends State<ChatPage> {
     } catch (e) {
       debugPrint('_uploadAndSend: $e');
       _showError('فشل في رفع الملف');
-    } finally {
+    }finally {
       if (mounted) setState(() => _isSending = false);
     }
   }
@@ -332,14 +350,14 @@ class _ChatPageState extends State<ChatPage> {
 
     try {
       final inserted = await supabase
-          .from('ChatMessage')                   
+          .from('ChatMessage')
           .insert({
-            'ExpertSessionID': _sessionId,      
-            'SenderID':        cleanUserId,      
-            'MessageText':     text,             
-            'AttachmentURL':   attachmentUrl,    
-            'SentAt':          now,           
-          })
+        'ExpertSessionID': _sessionId,
+        'SenderID':        cleanUserId,
+        'MessageText':     text,
+        'AttachmentURL':   attachmentUrl,
+        'SentAt':          now,
+      })
           .select()
           .single();
 
@@ -359,12 +377,12 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _onEndSession() {
-  if (_isExpert) {
-    if (mounted) Navigator.pop(context);
-  } else {
-    _showRatingDialog();
+    if (_isExpert) {
+      if (mounted) Navigator.pop(context);
+    } else {
+      _showRatingDialog();
+    }
   }
-}
 
   void _showAttachmentOptions() {
     showModalBottomSheet(
@@ -461,9 +479,8 @@ class _ChatPageState extends State<ChatPage> {
                       child: CircleAvatar(
                         radius: 44,
                         backgroundColor: Colors.grey.shade100,
-                        backgroundImage: expertImage != null
-                            ? NetworkImage(expertImage!) as ImageProvider
-                            : const AssetImage('images/nekhlawi_icon.png'),
+                        // استخدام الدالة الذكية هنا لعرض صورة الخبير بشكل سليم في التقييم
+                        backgroundImage: _getAvatarImage(expertRawImage),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -548,13 +565,13 @@ class _ChatPageState extends State<ChatPage> {
                           }
                           try {
                             await supabase.from('Review').insert({
-                              'Rating':          selectedRating,                           
-                              'Comment':         commentController.text.trim(),             
-                              'CreatedAt':       DateTime.now().toUtc().toIso8601String(),  
-                              'ExpertID':        cleanExpertId,                             
-                              'ExpertSessionID': _sessionId,                                
+                              'Rating':          selectedRating,
+                              'Comment':         commentController.text.trim(),
+                              'CreatedAt':       DateTime.now().toUtc().toIso8601String(),
+                              'ExpertID':        cleanExpertId,
+                              'ExpertSessionID': _sessionId,
                             });
-                          
+
                             if (dialogContext.mounted) Navigator.pop(dialogContext);
                             if (mounted) {
                               Navigator.pop(context);
@@ -639,58 +656,57 @@ class _ChatPageState extends State<ChatPage> {
         body: _loadingSession
             ? const Center(child: CircularProgressIndicator(color: AppColors.darkBrown))
             : Column(children: [
-                Expanded(child: _buildMessageList()),
-                if (_isSending)
-                  LinearProgressIndicator(
-                    backgroundColor: AppColors.header,
-                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-                  ),
-                _buildInputBar(),
-              ]),
+          Expanded(child: _buildMessageList()),
+          if (_isSending)
+            LinearProgressIndicator(
+              backgroundColor: AppColors.header,
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+            ),
+          _buildInputBar(),
+        ]),
       ),
     );
   }
 
   PreferredSizeWidget _buildAppBar() => AppBar(
-        backgroundColor: AppColors.header,
-        elevation: 0,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: OutlinedButton(
-              onPressed: _onEndSession,
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.redAccent, width: 1.2),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-              ),
-              child: const Text('الخروج من الجلسة',
-                  style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13)),
-            ),
+    backgroundColor: AppColors.header,
+    elevation: 0,
+    actions: [
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: OutlinedButton(
+          onPressed: _onEndSession,
+          style: OutlinedButton.styleFrom(
+            side: const BorderSide(color: Colors.redAccent, width: 1.2),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
           ),
-        ],
-        title: GestureDetector(
-          onTap: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => ExpertProfilePage(expertId: cleanExpertId))),
-          child: Row(children: [
-            const SizedBox(width: 8),
-            CircleAvatar(
-              radius: 22,
-              backgroundColor: AppColors.grey.withOpacity(0.2),
-              backgroundImage: expertImage != null
-                  ? NetworkImage(expertImage!) as ImageProvider
-                  : const AssetImage('images/nekhlawi_icon.png'),
-              onBackgroundImageError: (_, __) {},
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(expertName ?? '...',
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(fontSize: 18, color: AppColors.darkGreen, fontWeight: FontWeight.w700)),
-            ),
-          ]),
+          child: const Text('الخروج من الجلسة',
+              style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13)),
         ),
-      );
+      ),
+    ],
+    title: GestureDetector(
+      onTap: () => Navigator.push(context,
+          MaterialPageRoute(builder: (_) => ExpertProfilePage(expertId: cleanExpertId))),
+      child: Row(children: [
+        const SizedBox(width: 8),
+        CircleAvatar(
+          radius: 22,
+          backgroundColor: AppColors.grey.withOpacity(0.2),
+          // استدعاء دالة الفحص الذكية هنا لعرض الصورة في شريط الـ AppBar
+          backgroundImage: _getAvatarImage(expertRawImage),
+          onBackgroundImageError: (_, __) {},
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(expertName ?? '...',
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontSize: 18, color: AppColors.darkGreen, fontWeight: FontWeight.w700)),
+        ),
+      ]),
+    ),
+  );
 
   Widget _buildMessageList() {
     if (messages.isEmpty) {
@@ -883,7 +899,7 @@ class _ChatPageState extends State<ChatPage> {
                 constraints: const BoxConstraints(maxHeight: 120),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100, //boreder
+                  color: Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: TextField(
