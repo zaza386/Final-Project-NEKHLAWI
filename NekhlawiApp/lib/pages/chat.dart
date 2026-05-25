@@ -12,11 +12,13 @@ import 'package:path_provider/path_provider.dart';
 class ChatPage extends StatefulWidget {
   final String expertId;
   final String userId;
+  final String sessionId; 
 
   const ChatPage({
     super.key,
     required this.expertId,
     required this.userId,
+    required this.sessionId,
   });
 
   @override
@@ -24,29 +26,27 @@ class ChatPage extends StatefulWidget {
 }
 
 class _ChatPageState extends State<ChatPage> {
-  final supabase      = Supabase.instance.client;
-  final _controller   = TextEditingController();
-  final _scrollCtrl   = ScrollController();
-  final _imagePicker  = ImagePicker();
-  final _recorder     = AudioRecorder();
+  final supabase     = Supabase.instance.client;
+  final _controller  = TextEditingController();
+  final _scrollCtrl  = ScrollController();
+  final _imagePicker = ImagePicker();
+  final _recorder    = AudioRecorder();
 
   List<Map<String, dynamic>> messages = [];
   String? expertName;
   String? expertImage;
-  String? _expertSessionId;
-  bool _loadingSession = true;
-  bool _isSending      = false;
-  bool _isRecording    = false;
-  String? _recordingPath;
+  bool   _loadingSession = true;
+  bool   _isSending      = false;
+  bool   _isRecording    = false;
   RealtimeChannel? _channel;
   String? _currentUserRole;
 
-  // Track which audio message is currently playing
   String? _playingMessageId;
   final Map<String, AudioPlayer> _audioPlayers = {};
 
-  String cleanUserId  = '';
-  String cleanExpertId = '';
+  String get cleanUserId   => widget.userId.trim();
+  String get cleanExpertId => widget.expertId.trim();
+  String get _sessionId    => widget.sessionId.trim();
 
   bool get _isExpert =>
       (_currentUserRole ?? '').toLowerCase().trim() == 'expert';
@@ -54,11 +54,11 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
-    cleanUserId   = widget.userId.trim();
-    cleanExpertId = widget.expertId.trim();
     _loadCurrentUserRole();
     _loadExpert();
-    _resolveSession();
+    _loadMessages();
+    _listenForMessages();
+    _listenForSessionEnd();
   }
 
   @override
@@ -71,36 +71,33 @@ class _ChatPageState extends State<ChatPage> {
     super.dispose();
   }
 
-  // ── Load current user role ────────────────────────────────
   Future<void> _loadCurrentUserRole() async {
     try {
-      // SUPABASE: Fetch Role from User table
       final res = await supabase
-          .from('User')                          // SUPABASE: table name
-          .select('Role')                        // SUPABASE: User.Role
-          .eq('UserID', cleanUserId)             // SUPABASE: filter by user ID
+          .from('User')                        
+          .select('Role')                     
+          .eq('UserID', cleanUserId)           
           .single();
-      if (mounted) setState(() => _currentUserRole = (res['Role'] as String?) ?? 'user');
+      if (mounted) {
+        setState(() => _currentUserRole = (res['Role'] as String?) ?? 'user');
+      }
     } catch (e) {
       debugPrint('_loadCurrentUserRole: $e');
       if (mounted) setState(() => _currentUserRole = 'user');
     }
   }
 
-  // ── Load expert info ──────────────────────────────────────
   Future<void> _loadExpert() async {
     try {
-      // SUPABASE: Fetch expert name and avatar from User table
       final res = await supabase
-          .from('User')                          // SUPABASE: table name
-          .select('Name, ProfilePicturePath')    // SUPABASE: columns
-          .eq('UserID', cleanExpertId)           // SUPABASE: filter by expert ID
+          .from('User')                       
+          .select('Name, ProfilePicturePath')  
+          .eq('UserID', cleanExpertId)         
           .single();
       final path = res['ProfilePicturePath'] as String?;
       if (mounted) {
         setState(() {
           expertName  = res['Name'] as String?;
-          // SUPABASE: Build public URL from Supabase Storage bucket 'pic'
           expertImage = (path != null && path.isNotEmpty)
               ? supabase.storage.from('pic').getPublicUrl(path)
               : null;
@@ -111,60 +108,13 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // ── Resolve or create session ─────────────────────────────
-  Future<void> _resolveSession() async {
-    try {
-      // SUPABASE: Find most recent session between these two users
-      final rows = await supabase
-          .from('ExpertSession')                 // SUPABASE: table name
-          .select('ExpertSessionID')
-          .or(
-            'and(UserID.eq.$cleanUserId,ExpertID.eq.$cleanExpertId),'
-            'and(UserID.eq.$cleanExpertId,ExpertID.eq.$cleanUserId)',
-          )
-          .order('BookedAt', ascending: false)
-          .limit(1);
-
-      String sessionId;
-      if (rows.isNotEmpty) {
-        sessionId = rows.first['ExpertSessionID'] as String;
-      } else {
-        // SUPABASE: Create new session if none exists
-        final inserted = await supabase
-            .from('ExpertSession')               // SUPABASE: table name
-            .insert({
-              'UserID':   cleanUserId,           // SUPABASE: ExpertSession.UserID
-              'ExpertID': cleanExpertId,         // SUPABASE: ExpertSession.ExpertID
-              'Status':   'لم تبدأ',             // SUPABASE: ExpertSession.Status
-            })
-            .select('ExpertSessionID')
-            .single();
-        sessionId = inserted['ExpertSessionID'] as String;
-      }
-
-      if (mounted) {
-        setState(() {
-          _expertSessionId = sessionId;
-          _loadingSession  = false;
-        });
-        await _loadMessages();
-        _listenForMessages();
-      }
-    } catch (e) {
-      debugPrint('_resolveSession: $e');
-      if (mounted) setState(() => _loadingSession = false);
-    }
-  }
-
-  // ── Load messages ─────────────────────────────────────────
   Future<void> _loadMessages() async {
-    if (_expertSessionId == null) return;
+    setState(() => _loadingSession = true);
     try {
-      // SUPABASE: Fetch all messages for this session ordered by time
       final rows = await supabase
-          .from('ChatMessage')                        // SUPABASE: table name
+          .from('ChatMessage')                      
           .select('MessageID, ExpertSessionID, SenderID, MessageText, AttachmentURL, SentAt')
-          .eq('ExpertSessionID', _expertSessionId!)   // SUPABASE: filter by session
+          .eq('ExpertSessionID', _sessionId)      
           .order('SentAt', ascending: true);
 
       if (mounted) {
@@ -174,19 +124,19 @@ class _ChatPageState extends State<ChatPage> {
             m['_plain'] = m['MessageText'] as String? ?? '';
             return m;
           }).toList();
+          _loadingSession = false;
         });
         _scrollToBottom();
       }
     } catch (e) {
       debugPrint('_loadMessages: $e');
+      if (mounted) setState(() => _loadingSession = false);
     }
   }
 
-  // ── Realtime listener ─────────────────────────────────────
   void _listenForMessages() {
-    if (_expertSessionId == null) return;
     _channel = supabase
-        .channel('chat:$_expertSessionId')
+        .channel('chat:$_sessionId')
         .onPostgresChanges(
           event:  PostgresChangeEvent.insert,
           schema: 'public',
@@ -194,7 +144,7 @@ class _ChatPageState extends State<ChatPage> {
           filter: PostgresChangeFilter(
             type:   PostgresChangeFilterType.eq,
             column: 'ExpertSessionID',
-            value:  _expertSessionId!,
+            value:  _sessionId,
           ),
           callback: (payload) {
             final data = Map<String, dynamic>.from(payload.newRecord);
@@ -208,36 +158,72 @@ class _ChatPageState extends State<ChatPage> {
         .subscribe();
   }
 
-  // ── Send text message ─────────────────────────────────────
+  void _listenForSessionEnd() {
+    supabase
+        .channel('session_status:$_sessionId')
+        .onPostgresChanges(
+          event:  PostgresChangeEvent.update,
+          schema: 'public',
+          table:  'ExpertSession',               
+          filter: PostgresChangeFilter(
+            type:   PostgresChangeFilterType.eq,
+            column: 'ExpertSessionID',          
+            value:  _sessionId,
+          ),
+          callback: (payload) {
+            final status = payload.newRecord['Status'] as String?;
+            if (status == 'أكتملت' && mounted) {
+              _showSessionEndedDialog();
+            }
+          },
+        )
+        .subscribe();
+  }
+
+  void _showSessionEndedDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text('انتهت الجلسة'),
+          content: const Text('تم إنهاء الجلسة تلقائياً.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pop(context);
+              },
+              child: const Text('حسناً'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
-    if (text.isEmpty || _expertSessionId == null || _isSending) return;
+    if (text.isEmpty || _isSending) return;
     _controller.clear();
     await _insertMessage(text: text, attachmentUrl: null);
   }
 
-  // ── Microphone: start recording ───────────────────────────
   Future<void> _startRecording() async {
     try {
-      final hasPermission = await _recorder.hasPermission();
-      if (!hasPermission) {
-        _showError('لا يوجد إذن للميكروفون');
-        return;
-      }
+      final ok = await _recorder.hasPermission();
+      if (!ok) { _showError('لا يوجد إذن للميكروفون'); return; }
       final dir  = await getTemporaryDirectory();
       final path = '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
       await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
-      setState(() {
-        _isRecording    = true;
-        _recordingPath  = path;
-      });
+      setState(() => _isRecording = true);
     } catch (e) {
       debugPrint('_startRecording: $e');
       _showError('فشل في بدء التسجيل');
     }
   }
 
-  // ── Microphone: stop recording and send ───────────────────
   Future<void> _stopAndSendRecording() async {
     try {
       final path = await _recorder.stop();
@@ -253,48 +239,36 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // ── Cancel recording ──────────────────────────────────────
   Future<void> _cancelRecording() async {
-    try {
-      await _recorder.cancel();
-    } catch (_) {}
-    setState(() {
-      _isRecording   = false;
-      _recordingPath = null;
-    });
+    try { await _recorder.cancel(); } catch (_) {}
+    setState(() => _isRecording = false);
   }
 
-  // ── Play / pause audio message ────────────────────────────
-  Future<void> _toggleAudio(String messageId, String url) async {
-    if (_playingMessageId == messageId) {
-      // Pause current
-      await _audioPlayers[messageId]?.pause();
+  Future<void> _toggleAudio(String msgId, String url) async {
+    if (_playingMessageId == msgId) {
+      await _audioPlayers[msgId]?.pause();
       setState(() => _playingMessageId = null);
       return;
     }
-
-    // Stop any other playing
     if (_playingMessageId != null) {
       await _audioPlayers[_playingMessageId!]?.stop();
     }
-
-    final player = _audioPlayers.putIfAbsent(messageId, () => AudioPlayer());
+    final player = _audioPlayers.putIfAbsent(msgId, () => AudioPlayer());
     try {
       await player.setUrl(url);
-      player.playerStateStream.listen((state) {
-        if (state.processingState == ProcessingState.completed && mounted) {
+      player.playerStateStream.listen((s) {
+        if (s.processingState == ProcessingState.completed && mounted) {
           setState(() => _playingMessageId = null);
         }
       });
       await player.play();
-      setState(() => _playingMessageId = messageId);
+      setState(() => _playingMessageId = msgId);
     } catch (e) {
       debugPrint('_toggleAudio: $e');
       _showError('فشل في تشغيل الصوت');
     }
   }
 
-  // ── Pick image ────────────────────────────────────────────
   Future<void> _pickImage(ImageSource source) async {
     try {
       final picked = await _imagePicker.pickImage(source: source, imageQuality: 80);
@@ -306,7 +280,6 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // ── Pick file ─────────────────────────────────────────────
   Future<void> _pickFile() async {
     try {
       final result = await FilePicker.pickFiles(
@@ -322,23 +295,15 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // ── Upload to Supabase Storage then send ──────────────────
   Future<void> _uploadAndSend(File file, String fileName, {required String bucket}) async {
-    if (_expertSessionId == null) return;
     setState(() => _isSending = true);
     try {
       final ext  = fileName.split('.').last.toLowerCase();
-      final path = '$_expertSessionId/${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final path = '$_sessionId/${DateTime.now().millisecondsSinceEpoch}.$ext';
 
-      // SUPABASE: Upload file to storage bucket
-      await supabase.storage
-          .from(bucket)                          // SUPABASE: bucket name (chat_attachments or chat_audio)
-          .upload(path, file);
+      await supabase.storage.from(bucket).upload(path, file);
 
-      // SUPABASE: Get public URL of uploaded file
-      final url = supabase.storage
-          .from(bucket)                          // SUPABASE: same bucket
-          .getPublicUrl(path);
+      final url = supabase.storage.from(bucket).getPublicUrl(path);
 
       await _insertMessage(text: fileName, attachmentUrl: url);
     } catch (e) {
@@ -349,14 +314,13 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // ── Insert message into DB ────────────────────────────────
   Future<void> _insertMessage({required String text, required String? attachmentUrl}) async {
     final now    = DateTime.now().toUtc().toIso8601String();
     final tempId = 'opt_${DateTime.now().millisecondsSinceEpoch}';
 
     setState(() => messages.add({
       'MessageID':       tempId,
-      'ExpertSessionID': _expertSessionId,
+      'ExpertSessionID': _sessionId,
       'SenderID':        cleanUserId,
       'MessageText':     text,
       '_plain':          text,
@@ -367,15 +331,14 @@ class _ChatPageState extends State<ChatPage> {
     _scrollToBottom();
 
     try {
-      // SUPABASE: Insert message into ChatMessage table
       final inserted = await supabase
-          .from('ChatMessage')                   // SUPABASE: table name
+          .from('ChatMessage')                   
           .insert({
-            'ExpertSessionID': _expertSessionId, // SUPABASE: ChatMessage.ExpertSessionID
-            'SenderID':        cleanUserId,      // SUPABASE: ChatMessage.SenderID
-            'MessageText':     text,             // SUPABASE: ChatMessage.MessageText
-            'AttachmentURL':   attachmentUrl,    // SUPABASE: ChatMessage.AttachmentURL
-            'SentAt':          now,              // SUPABASE: ChatMessage.SentAt
+            'ExpertSessionID': _sessionId,      
+            'SenderID':        cleanUserId,      
+            'MessageText':     text,             
+            'AttachmentURL':   attachmentUrl,    
+            'SentAt':          now,           
           })
           .select()
           .single();
@@ -395,26 +358,18 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
-  // ── End session ───────────────────────────────────────────
-  void _onEndSession() => _isExpert ? _endSessionOnly() : _showRatingDialog();
-
-  Future<void> _endSessionOnly() async {
-    try {
-      if (_expertSessionId != null) {
-        // SUPABASE: Mark session as completed
-        await supabase
-            .from('ExpertSession')               // SUPABASE: table name
-            .update({'Status': 'أكتملت'})        // SUPABASE: ExpertSession.Status
-            .eq('ExpertSessionID', _expertSessionId!);
-      }
-    } catch (e) { debugPrint('_endSessionOnly: $e'); }
+  void _onEndSession() {
+  if (_isExpert) {
     if (mounted) Navigator.pop(context);
+  } else {
+    _showRatingDialog();
   }
+}
 
-  // ── Attachment options bottom sheet ───────────────────────
   void _showAttachmentOptions() {
     showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Directionality(
@@ -428,20 +383,28 @@ class _ChatPageState extends State<ChatPage> {
                 Container(
                   width: 40, height: 4,
                   margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                  decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2)),
                 ),
                 ListTile(
-                  leading: const CircleAvatar(backgroundColor: Color(0xFF7A8256), child: Icon(Icons.camera_alt, color: Colors.white)),
+                  leading: const CircleAvatar(
+                      backgroundColor: Color(0xFF7A8256),
+                      child: Icon(Icons.camera_alt, color: Colors.white)),
                   title: const Text('التقاط صورة'),
                   onTap: () { Navigator.pop(context); _pickImage(ImageSource.camera); },
                 ),
                 ListTile(
-                  leading: const CircleAvatar(backgroundColor: Color(0xFF7A8256), child: Icon(Icons.photo_library, color: Colors.white)),
+                  leading: const CircleAvatar(
+                      backgroundColor: Color(0xFF7A8256),
+                      child: Icon(Icons.photo_library, color: Colors.white)),
                   title: const Text('اختيار من المعرض'),
                   onTap: () { Navigator.pop(context); _pickImage(ImageSource.gallery); },
                 ),
                 ListTile(
-                  leading: const CircleAvatar(backgroundColor: Color(0xFF7A8256), child: Icon(Icons.insert_drive_file, color: Colors.white)),
+                  leading: const CircleAvatar(
+                      backgroundColor: Color(0xFF7A8256),
+                      child: Icon(Icons.insert_drive_file, color: Colors.white)),
                   title: const Text('إرفاق ملف'),
                   onTap: () { Navigator.pop(context); _pickFile(); },
                 ),
@@ -453,7 +416,6 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  // ── Review dialog ─────────────────────────────────────────
   void _showRatingDialog() {
     showDialog(
       context: context,
@@ -492,6 +454,7 @@ class _ChatPageState extends State<ChatPage> {
                       ],
                     ),
                     const SizedBox(height: 20),
+                    // Avatar
                     Container(
                       padding: const EdgeInsets.all(3),
                       decoration: const BoxDecoration(color: Color(0xFF7A8256), shape: BoxShape.circle),
@@ -510,6 +473,7 @@ class _ChatPageState extends State<ChatPage> {
                     const Text('كيف كانت تجربتك مع الخبير ؟',
                         style: TextStyle(fontSize: 13, color: Colors.grey)),
                     const SizedBox(height: 20),
+                    // Stars
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: List.generate(5, (i) {
@@ -527,6 +491,7 @@ class _ChatPageState extends State<ChatPage> {
                       }),
                     ),
                     const SizedBox(height: 8),
+                    // Labels
                     Row(
                       children: List.generate(5, (i) {
                         final isActive = selectedRating == i + 1;
@@ -542,6 +507,7 @@ class _ChatPageState extends State<ChatPage> {
                       }),
                     ),
                     const SizedBox(height: 20),
+                    // Comment
                     TextField(
                       controller: commentController,
                       maxLines: 4, maxLength: 500,
@@ -566,6 +532,7 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                     ),
                     const SizedBox(height: 20),
+                    // Submit
                     SizedBox(
                       width: double.infinity, height: 50,
                       child: ElevatedButton(
@@ -580,21 +547,14 @@ class _ChatPageState extends State<ChatPage> {
                             return;
                           }
                           try {
-                            // SUPABASE: Insert review into Review table
                             await supabase.from('Review').insert({
-                              'Rating':          selectedRating,                           // SUPABASE: Review.Rating
-                              'Comment':         commentController.text.trim(),             // SUPABASE: Review.Comment
-                              'CreatedAt':       DateTime.now().toUtc().toIso8601String(),  // SUPABASE: Review.CreatedAt
-                              'ExpertID':        cleanExpertId,                             // SUPABASE: Review.ExpertID
-                              'ExpertSessionID': _expertSessionId,                          // SUPABASE: Review.ExpertSessionID
+                              'Rating':          selectedRating,                           
+                              'Comment':         commentController.text.trim(),             
+                              'CreatedAt':       DateTime.now().toUtc().toIso8601String(),  
+                              'ExpertID':        cleanExpertId,                             
+                              'ExpertSessionID': _sessionId,                                
                             });
-                            if (_expertSessionId != null) {
-                              // SUPABASE: Mark session as completed
-                              await supabase
-                                  .from('ExpertSession')             // SUPABASE: table name
-                                  .update({'Status': 'أكتملت'})      // SUPABASE: ExpertSession.Status
-                                  .eq('ExpertSessionID', _expertSessionId!);
-                            }
+                          
                             if (dialogContext.mounted) Navigator.pop(dialogContext);
                             if (mounted) {
                               Navigator.pop(context);
@@ -604,7 +564,8 @@ class _ChatPageState extends State<ChatPage> {
                           } catch (e) {
                             debugPrint('Review error: $e');
                             if (dialogContext.mounted) {
-                              ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text('خطأ: $e')));
+                              ScaffoldMessenger.of(dialogContext)
+                                  .showSnackBar(SnackBar(content: Text('خطأ: $e')));
                             }
                           }
                         },
@@ -622,7 +583,6 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  // ── Helpers ───────────────────────────────────────────────
   void _showError(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -651,31 +611,30 @@ class _ChatPageState extends State<ChatPage> {
     } catch (_) { return ''; }
   }
 
-  bool _isImageUrl(String? url) {
-    if (url == null) return false;
-    final l = url.toLowerCase();
+  bool _isImageUrl(String? u) {
+    if (u == null) return false;
+    final l = u.toLowerCase();
     return l.endsWith('.jpg') || l.endsWith('.jpeg') || l.endsWith('.png') || l.endsWith('.webp');
   }
 
-  bool _isAudioUrl(String? url) {
-    if (url == null) return false;
-    final l = url.toLowerCase();
+  bool _isAudioUrl(String? u) {
+    if (u == null) return false;
+    final l = u.toLowerCase();
     return l.endsWith('.m4a') || l.endsWith('.mp3') || l.endsWith('.aac') || l.endsWith('.wav');
   }
 
-  bool _isVideoUrl(String? url) {
-    if (url == null) return false;
-    final l = url.toLowerCase();
+  bool _isVideoUrl(String? u) {
+    if (u == null) return false;
+    final l = u.toLowerCase();
     return l.endsWith('.mp4') || l.endsWith('.mov') || l.endsWith('.avi');
   }
 
-  // ── Build ─────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: const Color(0xFFF4F4F4),
         appBar: _buildAppBar(),
         body: _loadingSession
             ? const Center(child: CircularProgressIndicator(color: AppColors.darkBrown))
@@ -705,7 +664,7 @@ class _ChatPageState extends State<ChatPage> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                 padding: const EdgeInsets.symmetric(horizontal: 14),
               ),
-              child: const Text('إنهاء الجلسة',
+              child: const Text('الخروج من الجلسة',
                   style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13)),
             ),
           ),
@@ -739,7 +698,7 @@ class _ChatPageState extends State<ChatPage> {
     }
     return ListView.builder(
       controller: _scrollCtrl,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       itemCount: messages.length,
       itemBuilder: (context, i) {
         final msg    = messages[i];
@@ -767,7 +726,7 @@ class _ChatPageState extends State<ChatPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            _buildContentWidget(msg, url, isMine: true),
+            _buildContent(msg, url, isMine: true),
             const SizedBox(height: 4),
             Text(_formatTime(msg['SentAt'] as String?),
                 style: const TextStyle(fontSize: 10, color: Colors.white70)),
@@ -785,7 +744,7 @@ class _ChatPageState extends State<ChatPage> {
         margin: const EdgeInsets.only(top: 4, bottom: 4, left: 8, right: 60),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: AppColors.white,
+          color: Colors.white,
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(4), topRight: Radius.circular(16),
             bottomLeft: Radius.circular(16), bottomRight: Radius.circular(16),
@@ -795,7 +754,7 @@ class _ChatPageState extends State<ChatPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildContentWidget(msg, url, isMine: false),
+            _buildContent(msg, url, isMine: false),
             const SizedBox(height: 4),
             Text(_formatTime(msg['SentAt'] as String?),
                 style: const TextStyle(fontSize: 10, color: Colors.grey)),
@@ -805,11 +764,10 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  Widget _buildContentWidget(Map<String, dynamic> msg, String? url, {required bool isMine}) {
-    final textColor = isMine ? AppColors.white : AppColors.darkGreen;
-    final msgId     = msg['MessageID'] as String? ?? '';
+  Widget _buildContent(Map<String, dynamic> msg, String? url, {required bool isMine}) {
+    final color = isMine ? AppColors.white : AppColors.darkGreen;
+    final msgId = msg['MessageID'] as String? ?? '';
 
-    // Image
     if (_isImageUrl(url)) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(10),
@@ -818,21 +776,20 @@ class _ChatPageState extends State<ChatPage> {
       );
     }
 
-    // Audio / voice message
     if (_isAudioUrl(url)) {
-      final isPlaying = _playingMessageId == msgId;
+      final playing = _playingMessageId == msgId;
       return GestureDetector(
         onTap: () => _toggleAudio(msgId, url!),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(isPlaying ? Icons.pause_circle_filled : Icons.play_circle_filled,
+            Icon(playing ? Icons.pause_circle_filled : Icons.play_circle_filled,
                 color: isMine ? Colors.white : AppColors.primary, size: 36),
             const SizedBox(width: 8),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('رسالة صوتية', style: TextStyle(color: textColor, fontSize: 13)),
+                Text('رسالة صوتية', style: TextStyle(color: color, fontSize: 13)),
                 Container(
                   width: 100, height: 3, margin: const EdgeInsets.only(top: 4),
                   decoration: BoxDecoration(
@@ -847,7 +804,6 @@ class _ChatPageState extends State<ChatPage> {
       );
     }
 
-    // Video
     if (_isVideoUrl(url)) {
       return Container(
         width: 200, height: 110,
@@ -856,55 +812,46 @@ class _ChatPageState extends State<ChatPage> {
       );
     }
 
-    // Other file
     if (url != null) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.insert_drive_file, color: textColor, size: 20),
+          Icon(Icons.insert_drive_file, color: color, size: 20),
           const SizedBox(width: 8),
           Flexible(
             child: Text(url.split('/').last,
-                style: TextStyle(color: textColor, fontSize: 13, decoration: TextDecoration.underline),
+                style: TextStyle(color: color, fontSize: 13, decoration: TextDecoration.underline),
                 overflow: TextOverflow.ellipsis),
           ),
         ],
       );
     }
 
-    // Plain text
     return Text(_plainText(msg),
         textAlign: isMine ? TextAlign.right : TextAlign.left,
-        style: TextStyle(color: textColor, fontSize: 15));
+        style: TextStyle(color: color, fontSize: 15));
   }
 
-  // ── Input bar ─────────────────────────────────────────────
   Widget _buildInputBar() {
-    // Recording UI
     if (_isRecording) {
       return Container(
-        color: AppColors.white,
+        color: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: SafeArea(
           child: Row(
             children: [
-              // Cancel
               GestureDetector(
                 onTap: _cancelRecording,
                 child: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 28),
               ),
               const SizedBox(width: 12),
-              // Animated indicator
               Expanded(
-                child: Row(
-                  children: [
-                    const Icon(Icons.circle, color: Colors.redAccent, size: 10),
-                    const SizedBox(width: 8),
-                    Text('جاري التسجيل...', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
-                  ],
-                ),
+                child: Row(children: [
+                  const Icon(Icons.circle, color: Colors.redAccent, size: 10),
+                  const SizedBox(width: 8),
+                  Text('جاري التسجيل...', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                ]),
               ),
-              // Send recording
               GestureDetector(
                 onTap: _stopAndSendRecording,
                 child: Container(
@@ -919,18 +866,16 @@ class _ChatPageState extends State<ChatPage> {
       );
     }
 
-    // Normal input UI
     return Container(
-      color: AppColors.white,
+      color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: SafeArea(
         child: Row(
           children: [
-            // Attach button
+            // Attach
             IconButton(
               icon: const Icon(Icons.attach_file, color: AppColors.primary),
               onPressed: _showAttachmentOptions,
-              tooltip: 'إرفاق',
             ),
             // Text field
             Expanded(
@@ -938,7 +883,7 @@ class _ChatPageState extends State<ChatPage> {
                 constraints: const BoxConstraints(maxHeight: 120),
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
+                  color: Colors.grey.shade100, //boreder
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: TextField(
@@ -951,7 +896,7 @@ class _ChatPageState extends State<ChatPage> {
                   decoration: const InputDecoration(
                     hintText: 'اكتب رسالة...',
                     hintTextDirection: TextDirection.rtl,
-                    hintStyle: TextStyle(color: AppColors.grey),
+                    hintStyle: TextStyle(color: Color.fromARGB(255, 95, 95, 90)),
                     border: InputBorder.none,
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
@@ -960,27 +905,21 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
             const SizedBox(width: 8),
-            // Mic / send button
-            GestureDetector(
-              onLongPressStart: (_) => _startRecording(),
-              onLongPressEnd:   (_) => _stopAndSendRecording(),
-              child: AnimatedBuilder(
-                animation: _controller,
-                builder: (context, _) {
-                  final hasText = _controller.text.trim().isNotEmpty;
-                  return GestureDetector(
-                    onTap: hasText ? _sendMessage : null,
-                    child: Container(
-                      width: 44, height: 44,
-                      decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                      child: Icon(
-                        hasText ? Icons.send : Icons.mic,
-                        color: Colors.white, size: 22,
-                      ),
-                    ),
-                  );
-                },
-              ),
+            AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                final hasText = _controller.text.trim().isNotEmpty;
+                return GestureDetector(
+                  onTap: hasText ? _sendMessage : null,
+                  onLongPressStart: hasText ? null : (_) => _startRecording(),
+                  onLongPressEnd:   hasText ? null : (_) => _stopAndSendRecording(),
+                  child: Container(
+                    width: 44, height: 44,
+                    decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                    child: Icon(hasText ? Icons.send : Icons.mic, color: Colors.white, size: 22),
+                  ),
+                );
+              },
             ),
           ],
         ),

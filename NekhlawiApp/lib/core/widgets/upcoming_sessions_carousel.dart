@@ -224,6 +224,7 @@ class _SessionHomeCard extends StatelessWidget {
               builder: (_) => ChatPage(
                 expertId: otherUserId,
                 userId: currentUserId,
+                sessionId: session.expertSessionID,
               ),
             ),
           );
