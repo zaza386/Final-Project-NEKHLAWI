@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/theme/app_colors.dart';
 import '../core/widgets/header_background.dart';
-import '../services/session_reminder_service.dart';
 
 class SessionInfoPage extends StatefulWidget {
   final String sessionId;
@@ -27,11 +26,6 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
   void initState() {
     super.initState();
     _fetchSessionInfo();
-    SessionReminderService().scheduleReminders(
-      sessionStart: sessionDateTime,
-      sessionId: session.id,
-      isExpert: false,               // ← user side
-    );
   }
 
   Future<void> _fetchSessionInfo() async {

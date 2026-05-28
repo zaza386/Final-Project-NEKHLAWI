@@ -8,7 +8,6 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SessionReminderService().init();
   //Strpie
   Stripe.publishableKey =
       'pk_test_51TT9NPPQ6tawzw9ojzxnvLaYrhfmMNjRdyRo5dZ6XJDIDfilsblzrsnYpKFOHR00bEMhhH9MNbn1YqbLLIXeZWMb00KZ5XLfal';

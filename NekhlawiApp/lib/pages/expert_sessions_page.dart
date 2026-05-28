@@ -142,11 +142,11 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
 
         // Same match as booking_page line 168 — raw .hour, raw .minute (no toLocal)
         final dbMatch = _dbSlots.firstWhere(
-              (s) => s.dateTime.hour == hour && s.dateTime.minute == minute,
+          (s) => s.dateTime.hour == hour && s.dateTime.minute == minute,
           orElse: () => _Slot(dateTime: slotTime, isAvailable: false),
         );
         final existsInDb = _dbSlots.any(
-              (s) => s.dateTime.hour == hour && s.dateTime.minute == minute,
+          (s) => s.dateTime.hour == hour && s.dateTime.minute == minute,
         );
 
         slots.add(_Slot(
@@ -172,11 +172,11 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
   bool _isBooked(_Slot slot) {
     final k = _slotKey(slot);
     final db = _dbSlots.firstWhere(
-          (s) => '${s.dateTime.hour}:${s.dateTime.minute}' == k,
+      (s) => '${s.dateTime.hour}:${s.dateTime.minute}' == k,
       orElse: () => _Slot(dateTime: slot.dateTime, isAvailable: true),
     );
     final existsInDb = _dbSlots.any(
-          (s) => '${s.dateTime.hour}:${s.dateTime.minute}' == k,
+      (s) => '${s.dateTime.hour}:${s.dateTime.minute}' == k,
     );
     return existsInDb && !db.isAvailable;
   }
@@ -224,7 +224,7 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
 
       for (final k in toDelete) {
         final dbSlot = _dbSlots.firstWhere(
-              (s) => '${s.dateTime.hour}:${s.dateTime.minute}' == k,
+          (s) => '${s.dateTime.hour}:${s.dateTime.minute}' == k,
           orElse: () => _Slot(dateTime: DateTime.now(), isAvailable: false),
         );
         if (dbSlot.id != null && dbSlot.isAvailable) {
@@ -235,7 +235,7 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('تم حفظ أوقات التوفر بنجاح'),
+            content: Text('✅ تم حفظ أوقات التوفر بنجاح'),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
@@ -284,7 +284,7 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
 
   String _arabicMonth(DateTime date) {
     const months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو',
-      'يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+                    'يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
     return '${months[date.month - 1]} ${date.year}';
   }
 
@@ -326,19 +326,19 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator(color: kPrimary))
                     : SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildMonthScrollSelector(),
-                      const SizedBox(height: 12),
-                      _buildDayScrollSelector(),
-                      const SizedBox(height: 16),
-                      _buildTimeSlotsGrid(),
-                      const SizedBox(height: 16),
-                    ],
-                  ),
-                ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildMonthScrollSelector(),
+                            const SizedBox(height: 12),
+                            _buildDayScrollSelector(),
+                            const SizedBox(height: 16),
+                            _buildTimeSlotsGrid(),
+                            const SizedBox(height: 16),
+                          ],
+                        ),
+                      ),
               ),
             ),
             _buildBottomBar(),
@@ -358,7 +358,7 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
           final month = _months[index];
           final isSelected =
               month.month == _selectedMonth.month &&
-                  month.year  == _selectedMonth.year;
+              month.year  == _selectedMonth.year;
           return GestureDetector(
             onTap: () {
               setState(() {
@@ -401,7 +401,7 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
           final day = days[index];
           final isSelected =
               day.day   == _selectedDay.day &&
-                  day.month == _selectedDay.month;
+              day.month == _selectedDay.month;
 
           return FutureBuilder<int>(
             future: _fetchEnabledCountForDay(day),
@@ -582,13 +582,13 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
               ),
               child: _isSaving
                   ? const SizedBox(
-                height: 20, width: 20,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-              )
+                      height: 20, width: 20,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    )
                   : const Text(
-                'حفظ أوقات التوفر',
-                style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold),
-              ),
+                      'حفظ أوقات التوفر',
+                      style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
             ),
           ),
           const SizedBox(height: 10),
