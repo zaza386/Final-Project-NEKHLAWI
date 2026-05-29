@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/theme/app_colors.dart';
 import '../core/widgets/header_background.dart';
+import '../services/session_reminder_service.dart';
 
 class SessionInfoPage extends StatefulWidget {
   final String sessionId;
@@ -33,9 +34,9 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
       final data = await supabase
           .from('ExpertSession')
           .select(
-            'ExpertSessionID, StartAt, EndAt, Status, BookedAt, '
+        'ExpertSessionID, StartAt, EndAt, Status, BookedAt, '
             'ExpertProfile!ExpertID(Specialization, User!ExpertID(Name, ProfilePicturePath))',
-          )
+      )
           .eq('ExpertSessionID', widget.sessionId)
           .single();
 
@@ -44,6 +45,23 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
           sessionData = data;
           isLoading = false;
         });
+
+        // ── Schedule reminders after data is loaded ──────────────────
+        final String? startAtRaw = data['StartAt'] as String?;
+        final String? status     = data['Status']  as String?;
+
+        // Only schedule for confirmed sessions that haven't started yet
+        if (startAtRaw != null && status == 'لم تبدأ') {
+          final sessionStart = DateTime.tryParse(startAtRaw)?.toLocal();
+          if (sessionStart != null && sessionStart.isAfter(DateTime.now())) {
+            SessionReminderService().scheduleReminders(
+              sessionStart: sessionStart,
+              sessionId:    widget.sessionId,
+              isExpert:     false, // user side
+            );
+          }
+        }
+        // ─────────────────────────────────────────────────────────────
       }
     } catch (e) {
       debugPrint('Error fetching session info: $e');
@@ -62,7 +80,7 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
     if (iso == null) return '--:--';
     final dt = DateTime.tryParse(iso)?.toLocal();
     if (dt == null) return '--:--';
-    final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+    final hour   = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
     final minute = dt.minute.toString().padLeft(2, '0');
     final period = dt.hour >= 12 ? 'م' : 'ص';
     return '$hour:$minute $period';
@@ -70,33 +88,22 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
 
   String _statusLabel(String? status) {
     switch (status) {
-      case 'تحت المعاينة':
-        return 'قيد المراجعة';
-      case 'لم تبدأ':
-        return 'مؤكدة';
-      case 'بدأت':
-        return 'جارية';
-      case 'أنتهت':
-        return 'منتهية';
-      case 'مرفوضة':
-        return 'مرفوضة';
-      default:
-        return status ?? '--';
+      case 'تحت المعاينة': return 'قيد المراجعة';
+      case 'لم تبدأ':      return 'مؤكدة';
+      case 'بدأت':         return 'جارية';
+      case 'أنتهت':        return 'منتهية';
+      case 'مرفوضة':       return 'مرفوضة';
+      default:             return status ?? '--';
     }
   }
 
   Color _statusColor(String? status) {
     switch (status) {
-      case 'لم تبدأ':
-        return const Color(0xFF797F3D);
-      case 'بدأت':
-        return Colors.blue;
-      case 'أنتهت':
-        return Colors.grey;
-      case 'مرفوضة':
-        return Colors.red;
-      default:
-        return Colors.orange;
+      case 'لم تبدأ':  return const Color(0xFF797F3D);
+      case 'بدأت':     return Colors.blue;
+      case 'أنتهت':    return Colors.grey;
+      case 'مرفوضة':   return Colors.red;
+      default:         return Colors.orange;
     }
   }
 
@@ -113,9 +120,9 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
           child: Text(
             value,
             style: const TextStyle(
-              fontSize: 13,
+              fontSize:   13,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF43321A),
+              color:      Color(0xFF43321A),
             ),
             textAlign: TextAlign.left,
           ),
@@ -126,10 +133,10 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
 
   @override
   Widget build(BuildContext context) {
-    const Color kPrimary = Color(0xFF797F3D);
+    const Color kPrimary   = Color(0xFF797F3D);
     const Color kDarkBrown = Color(0xFF43321A);
-    const Color kBeige = Color(0xFFF5F3EE);
-    const Color kBorder = Color(0xFFE0DDD6);
+    const Color kBeige     = Color(0xFFF5F3EE);
+    const Color kBorder    = Color(0xFFE0DDD6);
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -140,38 +147,34 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
             Container(color: Colors.white),
             HeaderBackground(title: widget.title),
             Positioned(
-              top: 140,
-              left: 0,
-              right: 0,
-              bottom: 0,
+              top: 140, left: 0, right: 0, bottom: 0,
               child: Container(
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(30),
+                    topLeft:  Radius.circular(30),
                     topRight: Radius.circular(30),
                   ),
                 ),
                 child: isLoading
                     ? const Center(
-                        child: CircularProgressIndicator(
-                          color: Color(0xFF797F3D),
-                        ),
-                      )
+                  child: CircularProgressIndicator(
+                      color: Color(0xFF797F3D)),
+                )
                     : sessionData == null
-                        ? const Center(
-                            child: Text(
-                              'لا توجد بيانات لهذه الجلسة',
-                              style: TextStyle(
-                                  color: Colors.grey, fontSize: 16),
-                            ),
-                          )
-                        : SingleChildScrollView(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 24, vertical: 28),
-                            child: _buildContent(
-                                kPrimary, kDarkBrown, kBeige, kBorder),
-                          ),
+                    ? const Center(
+                  child: Text(
+                    'لا توجد بيانات لهذه الجلسة',
+                    style: TextStyle(
+                        color: Colors.grey, fontSize: 16),
+                  ),
+                )
+                    : SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 24, vertical: 28),
+                  child: _buildContent(
+                      kPrimary, kDarkBrown, kBeige, kBorder),
+                ),
               ),
             ),
           ],
@@ -180,43 +183,44 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
     );
   }
 
-  Widget _buildContent(Color kPrimary, Color kDarkBrown, Color kBeige,
-      Color kBorder) {
+  Widget _buildContent(
+      Color kPrimary, Color kDarkBrown, Color kBeige, Color kBorder) {
     final expert =
         sessionData?['ExpertProfile'] as Map<String, dynamic>? ?? {};
     final user = expert['User'] as Map<String, dynamic>? ?? {};
 
-    final String expertName = user['Name'] ?? 'خبير';
-    final String expertTitle = expert['Specialization'] ?? '';
-    final String? avatarPath = user['ProfilePicturePath'];
-    final String? avatarUrl = (avatarPath != null && avatarPath.isNotEmpty)
+    final String  expertName  = user['Name']              ?? 'خبير';
+    final String  expertTitle = expert['Specialization']  ?? '';
+    final String? avatarPath  = user['ProfilePicturePath'];
+    final String? avatarUrl   = (avatarPath != null && avatarPath.isNotEmpty)
         ? supabase.storage.from('pic').getPublicUrl(avatarPath)
         : null;
 
-    final String startAt = sessionData?['StartAt'];
-    final String endAt = sessionData?['EndAt'];
-    final String? status = sessionData?['Status'];
+    final String  startAt  = sessionData?['StartAt'];
+    final String  endAt    = sessionData?['EndAt'];
+    final String? status   = sessionData?['Status'];
     final String? bookedAt = sessionData?['BookedAt'];
 
-    final String date = _formatDateTime(startAt);
+    final String date      = _formatDateTime(startAt);
     final String timeRange =
         '${_formatTime(startAt)} - ${_formatTime(endAt)}';
 
     return Column(
       children: [
-        // ── Title + green check ───────────────────────────────────────
+        // ── Title ────────────────────────────────────────────────────
         const Text(
           'تفاصيل الجلسة',
           style: TextStyle(
-            fontSize: 20,
+            fontSize:   20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF43321A),
+            color:      Color(0xFF43321A),
           ),
         ),
         const SizedBox(height: 16),
 
+        // ── Status icon ───────────────────────────────────────────────
         Container(
-          width: 64,
+          width:  64,
           height: 64,
           decoration: BoxDecoration(
             color: _statusColor(status),
@@ -227,44 +231,43 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
                 ? Icons.cancel_rounded
                 : Icons.check_rounded,
             color: Colors.white,
-            size: 36,
+            size:  36,
           ),
         ),
         const SizedBox(height: 8),
 
-        // Status badge
+        // ── Status badge ──────────────────────────────────────────────
         Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           decoration: BoxDecoration(
-            color: _statusColor(status).withOpacity(0.12),
+            color:        _statusColor(status).withOpacity(0.12),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
             _statusLabel(status),
             style: TextStyle(
-              color: _statusColor(status),
+              color:      _statusColor(status),
               fontWeight: FontWeight.bold,
-              fontSize: 14,
+              fontSize:   14,
             ),
           ),
         ),
 
         const SizedBox(height: 24),
 
-        // ── Invoice card (same style as booking confirmation) ─────────
+        // ── Invoice card ──────────────────────────────────────────────
         Container(
-          width: double.infinity,
+          width:   double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color:        Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: kBorder),
+            border:       Border.all(color: kBorder),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
+                color:      Colors.black.withOpacity(0.04),
                 blurRadius: 10,
-                offset: const Offset(0, 4),
+                offset:     const Offset(0, 4),
               ),
             ],
           ),
@@ -274,12 +277,12 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
               Row(
                 children: [
                   CircleAvatar(
-                    radius: 22,
+                    radius:          22,
                     backgroundColor: const Color(0xFFD9D5C5),
                     backgroundImage: avatarUrl != null
                         ? NetworkImage(avatarUrl)
                         : const AssetImage('images/nekhlawi_icon.png')
-                            as ImageProvider,
+                    as ImageProvider,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -290,8 +293,8 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
                           expertName,
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF43321A),
-                            fontSize: 15,
+                            color:      Color(0xFF43321A),
+                            fontSize:   15,
                           ),
                         ),
                         if (expertTitle.isNotEmpty)
@@ -309,17 +312,17 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
               ),
               const Divider(height: 24),
 
-              // Date row
+              // Date
               _invoiceRow(
                   Icons.calendar_today_outlined, 'التاريخ', date),
               const SizedBox(height: 12),
 
-              // Time row
+              // Time
               _invoiceRow(
                   Icons.access_time_outlined, 'الوقت', timeRange),
               const SizedBox(height: 12),
 
-              // Booked at row
+              // Booked at
               if (bookedAt != null) ...[
                 _invoiceRow(
                   Icons.bookmark_added_outlined,
@@ -329,7 +332,7 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
                 const SizedBox(height: 12),
               ],
 
-              // Amount row
+              // Amount
               const Divider(height: 8),
               const SizedBox(height: 12),
               Row(
@@ -339,23 +342,23 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
                     'المبلغ الإجمالي',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF43321A),
-                      fontSize: 14,
+                      color:      Color(0xFF43321A),
+                      fontSize:   14,
                     ),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF797F3D),
+                      color:        const Color(0xFF797F3D),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: const Text(
                       '٣٠٠ ريال',
                       style: TextStyle(
-                        color: Colors.white,
+                        color:      Colors.white,
                         fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                        fontSize:   13,
                       ),
                     ),
                   ),
@@ -369,12 +372,12 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
 
         // ── Info note ─────────────────────────────────────────────────
         Container(
-          width: double.infinity,
+          width:   double.infinity,
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: kBeige,
+            color:        kBeige,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: kBorder),
+            border:       Border.all(color: kBorder),
           ),
           child: Row(
             children: [
@@ -386,16 +389,16 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
                   status == 'تحت المعاينة'
                       ? 'جلستك قيد المراجعة من قبل الخبير، سيتم إشعارك عند القبول أو الرفض.'
                       : status == 'لم تبدأ'
-                          ? 'تم تأكيد جلستك، يمكنك متابعتها في موعدها المحدد.'
-                          : status == 'بدأت'
-                              ? 'الجلسة جارية حالياً.'
-                              : status == 'أنتهت'
-                                  ? 'انتهت الجلسة بنجاح.'
-                                  : 'تم رفض الجلسة من قبل الخبير.',
+                      ? 'تم تأكيد جلستك، يمكنك متابعتها في موعدها المحدد.'
+                      : status == 'بدأت'
+                      ? 'الجلسة جارية حالياً.'
+                      : status == 'أنتهت'
+                      ? 'انتهت الجلسة بنجاح.'
+                      : 'تم رفض الجلسة من قبل الخبير.',
                   style: const TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF43321A),
-                    height: 1.5,
+                    color:    Color(0xFF43321A),
+                    height:   1.5,
                   ),
                 ),
               ),

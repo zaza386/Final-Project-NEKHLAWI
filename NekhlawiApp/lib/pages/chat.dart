@@ -34,7 +34,7 @@ class _ChatPageState extends State<ChatPage> {
 
   List<Map<String, dynamic>> messages = [];
   String? expertName;
-  String? expertRawImage; // قمنا بتغييره للاحتفاظ بالمسار الخام لفحصه ذكياً لاحقاً
+  String? expertRawImage;
   bool   _loadingSession = true;
   bool   _isSending      = false;
   bool   _isRecording    = false;
@@ -71,23 +71,16 @@ class _ChatPageState extends State<ChatPage> {
     super.dispose();
   }
 
-  // دالة الفحص الذكية والشاملة لجميع أنواع الصور (روابط، أصول محلية، أو سوبابيز)
   ImageProvider _getAvatarImage(String? path) {
     if (path == null || path.isEmpty) {
       return const AssetImage('images/nekhlawi_icon.png');
     }
-
-    // 1. إذا كان رابط كامل يبدأ بـ http أو https
     if (path.startsWith('http://') || path.startsWith('https://')) {
       return NetworkImage(path);
     }
-
-    // 2. إذا كان مسار Asset محلي
     if (path.startsWith('assets/') || path.startsWith('images/')) {
       return AssetImage(path);
     }
-
-    // 3. الاحتياطي: مسار نسبي مخزن في سوبابيز ستورج
     return NetworkImage(supabase.storage.from('pic').getPublicUrl(path));
   }
 
@@ -118,7 +111,7 @@ class _ChatPageState extends State<ChatPage> {
       if (mounted) {
         setState(() {
           expertName     = res['Name'] as String?;
-          expertRawImage = path; // نحتفظ بالمسار هنا كما هو لتمريره للدالة الذكية
+          expertRawImage = path;
         });
       }
     } catch (e) {
@@ -131,7 +124,8 @@ class _ChatPageState extends State<ChatPage> {
     try {
       final rows = await supabase
           .from('ChatMessage')
-          .select('MessageID, ExpertSessionID, SenderID, MessageText, AttachmentURL, SentAt')
+          .select(
+          'MessageID, ExpertSessionID, SenderID, MessageText, AttachmentURL, SentAt')
           .eq('ExpertSessionID', _sessionId)
           .order('SentAt', ascending: true);
 
@@ -166,7 +160,8 @@ class _ChatPageState extends State<ChatPage> {
       ),
       callback: (payload) {
         final data = Map<String, dynamic>.from(payload.newRecord);
-        final exists = messages.any((m) => m['MessageID'] == data['MessageID']);
+        final exists =
+        messages.any((m) => m['MessageID'] == data['MessageID']);
         if (exists || !mounted) return;
         data['_plain'] = data['MessageText'] as String? ?? '';
         setState(() => messages.add(data));
@@ -205,7 +200,7 @@ class _ChatPageState extends State<ChatPage> {
       builder: (_) => Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
-          title: const Text('انتهت الجلسة'),
+          title:   const Text('انتهت الجلسة'),
           content: const Text('تم إنهاء الجلسة تلقائياً.'),
           actions: [
             TextButton(
@@ -233,8 +228,10 @@ class _ChatPageState extends State<ChatPage> {
       final ok = await _recorder.hasPermission();
       if (!ok) { _showError('لا يوجد إذن للميكروفون'); return; }
       final dir  = await getTemporaryDirectory();
-      final path = '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
-      await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
+      final path =
+          '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      await _recorder.start(
+          const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
       setState(() => _isRecording = true);
     } catch (e) {
       debugPrint('_startRecording: $e');
@@ -249,7 +246,10 @@ class _ChatPageState extends State<ChatPage> {
       if (path == null) return;
       final file = File(path);
       if (!await file.exists()) return;
-      await _uploadAndSend(file, 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a', bucket: 'chat_audio');
+      await _uploadAndSend(
+          file,
+          'voice_${DateTime.now().millisecondsSinceEpoch}.m4a',
+          bucket: 'chat_audio');
     } catch (e) {
       debugPrint('_stopAndSendRecording: $e');
       _showError('فشل في إرسال الرسالة الصوتية');
@@ -289,9 +289,11 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final picked = await _imagePicker.pickImage(source: source, imageQuality: 80);
+      final picked =
+      await _imagePicker.pickImage(source: source, imageQuality: 80);
       if (picked == null) return;
-      await _uploadAndSend(File(picked.path), picked.name, bucket: 'chat_attachments');
+      await _uploadAndSend(File(picked.path), picked.name,
+          bucket: 'chat_attachments');
     } catch (e) {
       debugPrint('_pickImage: $e');
       _showError('فشل في اختيار الصورة');
@@ -302,37 +304,40 @@ class _ChatPageState extends State<ChatPage> {
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx', 'mp4', 'mov'],
+        allowedExtensions: [
+          'jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx', 'mp4', 'mov'
+        ],
       );
       if (result == null || result.files.single.path == null) return;
       final f = result.files.single;
-      await _uploadAndSend(File(f.path!), f.name, bucket: 'chat_attachments');
+      await _uploadAndSend(File(f.path!), f.name,
+          bucket: 'chat_attachments');
     } catch (e) {
       debugPrint('_pickFile: $e');
       _showError('فشل في اختيار الملف');
     }
   }
 
-  Future<void> _uploadAndSend(File file, String fileName, {required String bucket}) async {
+  Future<void> _uploadAndSend(File file, String fileName,
+      {required String bucket}) async {
     setState(() => _isSending = true);
     try {
       final ext  = fileName.split('.').last.toLowerCase();
-      final path = '$_sessionId/${DateTime.now().millisecondsSinceEpoch}.$ext';
-
+      final path =
+          '$_sessionId/${DateTime.now().millisecondsSinceEpoch}.$ext';
       await supabase.storage.from(bucket).upload(path, file);
-
       final url = supabase.storage.from(bucket).getPublicUrl(path);
-
       await _insertMessage(text: fileName, attachmentUrl: url);
     } catch (e) {
       debugPrint('_uploadAndSend: $e');
       _showError('فشل في رفع الملف');
-    }finally {
+    } finally {
       if (mounted) setState(() => _isSending = false);
     }
   }
 
-  Future<void> _insertMessage({required String text, required String? attachmentUrl}) async {
+  Future<void> _insertMessage(
+      {required String text, required String? attachmentUrl}) async {
     final now    = DateTime.now().toUtc().toIso8601String();
     final tempId = 'opt_${DateTime.now().millisecondsSinceEpoch}';
 
@@ -363,14 +368,16 @@ class _ChatPageState extends State<ChatPage> {
 
       if (mounted) {
         setState(() {
-          final idx = messages.indexWhere((m) => m['MessageID'] == tempId);
+          final idx =
+          messages.indexWhere((m) => m['MessageID'] == tempId);
           if (idx != -1) messages[idx] = {...inserted, '_plain': text};
         });
       }
     } catch (e) {
       debugPrint('_insertMessage: $e');
       if (mounted) {
-        setState(() => messages.removeWhere((m) => m['MessageID'] == tempId));
+        setState(
+                () => messages.removeWhere((m) => m['MessageID'] == tempId));
         _showError('فشل في إرسال الرسالة');
       }
     }
@@ -399,32 +406,44 @@ class _ChatPageState extends State<ChatPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 40, height: 4,
+                  width:  40,
+                  height: 4,
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
+                      color:        Colors.grey.shade300,
                       borderRadius: BorderRadius.circular(2)),
                 ),
                 ListTile(
                   leading: const CircleAvatar(
                       backgroundColor: Color(0xFF7A8256),
                       child: Icon(Icons.camera_alt, color: Colors.white)),
-                  title: const Text('التقاط صورة'),
-                  onTap: () { Navigator.pop(context); _pickImage(ImageSource.camera); },
+                  title:  const Text('التقاط صورة'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImage(ImageSource.camera);
+                  },
                 ),
                 ListTile(
                   leading: const CircleAvatar(
                       backgroundColor: Color(0xFF7A8256),
-                      child: Icon(Icons.photo_library, color: Colors.white)),
-                  title: const Text('اختيار من المعرض'),
-                  onTap: () { Navigator.pop(context); _pickImage(ImageSource.gallery); },
+                      child:
+                      Icon(Icons.photo_library, color: Colors.white)),
+                  title:  const Text('اختيار من المعرض'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImage(ImageSource.gallery);
+                  },
                 ),
                 ListTile(
                   leading: const CircleAvatar(
                       backgroundColor: Color(0xFF7A8256),
-                      child: Icon(Icons.insert_drive_file, color: Colors.white)),
-                  title: const Text('إرفاق ملف'),
-                  onTap: () { Navigator.pop(context); _pickFile(); },
+                      child: Icon(Icons.insert_drive_file,
+                          color: Colors.white)),
+                  title:  const Text('إرفاق ملف'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickFile();
+                  },
                 ),
               ],
             ),
@@ -447,8 +466,10 @@ class _ChatPageState extends State<ChatPage> {
           textDirection: TextDirection.rtl,
           child: Dialog(
             backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-            insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24)),
+            insetPadding: const EdgeInsets.symmetric(
+                horizontal: 28, vertical: 40),
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
               child: StatefulBuilder(
@@ -459,14 +480,23 @@ class _ChatPageState extends State<ChatPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const SizedBox(width: 32),
-                        const Text('قيم تجربتك مع الخبير',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF4A3E25))),
+                        const Text(
+                          'قيم تجربتك مع الخبير',
+                          style: TextStyle(
+                              fontSize:   18,
+                              fontWeight: FontWeight.bold,
+                              color:      Color(0xFF4A3E25)),
+                        ),
                         GestureDetector(
                           onTap: () => Navigator.pop(dialogContext),
                           child: Container(
-                            width: 32, height: 32,
-                            decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
-                            child: const Icon(Icons.close, size: 18, color: Colors.black54),
+                            width:  32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                shape: BoxShape.circle),
+                            child: const Icon(Icons.close,
+                                size: 18, color: Colors.black54),
                           ),
                         ),
                       ],
@@ -475,20 +505,28 @@ class _ChatPageState extends State<ChatPage> {
                     // Avatar
                     Container(
                       padding: const EdgeInsets.all(3),
-                      decoration: const BoxDecoration(color: Color(0xFF7A8256), shape: BoxShape.circle),
+                      decoration: const BoxDecoration(
+                          color: Color(0xFF7A8256),
+                          shape: BoxShape.circle),
                       child: CircleAvatar(
-                        radius: 44,
+                        radius:          44,
                         backgroundColor: Colors.grey.shade100,
-                        // استخدام الدالة الذكية هنا لعرض صورة الخبير بشكل سليم في التقييم
                         backgroundImage: _getAvatarImage(expertRawImage),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Text(expertName != null ? 'م. $expertName' : 'الخبير',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF4A3E25))),
+                    Text(
+                      expertName != null ? 'م. $expertName' : 'الخبير',
+                      style: const TextStyle(
+                          fontSize:   18,
+                          fontWeight: FontWeight.bold,
+                          color:      Color(0xFF4A3E25)),
+                    ),
                     const SizedBox(height: 6),
-                    const Text('كيف كانت تجربتك مع الخبير ؟',
-                        style: TextStyle(fontSize: 13, color: Colors.grey)),
+                    const Text(
+                      'كيف كانت تجربتك مع الخبير ؟',
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
                     const SizedBox(height: 20),
                     // Stars
                     Row(
@@ -496,12 +534,17 @@ class _ChatPageState extends State<ChatPage> {
                       children: List.generate(5, (i) {
                         final val = i + 1;
                         return GestureDetector(
-                          onTap: () => setDialogState(() => selectedRating = val),
+                          onTap: () =>
+                              setDialogState(() => selectedRating = val),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4),
                             child: Icon(
-                              val <= selectedRating ? Icons.star : Icons.star_border,
-                              color: const Color(0xFFF2A649), size: 38,
+                              val <= selectedRating
+                                  ? Icons.star
+                                  : Icons.star_border,
+                              color: const Color(0xFFF2A649),
+                              size:  38,
                             ),
                           ),
                         );
@@ -513,81 +556,109 @@ class _ChatPageState extends State<ChatPage> {
                       children: List.generate(5, (i) {
                         final isActive = selectedRating == i + 1;
                         return Expanded(
-                          child: Text(ratingLabels[i],
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                                color: isActive ? const Color(0xFFF2A649) : Colors.grey.shade400,
-                              )),
+                          child: Text(
+                            ratingLabels[i],
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize:   11,
+                              fontWeight: isActive
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              color: isActive
+                                  ? const Color(0xFFF2A649)
+                                  : Colors.grey.shade400,
+                            ),
+                          ),
                         );
                       }),
                     ),
                     const SizedBox(height: 20),
                     // Comment
                     TextField(
-                      controller: commentController,
-                      maxLines: 4, maxLength: 500,
+                      controller:    commentController,
+                      maxLines:      4,
+                      maxLength:     500,
                       textDirection: TextDirection.rtl,
-                      onChanged: (_) => setDialogState(() {}),
+                      onChanged:     (_) => setDialogState(() {}),
                       style: const TextStyle(fontSize: 14),
                       decoration: InputDecoration(
                         hintText: 'لا تنسى تشاركنا رأيك ، لأن رأيك يهمنا ..',
-                        hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+                        hintStyle: TextStyle(
+                            fontSize: 13, color: Colors.grey.shade400),
                         counterText: '${commentController.text.length}/500',
-                        counterStyle: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                        counterStyle: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade400),
                         contentPadding: const EdgeInsets.all(14),
-                        filled: true, fillColor: Colors.grey.shade50,
+                        filled:     true,
+                        fillColor:  Colors.grey.shade50,
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
+                          borderSide:
+                          BorderSide(color: Colors.grey.shade300),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFF7A8256), width: 1.5),
+                          borderSide: const BorderSide(
+                              color: Color(0xFF7A8256), width: 1.5),
                         ),
                       ),
                     ),
                     const SizedBox(height: 20),
                     // Submit
                     SizedBox(
-                      width: double.infinity, height: 50,
+                      width:  double.infinity,
+                      height: 50,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF7A8256), elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          backgroundColor: const Color(0xFF7A8256),
+                          elevation:       0,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
                         ),
                         onPressed: () async {
                           if (selectedRating == 0) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('الرجاء اختيار التقييم بالنجوم أولاً')));
+                              const SnackBar(
+                                  content: Text(
+                                      'الرجاء اختيار التقييم بالنجوم أولاً')),
+                            );
                             return;
                           }
                           try {
                             await supabase.from('Review').insert({
                               'Rating':          selectedRating,
                               'Comment':         commentController.text.trim(),
-                              'CreatedAt':       DateTime.now().toUtc().toIso8601String(),
+                              'CreatedAt':       DateTime.now()
+                                  .toUtc()
+                                  .toIso8601String(),
                               'ExpertID':        cleanExpertId,
                               'ExpertSessionID': _sessionId,
                             });
-
-                            if (dialogContext.mounted) Navigator.pop(dialogContext);
+                            if (dialogContext.mounted)
+                              Navigator.pop(dialogContext);
                             if (mounted) {
                               Navigator.pop(context);
                               ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('شكراً لتقييمك! ✨')));
+                                const SnackBar(
+                                    content: Text('شكراً لتقييمك! ✨')),
+                              );
                             }
                           } catch (e) {
                             debugPrint('Review error: $e');
                             if (dialogContext.mounted) {
                               ScaffoldMessenger.of(dialogContext)
-                                  .showSnackBar(SnackBar(content: Text('خطأ: $e')));
+                                  .showSnackBar(
+                                  SnackBar(content: Text('خطأ: $e')));
                             }
                           }
                         },
-                        child: const Text('تقييم',
-                            style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
+                        child: const Text(
+                          'تقييم',
+                          style: TextStyle(
+                              fontSize:   16,
+                              color:      Colors.white,
+                              fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
                   ],
@@ -602,7 +673,8 @@ class _ChatPageState extends State<ChatPage> {
 
   void _showError(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
   }
 
   String _plainText(Map<String, dynamic> msg) =>
@@ -614,7 +686,7 @@ class _ChatPageState extends State<ChatPage> {
         _scrollCtrl.animateTo(
           _scrollCtrl.position.maxScrollExtent + 200,
           duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
+          curve:    Curves.easeOut,
         );
       }
     });
@@ -625,25 +697,35 @@ class _ChatPageState extends State<ChatPage> {
     try {
       final dt = DateTime.parse(iso).toLocal();
       return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-    } catch (_) { return ''; }
+    } catch (_) {
+      return '';
+    }
   }
 
   bool _isImageUrl(String? u) {
     if (u == null) return false;
     final l = u.toLowerCase();
-    return l.endsWith('.jpg') || l.endsWith('.jpeg') || l.endsWith('.png') || l.endsWith('.webp');
+    return l.endsWith('.jpg') ||
+        l.endsWith('.jpeg') ||
+        l.endsWith('.png') ||
+        l.endsWith('.webp');
   }
 
   bool _isAudioUrl(String? u) {
     if (u == null) return false;
     final l = u.toLowerCase();
-    return l.endsWith('.m4a') || l.endsWith('.mp3') || l.endsWith('.aac') || l.endsWith('.wav');
+    return l.endsWith('.m4a') ||
+        l.endsWith('.mp3') ||
+        l.endsWith('.aac') ||
+        l.endsWith('.wav');
   }
 
   bool _isVideoUrl(String? u) {
     if (u == null) return false;
     final l = u.toLowerCase();
-    return l.endsWith('.mp4') || l.endsWith('.mov') || l.endsWith('.avi');
+    return l.endsWith('.mp4') ||
+        l.endsWith('.mov') ||
+        l.endsWith('.avi');
   }
 
   @override
@@ -654,13 +736,16 @@ class _ChatPageState extends State<ChatPage> {
         backgroundColor: const Color(0xFFF4F4F4),
         appBar: _buildAppBar(),
         body: _loadingSession
-            ? const Center(child: CircularProgressIndicator(color: AppColors.darkBrown))
+            ? const Center(
+            child: CircularProgressIndicator(
+                color: AppColors.darkBrown))
             : Column(children: [
           Expanded(child: _buildMessageList()),
           if (_isSending)
             LinearProgressIndicator(
               backgroundColor: AppColors.header,
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                  AppColors.primary),
             ),
           _buildInputBar(),
         ]),
@@ -670,39 +755,54 @@ class _ChatPageState extends State<ChatPage> {
 
   PreferredSizeWidget _buildAppBar() => AppBar(
     backgroundColor: AppColors.header,
-    elevation: 0,
+    elevation:       0,
     actions: [
       Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        padding: const EdgeInsets.symmetric(
+            horizontal: 8, vertical: 8),
         child: OutlinedButton(
           onPressed: _onEndSession,
           style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: Colors.redAccent, width: 1.2),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            side: const BorderSide(
+                color: Colors.redAccent, width: 1.2),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20)),
             padding: const EdgeInsets.symmetric(horizontal: 14),
           ),
-          child: const Text('الخروج من الجلسة',
-              style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13)),
+          child: const Text(
+            'الخروج من الجلسة',
+            style: TextStyle(
+                color:      Colors.redAccent,
+                fontWeight: FontWeight.bold,
+                fontSize:   13),
+          ),
         ),
       ),
     ],
     title: GestureDetector(
-      onTap: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => ExpertProfilePage(expertId: cleanExpertId))),
+      onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) =>
+                  ExpertProfilePage(expertId: cleanExpertId))),
       child: Row(children: [
         const SizedBox(width: 8),
         CircleAvatar(
-          radius: 22,
+          radius:          22,
           backgroundColor: AppColors.grey.withOpacity(0.2),
-          // استدعاء دالة الفحص الذكية هنا لعرض الصورة في شريط الـ AppBar
           backgroundImage: _getAvatarImage(expertRawImage),
           onBackgroundImageError: (_, __) {},
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: Text(expertName ?? '...',
-              textAlign: TextAlign.right,
-              style: const TextStyle(fontSize: 18, color: AppColors.darkGreen, fontWeight: FontWeight.w700)),
+          child: Text(
+            expertName ?? '...',
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+                fontSize:   18,
+                color:      AppColors.darkGreen,
+                fontWeight: FontWeight.w700),
+          ),
         ),
       ]),
     ),
@@ -710,7 +810,9 @@ class _ChatPageState extends State<ChatPage> {
 
   Widget _buildMessageList() {
     if (messages.isEmpty) {
-      return const Center(child: Text('لا توجد رسائل', style: TextStyle(color: AppColors.grey)));
+      return const Center(
+          child: Text('لا توجد رسائل',
+              style: TextStyle(color: AppColors.grey)));
     }
     return ListView.builder(
       controller: _scrollCtrl,
@@ -718,7 +820,11 @@ class _ChatPageState extends State<ChatPage> {
       itemCount: messages.length,
       itemBuilder: (context, i) {
         final msg    = messages[i];
-        final isMine = msg['SenderID'].toString().trim().toLowerCase() == cleanUserId.toLowerCase();
+        final isMine = msg['SenderID']
+            .toString()
+            .trim()
+            .toLowerCase() ==
+            cleanUserId.toLowerCase();
         return isMine ? _buildSent(msg) : _buildReceived(msg);
       },
     );
@@ -729,14 +835,19 @@ class _ChatPageState extends State<ChatPage> {
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
-        margin: const EdgeInsets.only(top: 4, bottom: 4, right: 8, left: 60),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        margin: const EdgeInsets.only(
+            top: 4, bottom: 4, right: 8, left: 60),
+        padding: const EdgeInsets.symmetric(
+            horizontal: 14, vertical: 10),
+        constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.75),
         decoration: const BoxDecoration(
           color: AppColors.primary,
           borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(16), topRight: Radius.circular(4),
-            bottomLeft: Radius.circular(16), bottomRight: Radius.circular(16),
+            topLeft:     Radius.circular(16),
+            topRight:    Radius.circular(4),
+            bottomLeft:  Radius.circular(16),
+            bottomRight: Radius.circular(16),
           ),
         ),
         child: Column(
@@ -744,8 +855,11 @@ class _ChatPageState extends State<ChatPage> {
           children: [
             _buildContent(msg, url, isMine: true),
             const SizedBox(height: 4),
-            Text(_formatTime(msg['SentAt'] as String?),
-                style: const TextStyle(fontSize: 10, color: Colors.white70)),
+            Text(
+              _formatTime(msg['SentAt'] as String?),
+              style: const TextStyle(
+                  fontSize: 10, color: Colors.white70),
+            ),
           ],
         ),
       ),
@@ -757,38 +871,57 @@ class _ChatPageState extends State<ChatPage> {
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.only(top: 4, bottom: 4, left: 8, right: 60),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        margin: const EdgeInsets.only(
+            top: 4, bottom: 4, left: 8, right: 60),
+        padding: const EdgeInsets.symmetric(
+            horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(4), topRight: Radius.circular(16),
-            bottomLeft: Radius.circular(16), bottomRight: Radius.circular(16),
+            topLeft:     Radius.circular(4),
+            topRight:    Radius.circular(16),
+            bottomLeft:  Radius.circular(16),
+            bottomRight: Radius.circular(16),
           ),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))],
+          boxShadow: [
+            BoxShadow(
+              color:      Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset:     const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildContent(msg, url, isMine: false),
             const SizedBox(height: 4),
-            Text(_formatTime(msg['SentAt'] as String?),
-                style: const TextStyle(fontSize: 10, color: Colors.grey)),
+            Text(
+              _formatTime(msg['SentAt'] as String?),
+              style: const TextStyle(
+                  fontSize: 10, color: Colors.grey),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildContent(Map<String, dynamic> msg, String? url, {required bool isMine}) {
+  Widget _buildContent(Map<String, dynamic> msg, String? url,
+      {required bool isMine}) {
     final color = isMine ? AppColors.white : AppColors.darkGreen;
     final msgId = msg['MessageID'] as String? ?? '';
 
     if (_isImageUrl(url)) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(10),
-        child: Image.network(url!, width: 200, fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.grey)),
+        child: Image.network(
+          url!,
+          width: 200,
+          fit:   BoxFit.cover,
+          errorBuilder: (_, __, ___) =>
+          const Icon(Icons.broken_image, color: Colors.grey),
+        ),
       );
     }
 
@@ -799,17 +932,27 @@ class _ChatPageState extends State<ChatPage> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(playing ? Icons.pause_circle_filled : Icons.play_circle_filled,
-                color: isMine ? Colors.white : AppColors.primary, size: 36),
+            Icon(
+              playing
+                  ? Icons.pause_circle_filled
+                  : Icons.play_circle_filled,
+              color: isMine ? Colors.white : AppColors.primary,
+              size:  36,
+            ),
             const SizedBox(width: 8),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('رسالة صوتية', style: TextStyle(color: color, fontSize: 13)),
+                Text('رسالة صوتية',
+                    style: TextStyle(color: color, fontSize: 13)),
                 Container(
-                  width: 100, height: 3, margin: const EdgeInsets.only(top: 4),
+                  width:  100,
+                  height: 3,
+                  margin: const EdgeInsets.only(top: 4),
                   decoration: BoxDecoration(
-                    color: isMine ? Colors.white38 : Colors.grey.shade300,
+                    color: isMine
+                        ? Colors.white38
+                        : Colors.grey.shade300,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -822,9 +965,14 @@ class _ChatPageState extends State<ChatPage> {
 
     if (_isVideoUrl(url)) {
       return Container(
-        width: 200, height: 110,
-        decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(10)),
-        child: const Center(child: Icon(Icons.play_circle_fill, color: Colors.white, size: 48)),
+        width:  200,
+        height: 110,
+        decoration: BoxDecoration(
+            color:        Colors.black26,
+            borderRadius: BorderRadius.circular(10)),
+        child: const Center(
+            child: Icon(Icons.play_circle_fill,
+                color: Colors.white, size: 48)),
       );
     }
 
@@ -835,45 +983,63 @@ class _ChatPageState extends State<ChatPage> {
           Icon(Icons.insert_drive_file, color: color, size: 20),
           const SizedBox(width: 8),
           Flexible(
-            child: Text(url.split('/').last,
-                style: TextStyle(color: color, fontSize: 13, decoration: TextDecoration.underline),
-                overflow: TextOverflow.ellipsis),
+            child: Text(
+              url.split('/').last,
+              style: TextStyle(
+                  color:      color,
+                  fontSize:   13,
+                  decoration: TextDecoration.underline),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       );
     }
 
-    return Text(_plainText(msg),
-        textAlign: isMine ? TextAlign.right : TextAlign.left,
-        style: TextStyle(color: color, fontSize: 15));
+    return Text(
+      _plainText(msg),
+      textAlign: isMine ? TextAlign.right : TextAlign.left,
+      style: TextStyle(color: color, fontSize: 15),
+    );
   }
 
   Widget _buildInputBar() {
     if (_isRecording) {
       return Container(
-        color: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        color:   Colors.white,
+        padding: const EdgeInsets.symmetric(
+            horizontal: 16, vertical: 12),
         child: SafeArea(
           child: Row(
             children: [
               GestureDetector(
                 onTap: _cancelRecording,
-                child: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 28),
+                child: const Icon(Icons.delete_outline,
+                    color: Colors.redAccent, size: 28),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Row(children: [
-                  const Icon(Icons.circle, color: Colors.redAccent, size: 10),
+                  const Icon(Icons.circle,
+                      color: Colors.redAccent, size: 10),
                   const SizedBox(width: 8),
-                  Text('جاري التسجيل...', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                  Text(
+                    'جاري التسجيل...',
+                    style: TextStyle(
+                        color: Colors.grey.shade600, fontSize: 14),
+                  ),
                 ]),
               ),
               GestureDetector(
                 onTap: _stopAndSendRecording,
                 child: Container(
-                  width: 48, height: 48,
-                  decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                  child: const Icon(Icons.send, color: Colors.white, size: 22),
+                  width:  48,
+                  height: 48,
+                  decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle),
+                  child: const Icon(Icons.send,
+                      color: Colors.white, size: 22),
                 ),
               ),
             ],
@@ -883,38 +1049,42 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     return Container(
-      color: const Color.fromARGB(255, 237, 237, 237),
+      color:   const Color.fromARGB(255, 237, 237, 237),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: SafeArea(
         child: Row(
           children: [
-            // Attach
             IconButton(
-              icon: const Icon(Icons.attach_file, color: AppColors.primary),
+              icon:      const Icon(Icons.attach_file,
+                  color: AppColors.primary),
               onPressed: _showAttachmentOptions,
             ),
-            // Text field
             Expanded(
               child: Container(
-                constraints: const BoxConstraints(maxHeight: 120),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                constraints:
+                const BoxConstraints(maxHeight: 120),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color:        Colors.white,
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: TextField(
-                  controller: _controller,
+                  controller:    _controller,
                   textDirection: TextDirection.rtl,
-                  textAlign: TextAlign.right,
-                  keyboardType: TextInputType.multiline,
-                  maxLines: null, minLines: 1,
-                  style: const TextStyle(fontSize: 15, color: AppColors.darkGreen),
+                  textAlign:     TextAlign.right,
+                  keyboardType:  TextInputType.multiline,
+                  maxLines:      null,
+                  minLines:      1,
+                  style: const TextStyle(
+                      fontSize: 15, color: AppColors.darkGreen),
                   decoration: const InputDecoration(
-                    hintText: 'اكتب رسالة...',
+                    hintText:          'اكتب رسالة...',
                     hintTextDirection: TextDirection.rtl,
-                    hintStyle: TextStyle(color: Color.fromARGB(255, 95, 95, 90)),
-                    border: InputBorder.none,
-                    isDense: true,
+                    hintStyle: TextStyle(
+                        color: Color.fromARGB(255, 95, 95, 90)),
+                    border:         InputBorder.none,
+                    isDense:        true,
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
@@ -924,15 +1094,27 @@ class _ChatPageState extends State<ChatPage> {
             AnimatedBuilder(
               animation: _controller,
               builder: (context, _) {
-                final hasText = _controller.text.trim().isNotEmpty;
+                final hasText =
+                    _controller.text.trim().isNotEmpty;
                 return GestureDetector(
                   onTap: hasText ? _sendMessage : null,
-                  onLongPressStart: hasText ? null : (_) => _startRecording(),
-                  onLongPressEnd:   hasText ? null : (_) => _stopAndSendRecording(),
+                  onLongPressStart: hasText
+                      ? null
+                      : (_) => _startRecording(),
+                  onLongPressEnd: hasText
+                      ? null
+                      : (_) => _stopAndSendRecording(),
                   child: Container(
-                    width: 44, height: 44,
-                    decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-                    child: Icon(hasText ? Icons.send : Icons.mic, color: Colors.white, size: 22),
+                    width:  44,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle),
+                    child: Icon(
+                      hasText ? Icons.send : Icons.mic,
+                      color: Colors.white,
+                      size:  22,
+                    ),
                   ),
                 );
               },

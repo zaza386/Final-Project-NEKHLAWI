@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/theme/app_colors.dart';
 import '../core/widgets/header_background.dart';
+import '../services/session_reminder_service.dart';
 
-// Internal slot model — mirrors TimeSlot in booking_page.dart exactly
 class _Slot {
   final String? id;
-  final DateTime dateTime; // result of DateTime.parse(slot_time) — NOT converted to local
+  final DateTime dateTime;
   final bool isAvailable;
 
   _Slot({this.id, required this.dateTime, required this.isAvailable});
@@ -14,7 +14,7 @@ class _Slot {
   factory _Slot.fromMap(Map<String, dynamic> map) {
     return _Slot(
       id: map['id']?.toString(),
-      dateTime: DateTime.parse(map['slot_time']), // same as TimeSlot.fromMap
+      dateTime: DateTime.parse(map['slot_time']),
       isAvailable: map['is_available'] ?? false,
     );
   }
@@ -30,7 +30,6 @@ class ExpertSessionsPage extends StatefulWidget {
 class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
   final supabase = Supabase.instance.client;
 
-  // Exact same color constants as booking_page.dart
   static const Color kPrimary         = Color(0xFF797F3D);
   static const Color kBackground      = Color(0xFFF2F0E8);
   static const Color kCard            = Color(0xFFFFFFFF);
@@ -48,8 +47,6 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
   List<_Slot> _dbSlots      = [];
   List<_Slot> _displaySlots = [];
 
-  // Which hour:minute keys the expert has toggled ON
-  // Key format: "H:MM" — same numbers booking_page uses for matching (.hour / .minute)
   final Set<String> _enabledKeys = {};
 
   List<DateTime> _generateMonths() {
@@ -63,21 +60,6 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
     _loadData();
   }
 
-  // ─── KEY INSIGHT ────────────────────────────────────────────────────────────
-  // booking_page.dart stores slots by querying:
-  //   gte('slot_time', DateTime.utc(day.year, day.month, day.day))
-  // and matches them with:
-  //   s.dateTime.hour == hour   ← dateTime = DateTime.parse(slot_time), NO .toLocal()
-  //
-  // So booking_page treats the raw UTC hour in the stored string as the display hour.
-  // To match, we must store:  "YYYY-MM-DDThh:mm:00.000Z"
-  // where hh:mm is the LOCAL hour the expert picked — NOT converted to real UTC.
-  // i.e., expert picks 13:00 local → we store "...T13:00:00.000Z"
-  // booking_page then sees .hour == 13 and displays "1:00 م" ✓
-  // ────────────────────────────────────────────────────────────────────────────
-
-  // Build a slot_time string that booking_page will read correctly.
-  // We write the local h/m directly into a UTC-formatted string.
   String _slotTimeString(int hour, int minute) {
     final y  = _selectedDay.year.toString().padLeft(4, '0');
     final mo = _selectedDay.month.toString().padLeft(2, '0');
@@ -87,8 +69,6 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
     return '${y}-${mo}-${d}T${h}:${mi}:00.000Z';
   }
 
-  // The query range booking_page uses — we must use the same range to fetch
-  // the same rows, since Supabase compares the stored "fake UTC" string.
   String _dayStartString() {
     final y  = _selectedDay.year.toString().padLeft(4, '0');
     final mo = _selectedDay.month.toString().padLeft(2, '0');
@@ -97,7 +77,8 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
   }
 
   String _dayEndString() {
-    final next = DateTime(_selectedDay.year, _selectedDay.month, _selectedDay.day + 1);
+    final next = DateTime(
+        _selectedDay.year, _selectedDay.month, _selectedDay.day + 1);
     final y  = next.year.toString().padLeft(4, '0');
     final mo = next.month.toString().padLeft(2, '0');
     final d  = next.day.toString().padLeft(2, '0');
@@ -119,7 +100,8 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
           .lt('slot_time', _dayEndString())
           .order('slot_time');
 
-      _dbSlots = (response as List).map((r) => _Slot.fromMap(r)).toList();
+      _dbSlots =
+          (response as List).map((r) => _Slot.fromMap(r)).toList();
       _buildDisplaySlots();
       _syncEnabledKeys();
     } catch (e) {
@@ -129,24 +111,24 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
     }
   }
 
-  // Mirrors booking_page._generateHalfHourSlots — matches on raw .hour / .minute
   void _buildDisplaySlots() {
     final slots = <_Slot>[];
     for (int hour = 8; hour <= 19; hour++) {
       for (int minute in [0, 30]) {
-
         final slotTime = DateTime(
-          _selectedDay.year, _selectedDay.month, _selectedDay.day,
-          hour, minute,
+          _selectedDay.year,
+          _selectedDay.month,
+          _selectedDay.day,
+          hour,
+          minute,
         );
 
-        // Same match as booking_page line 168 — raw .hour, raw .minute (no toLocal)
         final dbMatch = _dbSlots.firstWhere(
-          (s) => s.dateTime.hour == hour && s.dateTime.minute == minute,
+              (s) => s.dateTime.hour == hour && s.dateTime.minute == minute,
           orElse: () => _Slot(dateTime: slotTime, isAvailable: false),
         );
         final existsInDb = _dbSlots.any(
-          (s) => s.dateTime.hour == hour && s.dateTime.minute == minute,
+              (s) => s.dateTime.hour == hour && s.dateTime.minute == minute,
         );
 
         slots.add(_Slot(
@@ -159,7 +141,6 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
     _displaySlots = slots;
   }
 
-  // Pre-check any slot that already exists in DB
   void _syncEnabledKeys() {
     _enabledKeys.clear();
     for (final s in _dbSlots) {
@@ -167,16 +148,17 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
     }
   }
 
-  String _slotKey(_Slot slot) => '${slot.dateTime.hour}:${slot.dateTime.minute}';
+  String _slotKey(_Slot slot) =>
+      '${slot.dateTime.hour}:${slot.dateTime.minute}';
 
   bool _isBooked(_Slot slot) {
     final k = _slotKey(slot);
     final db = _dbSlots.firstWhere(
-      (s) => '${s.dateTime.hour}:${s.dateTime.minute}' == k,
+          (s) => '${s.dateTime.hour}:${s.dateTime.minute}' == k,
       orElse: () => _Slot(dateTime: slot.dateTime, isAvailable: true),
     );
     final existsInDb = _dbSlots.any(
-      (s) => '${s.dateTime.hour}:${s.dateTime.minute}' == k,
+          (s) => '${s.dateTime.hour}:${s.dateTime.minute}' == k,
     );
     return existsInDb && !db.isAvailable;
   }
@@ -214,7 +196,6 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
           final minute = int.parse(parts[1]);
           return {
             'ExpertID'    : expertId,
-            // Store local hour directly as UTC string — matches how booking_page reads it
             'slot_time'   : _slotTimeString(hour, minute),
             'is_available': true,
           };
@@ -224,18 +205,22 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
 
       for (final k in toDelete) {
         final dbSlot = _dbSlots.firstWhere(
-          (s) => '${s.dateTime.hour}:${s.dateTime.minute}' == k,
-          orElse: () => _Slot(dateTime: DateTime.now(), isAvailable: false),
+              (s) => '${s.dateTime.hour}:${s.dateTime.minute}' == k,
+          orElse: () =>
+              _Slot(dateTime: DateTime.now(), isAvailable: false),
         );
         if (dbSlot.id != null && dbSlot.isAvailable) {
-          await supabase.from('time_slots').delete().eq('id', dbSlot.id!);
+          await supabase
+              .from('time_slots')
+              .delete()
+              .eq('id', dbSlot.id!);
         }
       }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ تم حفظ أوقات التوفر بنجاح'),
+            content: Text('تم حفظ أوقات التوفر بنجاح'),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
@@ -259,9 +244,11 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
 
   Future<int> _fetchEnabledCountForDay(DateTime day) async {
     final expertId = supabase.auth.currentUser?.id ?? '';
-    final next  = DateTime(day.year, day.month, day.day + 1);
-    final start = '${day.year.toString().padLeft(4,'0')}-${day.month.toString().padLeft(2,'0')}-${day.day.toString().padLeft(2,'0')}T00:00:00.000Z';
-    final end   = '${next.year.toString().padLeft(4,'0')}-${next.month.toString().padLeft(2,'0')}-${next.day.toString().padLeft(2,'0')}T00:00:00.000Z';
+    final next = DateTime(day.year, day.month, day.day + 1);
+    final start =
+        '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}T00:00:00.000Z';
+    final end =
+        '${next.year.toString().padLeft(4, '0')}-${next.month.toString().padLeft(2, '0')}-${next.day.toString().padLeft(2, '0')}T00:00:00.000Z';
     final response = await supabase
         .from('time_slots')
         .select('id')
@@ -274,30 +261,33 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
 
   List<DateTime> _getDaysInMonth(DateTime month) {
     final lastDay = DateTime(month.year, month.month + 1, 0).day;
-    return List.generate(lastDay, (i) => DateTime(month.year, month.month, i + 1));
+    return List.generate(
+        lastDay, (i) => DateTime(month.year, month.month, i + 1));
   }
 
   String _arabicWeekday(DateTime date) {
-    const days = ['الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت','الأحد'];
+    const days = [
+      'الاثنين','الثلاثاء','الأربعاء','الخميس',
+      'الجمعة','السبت','الأحد'
+    ];
     return days[date.weekday - 1];
   }
 
   String _arabicMonth(DateTime date) {
-    const months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو',
-                    'يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+    const months = [
+      'يناير','فبراير','مارس','أبريل','مايو','يونيو',
+      'يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'
+    ];
     return '${months[date.month - 1]} ${date.year}';
   }
 
-  // Exact same logic as booking_page._formatSlotTime
   String _formatSlotTime(DateTime dt) {
-    final hour   = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+    final hour   = dt.hour > 12
+        ? dt.hour - 12
+        : (dt.hour == 0 ? 12 : dt.hour);
     final minute = dt.minute.toString().padLeft(2, '0');
     return '$hour:$minute ${dt.hour >= 12 ? 'م' : 'ص'}';
   }
-
-  // ─────────────────────────────────────────────
-  // BUILD
-  // ─────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -324,21 +314,23 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
                   ),
                 ),
                 child: _isLoading
-                    ? const Center(child: CircularProgressIndicator(color: kPrimary))
+                    ? const Center(
+                    child: CircularProgressIndicator(color: kPrimary))
                     : SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildMonthScrollSelector(),
-                            const SizedBox(height: 12),
-                            _buildDayScrollSelector(),
-                            const SizedBox(height: 16),
-                            _buildTimeSlotsGrid(),
-                            const SizedBox(height: 16),
-                          ],
-                        ),
-                      ),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildMonthScrollSelector(),
+                      const SizedBox(height: 12),
+                      _buildDayScrollSelector(),
+                      const SizedBox(height: 16),
+                      _buildTimeSlotsGrid(),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
               ),
             ),
             _buildBottomBar(),
@@ -358,27 +350,31 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
           final month = _months[index];
           final isSelected =
               month.month == _selectedMonth.month &&
-              month.year  == _selectedMonth.year;
+                  month.year  == _selectedMonth.year;
           return GestureDetector(
             onTap: () {
               setState(() {
                 _selectedMonth = month;
-                _selectedDay   = DateTime(month.year, month.month, 1);
+                _selectedDay =
+                    DateTime(month.year, month.month, 1);
               });
               _loadData();
             },
             child: Container(
-              margin:  const EdgeInsets.symmetric(horizontal: 5),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              margin: const EdgeInsets.symmetric(horizontal: 5),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 20, vertical: 8),
               decoration: BoxDecoration(
-                color:        isSelected ? kPrimary : kCard,
+                color: isSelected ? kPrimary : kCard,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Center(
                 child: Text(
                   _arabicMonth(month),
                   style: TextStyle(
-                    color:    isSelected ? Colors.white : Colors.black87,
+                    color: isSelected
+                        ? Colors.white
+                        : Colors.black87,
                     fontSize: 13,
                   ),
                 ),
@@ -401,7 +397,7 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
           final day = days[index];
           final isSelected =
               day.day   == _selectedDay.day &&
-              day.month == _selectedDay.month;
+                  day.month == _selectedDay.month;
 
           return FutureBuilder<int>(
             future: _fetchEnabledCountForDay(day),
@@ -419,10 +415,12 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
                   width:  78,
                   margin: const EdgeInsets.symmetric(horizontal: 5),
                   decoration: BoxDecoration(
-                    color:        isSelected ? kPrimary : kCard,
+                    color: isSelected ? kPrimary : kCard,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: isSelected ? kPrimary : Colors.grey.shade300,
+                      color: isSelected
+                          ? kPrimary
+                          : Colors.grey.shade300,
                     ),
                   ),
                   child: Column(
@@ -433,14 +431,18 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
                         style: TextStyle(
                           fontSize:   20,
                           fontWeight: FontWeight.bold,
-                          color: isSelected ? Colors.white : Colors.black,
+                          color: isSelected
+                              ? Colors.white
+                              : Colors.black,
                         ),
                       ),
                       Text(
                         _arabicWeekday(day),
                         style: TextStyle(
                           fontSize: 10,
-                          color: isSelected ? Colors.white70 : Colors.black54,
+                          color: isSelected
+                              ? Colors.white70
+                              : Colors.black54,
                         ),
                       ),
                       const SizedBox(height: 5),
@@ -448,7 +450,9 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
                         'متاح: $count',
                         style: TextStyle(
                           fontSize:   9,
-                          color:      isSelected ? Colors.white60 : kPrimary,
+                          color: isSelected
+                              ? Colors.white60
+                              : kPrimary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -466,9 +470,9 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
   Widget _buildTimeSlotsGrid() {
     if (_displaySlots.isEmpty) return const SizedBox();
     return GridView.builder(
-      padding:     const EdgeInsets.only(bottom: 10),
-      shrinkWrap:  true,
-      physics:     const NeverScrollableScrollPhysics(),
+      padding:    const EdgeInsets.only(bottom: 10),
+      shrinkWrap: true,
+      physics:    const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount:   4,
         childAspectRatio: 2.2,
@@ -482,7 +486,7 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
         final enabled = _enabledKeys.contains(_slotKey(slot));
 
         final Color bgColor;
-        final Color textColor = Colors.white;
+        const Color textColor = Colors.white;
 
         if (booked) {
           bgColor = kSlotUnavailable;
@@ -502,7 +506,7 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
             alignment: Alignment.center,
             child: Text(
               _formatSlotTime(slot.dateTime),
-              style: TextStyle(fontSize: 11, color: textColor),
+              style: const TextStyle(fontSize: 11, color: textColor),
             ),
           ),
         );
@@ -542,10 +546,13 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: kPrimary,
                     side:  const BorderSide(color: kPrimary),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    padding:
+                    const EdgeInsets.symmetric(vertical: 10),
                   ),
-                  child: const Text('تحديد الكل', style: TextStyle(fontSize: 13)),
+                  child: const Text('تحديد الكل',
+                      style: TextStyle(fontSize: 13)),
                 ),
               ),
               const SizedBox(width: 10),
@@ -554,17 +561,21 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
                   onPressed: () {
                     setState(() {
                       for (final s in _displaySlots) {
-                        if (!_isBooked(s)) _enabledKeys.remove(_slotKey(s));
+                        if (!_isBooked(s))
+                          _enabledKeys.remove(_slotKey(s));
                       }
                     });
                   },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red,
                     side:  const BorderSide(color: Colors.red),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    padding:
+                    const EdgeInsets.symmetric(vertical: 10),
                   ),
-                  child: const Text('إلغاء الكل', style: TextStyle(fontSize: 13)),
+                  child: const Text('إلغاء الكل',
+                      style: TextStyle(fontSize: 13)),
                 ),
               ),
             ],
@@ -575,24 +586,31 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
             child: ElevatedButton(
               onPressed: _isSaving ? null : _saveAvailability,
               style: ElevatedButton.styleFrom(
-                backgroundColor:         kPrimary,
+                backgroundColor: kPrimary,
                 disabledBackgroundColor: kPrimary.withOpacity(0.5),
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
               child: _isSaving
                   ? const SizedBox(
-                      height: 20, width: 20,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                    )
+                height: 20,
+                width:  20,
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2),
+              )
                   : const Text(
-                      'حفظ أوقات التوفر',
-                      style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
+                'حفظ أوقات التوفر',
+                style: TextStyle(
+                    fontSize:   16,
+                    color:      Colors.white,
+                    fontWeight: FontWeight.bold),
+              ),
             ),
           ),
           const SizedBox(height: 10),
-          const Text('© 2025-2026', style: TextStyle(fontSize: 11, color: Colors.grey)),
+          const Text('© 2025-2026',
+              style: TextStyle(fontSize: 11, color: Colors.grey)),
         ],
       ),
     );
@@ -605,7 +623,8 @@ class _ExpertSessionsPageState extends State<ExpertSessionsPage> {
         Text(label, style: const TextStyle(fontSize: 12)),
         const SizedBox(width: 6),
         Container(
-          width: 14, height: 14,
+          width:  14,
+          height: 14,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
       ],

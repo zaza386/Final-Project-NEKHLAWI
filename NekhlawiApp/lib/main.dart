@@ -5,9 +5,11 @@ import 'package:nekhlawi_app/pages/wrapper.dart';
 import 'package:nekhlawi_app/core/theme/app_theme.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
+import 'services/session_reminder_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   //Strpie
   Stripe.publishableKey =
       'pk_test_51TT9NPPQ6tawzw9ojzxnvLaYrhfmMNjRdyRo5dZ6XJDIDfilsblzrsnYpKFOHR00bEMhhH9MNbn1YqbLLIXeZWMb00KZ5XLfal';
@@ -22,6 +24,8 @@ Future<void> main() async {
       authFlowType: AuthFlowType.pkce,
     ),
   );
+
+  await SessionReminderService().init();
 
   runApp(const NekhlawiApp());
 }
