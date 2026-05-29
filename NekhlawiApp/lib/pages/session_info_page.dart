@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/theme/app_colors.dart';
 import '../core/widgets/header_background.dart';
-import '../services/session_reminder_service.dart';
 
 class SessionInfoPage extends StatefulWidget {
   final String sessionId;
@@ -45,23 +44,6 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
           sessionData = data;
           isLoading = false;
         });
-
-        // ── Schedule reminders after data is loaded ──────────────────
-        final String? startAtRaw = data['StartAt'] as String?;
-        final String? status     = data['Status']  as String?;
-
-        // Only schedule for confirmed sessions that haven't started yet
-        if (startAtRaw != null && status == 'لم تبدأ') {
-          final sessionStart = DateTime.tryParse(startAtRaw)?.toLocal();
-          if (sessionStart != null && sessionStart.isAfter(DateTime.now())) {
-            SessionReminderService().scheduleReminders(
-              sessionStart: sessionStart,
-              sessionId:    widget.sessionId,
-              isExpert:     false, // user side
-            );
-          }
-        }
-        // ─────────────────────────────────────────────────────────────
       }
     } catch (e) {
       debugPrint('Error fetching session info: $e');
@@ -80,7 +62,7 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
     if (iso == null) return '--:--';
     final dt = DateTime.tryParse(iso)?.toLocal();
     if (dt == null) return '--:--';
-    final hour   = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+    final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
     final minute = dt.minute.toString().padLeft(2, '0');
     final period = dt.hour >= 12 ? 'م' : 'ص';
     return '$hour:$minute $period';
@@ -189,10 +171,11 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
         sessionData?['ExpertProfile'] as Map<String, dynamic>? ?? {};
     final user = expert['User'] as Map<String, dynamic>? ?? {};
 
-    final String  expertName  = user['Name']              ?? 'خبير';
-    final String  expertTitle = expert['Specialization']  ?? '';
+    final String  expertName  = user['Name']             ?? 'خبير';
+    final String  expertTitle = expert['Specialization'] ?? '';
     final String? avatarPath  = user['ProfilePicturePath'];
-    final String? avatarUrl   = (avatarPath != null && avatarPath.isNotEmpty)
+    final String? avatarUrl   =
+    (avatarPath != null && avatarPath.isNotEmpty)
         ? supabase.storage.from('pic').getPublicUrl(avatarPath)
         : null;
 
@@ -207,7 +190,7 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
 
     return Column(
       children: [
-        // ── Title ────────────────────────────────────────────────────
+        // ── Title + green check ───────────────────────────────────────
         const Text(
           'تفاصيل الجلسة',
           style: TextStyle(
@@ -218,7 +201,6 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
         ),
         const SizedBox(height: 16),
 
-        // ── Status icon ───────────────────────────────────────────────
         Container(
           width:  64,
           height: 64,
@@ -236,9 +218,10 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
         ),
         const SizedBox(height: 8),
 
-        // ── Status badge ──────────────────────────────────────────────
+        // Status badge
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          padding: const EdgeInsets.symmetric(
+              horizontal: 16, vertical: 6),
           decoration: BoxDecoration(
             color:        _statusColor(status).withOpacity(0.12),
             borderRadius: BorderRadius.circular(20),
@@ -312,17 +295,17 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
               ),
               const Divider(height: 24),
 
-              // Date
+              // Date row
               _invoiceRow(
                   Icons.calendar_today_outlined, 'التاريخ', date),
               const SizedBox(height: 12),
 
-              // Time
+              // Time row
               _invoiceRow(
                   Icons.access_time_outlined, 'الوقت', timeRange),
               const SizedBox(height: 12),
 
-              // Booked at
+              // Booked at row
               if (bookedAt != null) ...[
                 _invoiceRow(
                   Icons.bookmark_added_outlined,
@@ -332,7 +315,7 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
                 const SizedBox(height: 12),
               ],
 
-              // Amount
+              // Amount row
               const Divider(height: 8),
               const SizedBox(height: 12),
               Row(
