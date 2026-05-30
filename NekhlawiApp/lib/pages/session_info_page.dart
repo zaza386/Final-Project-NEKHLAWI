@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/theme/app_colors.dart';
 import '../core/widgets/header_background.dart';
+import '../services/session_reminder_service.dart';
 
 class SessionInfoPage extends StatefulWidget {
   final String sessionId;
@@ -21,6 +22,7 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
   final supabase = Supabase.instance.client;
   bool isLoading = true;
   Map<String, dynamic>? sessionData;
+  String? paymentAmount;
 
   @override
   void initState() {
@@ -30,6 +32,7 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
 
   Future<void> _fetchSessionInfo() async {
     try {
+      // ── Fetch session + expert info ───────────────────────────────
       final data = await supabase
           .from('ExpertSession')
           .select(
@@ -39,11 +42,43 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
           .eq('ExpertSessionID', widget.sessionId)
           .single();
 
+      // ── Fetch payment amount separately ───────────────────────────
+      String? amount;
+      try {
+        final payment = await supabase
+            .from('Payment')
+            .select('Amount')
+            .eq('ExpertSessionID', widget.sessionId)
+            .maybeSingle();
+        if (payment != null) {
+          amount = payment['Amount']?.toString();
+        }
+      } catch (e) {
+        debugPrint('Error fetching payment: $e');
+      }
+
       if (mounted) {
         setState(() {
-          sessionData = data;
-          isLoading = false;
+          sessionData   = data;
+          paymentAmount = amount;
+          isLoading     = false;
         });
+
+        // ── Reminder: only for confirmed sessions in the future ───────
+        final String? startAtRaw = data['StartAt'] as String?;
+        final String? status     = data['Status']  as String?;
+        if (startAtRaw != null && status == 'لم تبدأ') {
+          final sessionStart = DateTime.tryParse(startAtRaw);
+          if (sessionStart != null &&
+              sessionStart.isAfter(DateTime.now())) {
+            SessionReminderService().scheduleReminders(
+              sessionStart: sessionStart,
+              sessionId:    widget.sessionId,
+              isExpert:     false,
+            );
+          }
+        }
+        // ─────────────────────────────────────────────────────────────
       }
     } catch (e) {
       debugPrint('Error fetching session info: $e');
@@ -53,16 +88,16 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
 
   String _formatDateTime(String? iso) {
     if (iso == null) return '--';
-    final dt = DateTime.tryParse(iso)?.toLocal();
+    final dt = DateTime.tryParse(iso);
     if (dt == null) return '--';
     return '${dt.day}/${dt.month}/${dt.year}';
   }
 
   String _formatTime(String? iso) {
     if (iso == null) return '--:--';
-    final dt = DateTime.tryParse(iso)?.toLocal();
+    final dt = DateTime.tryParse(iso);
     if (dt == null) return '--:--';
-    final hour = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
+    final hour   = dt.hour > 12 ? dt.hour - 12 : (dt.hour == 0 ? 12 : dt.hour);
     final minute = dt.minute.toString().padLeft(2, '0');
     final period = dt.hour >= 12 ? 'م' : 'ص';
     return '$hour:$minute $period';
@@ -184,13 +219,16 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
     final String? status   = sessionData?['Status'];
     final String? bookedAt = sessionData?['BookedAt'];
 
+    final String priceLabel =
+    paymentAmount != null ? '$paymentAmount ريال' : '--';
+
     final String date      = _formatDateTime(startAt);
     final String timeRange =
         '${_formatTime(startAt)} - ${_formatTime(endAt)}';
 
     return Column(
       children: [
-        // ── Title + green check ───────────────────────────────────────
+        // ── Title ─────────────────────────────────────────────────────
         const Text(
           'تفاصيل الجلسة',
           style: TextStyle(
@@ -336,9 +374,9 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
                       color:        const Color(0xFF797F3D),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Text(
-                      '٣٠٠ ريال',
-                      style: TextStyle(
+                    child: Text(
+                      priceLabel,
+                      style: const TextStyle(
                         color:      Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize:   13,
