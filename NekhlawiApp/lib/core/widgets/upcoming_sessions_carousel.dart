@@ -7,6 +7,7 @@ import 'package:nekhlawi_app/pages/chat.dart';
 import '../data/expert_session_repo.dart';
 import '../models/expert_session_item.dart';
 import 'package:nekhlawi_app/pages/accept_decline_session.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class UserSessionsCarousel extends StatefulWidget {
   const UserSessionsCarousel({
@@ -53,14 +54,47 @@ class _UserSessionsCarouselState
     _loadSessions();
   }
 
+  // ── Auto-update session status based on current time ─────────────
+  // Only updates sessions belonging to this user (as expert or user).
+  // 'لم تبدأ' → 'بدأت'  : when now >= StartAt AND now < EndAt
+  // 'بدأت'    → 'أنتهت' : when now >= EndAt
+  Future<void> _syncSessionStatuses() async {
+    final supabase = Supabase.instance.client;
+    final now = DateTime.now().toIso8601String();
+
+    try {
+      // ── 'لم تبدأ' → 'بدأت' ───────────────────────────────────────
+      // Condition: StartAt has passed AND EndAt has NOT passed yet
+      await supabase
+          .from('ExpertSession')
+          .update({'Status': 'بدأت'})
+          .eq('Status', 'لم تبدأ')
+          .lte('StartAt', now)   // StartAt <= now  (on time or after)
+          .gte('EndAt', now);    // EndAt   >= now  (not finished yet)
+
+      // ── 'بدأت' → 'أنتهت' ─────────────────────────────────────────
+      // Condition: EndAt has passed
+      await supabase
+          .from('ExpertSession')
+          .update({'Status': 'أنتهت'})
+          .eq('Status', 'بدأت')
+          .lt('EndAt', now);     // EndAt < now  (already finished)
+
+    } catch (e) {
+      debugPrint('_syncSessionStatuses: $e');
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────
+
   void _loadSessions() {
     setState(() {
-      _future = _repo.fetchUserSessions(
-        userId: widget.userId,
-        statuses: widget.statuses,
-        isExpert: widget.isExpert,
-      )
-      .then((list) => list.reversed.toList());
+      _future = _syncSessionStatuses().then((_) =>
+          _repo.fetchUserSessions(
+            userId: widget.userId,
+            statuses: widget.statuses,
+            isExpert: widget.isExpert,
+          ).then((list) => list.reversed.toList())
+      );
     });
   }
 
@@ -161,6 +195,7 @@ class _UserSessionsCarouselState
                         session: sessions[index],
                         iconAssetPath: widget.iconAssetPath,
                         userRole: widget.userRole,
+                        isExpert: widget.isExpert,
                         onRefresh: _loadSessions,
                       ),
                     ),
@@ -187,20 +222,18 @@ class _SessionHomeCard extends StatelessWidget {
     required this.session,
     required this.iconAssetPath,
     required this.userRole,
+    required this.isExpert,
     required this.onRefresh,
   });
 
   final ExpertSessionItem session;
   final String iconAssetPath;
   final String userRole;
+  final bool isExpert;
   final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
-    final bool isExpert =
-        userRole.toLowerCase() == 'expert' ||
-            userRole == 'خبير';
-
     final String displayName = isExpert
         ? (session.userName ?? 'المزارع')
         : session.expertName;
@@ -332,9 +365,11 @@ class _SessionHomeCard extends StatelessWidget {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
+                            // ── pass isExpert so SessionInfoPage shows correct UI ──
                             builder: (_) => SessionInfoPage(
                               sessionId: session.expertSessionID,
-                              title: 'معلومات الجلسة',
+                              title:     'معلومات الجلسة',
+                              isExpert:  isExpert,
                             ),
                           ),
                         );

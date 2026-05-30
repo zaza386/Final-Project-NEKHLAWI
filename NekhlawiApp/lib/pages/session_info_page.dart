@@ -7,11 +7,13 @@ import '../services/session_reminder_service.dart';
 class SessionInfoPage extends StatefulWidget {
   final String sessionId;
   final String title;
+  final bool isExpert; // ← added
 
   const SessionInfoPage({
     super.key,
     required this.sessionId,
     required this.title,
+    this.isExpert = false, // ← default false so existing calls don't break
   });
 
   @override
@@ -23,6 +25,7 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
   bool isLoading = true;
   Map<String, dynamic>? sessionData;
   String? paymentAmount;
+  bool _isUpdatingStatus = false;
 
   @override
   void initState() {
@@ -74,7 +77,7 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
             SessionReminderService().scheduleReminders(
               sessionStart: sessionStart,
               sessionId:    widget.sessionId,
-              isExpert:     false,
+              isExpert:     widget.isExpert,
             );
           }
         }
@@ -85,6 +88,67 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
       if (mounted) setState(() => isLoading = false);
     }
   }
+
+  // ── Expert only: accept session (تحت المعاينة → لم تبدأ) ─────────
+  Future<void> _acceptSession() async {
+    setState(() => _isUpdatingStatus = true);
+    try {
+      await supabase
+          .from('ExpertSession')
+          .update({'Status': 'لم تبدأ'})
+          .eq('ExpertSessionID', widget.sessionId);
+      await _fetchSessionInfo();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:         Text('✅ تم قبول الجلسة'),
+            backgroundColor: Colors.green,
+            behavior:        SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('_acceptSession: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUpdatingStatus = false);
+    }
+  }
+
+  // ── Expert only: decline session (تحت المعاينة → مرفوضة) ────────
+  Future<void> _declineSession() async {
+    setState(() => _isUpdatingStatus = true);
+    try {
+      await supabase
+          .from('ExpertSession')
+          .update({'Status': 'مرفوضة'})
+          .eq('ExpertSessionID', widget.sessionId);
+      await _fetchSessionInfo();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:         Text('تم رفض الجلسة'),
+            backgroundColor: Colors.red,
+            behavior:        SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('_declineSession: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUpdatingStatus = false);
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────
 
   String _formatDateTime(String? iso) {
     if (iso == null) return '--';
@@ -391,6 +455,55 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
 
         const SizedBox(height: 24),
 
+        // ── Expert action buttons (only when status is تحت المعاينة) ──
+        if (widget.isExpert && status == 'تحت المعاينة') ...[
+          _isUpdatingStatus
+              ? const CircularProgressIndicator(
+              color: Color(0xFF797F3D))
+              : Row(
+            children: [
+              // Accept button
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _acceptSession,
+                  icon:  const Icon(Icons.check_circle_outline,
+                      color: Colors.white),
+                  label: const Text('قبول الجلسة',
+                      style: TextStyle(color: Colors.white)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF797F3D),
+                    elevation:       0,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Decline button
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _declineSession,
+                  icon:  const Icon(Icons.cancel_outlined,
+                      color: Colors.red),
+                  label: const Text('رفض الجلسة',
+                      style: TextStyle(color: Colors.red)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.red),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+        ],
+        // ─────────────────────────────────────────────────────────────
+
         // ── Info note ─────────────────────────────────────────────────
         Container(
           width:   double.infinity,
@@ -407,7 +520,18 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  status == 'تحت المعاينة'
+                  // ── Info note text differs for expert vs user ─────
+                  widget.isExpert
+                      ? (status == 'تحت المعاينة'
+                      ? 'يوجد طلب جلسة جديد بانتظار مراجعتك، يمكنك القبول أو الرفض.'
+                      : status == 'لم تبدأ'
+                      ? 'تم تأكيد الجلسة، ستبدأ في موعدها المحدد.'
+                      : status == 'بدأت'
+                      ? 'الجلسة جارية حالياً.'
+                      : status == 'أنتهت'
+                      ? 'انتهت الجلسة بنجاح.'
+                      : 'تم رفض الجلسة.')
+                      : (status == 'تحت المعاينة'
                       ? 'جلستك قيد المراجعة من قبل الخبير، سيتم إشعارك عند القبول أو الرفض.'
                       : status == 'لم تبدأ'
                       ? 'تم تأكيد جلستك، يمكنك متابعتها في موعدها المحدد.'
@@ -415,7 +539,7 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
                       ? 'الجلسة جارية حالياً.'
                       : status == 'أنتهت'
                       ? 'انتهت الجلسة بنجاح.'
-                      : 'تم رفض الجلسة من قبل الخبير.',
+                      : 'تم رفض الجلسة من قبل الخبير.'),
                   style: const TextStyle(
                     fontSize: 13,
                     color:    Color(0xFF43321A),
