@@ -363,7 +363,7 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
                   final val = double.tryParse(raw);
                   if (val != null) {
                     confidenceLabel =
-                    'نسبة الثقة: ${val.toStringAsFixed(1)}%';
+                    'الدقة: ${val.toStringAsFixed(1)}%';
                   }
                 }
 
