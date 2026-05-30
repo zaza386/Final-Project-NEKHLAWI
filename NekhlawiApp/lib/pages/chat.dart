@@ -185,7 +185,9 @@ class _ChatPageState extends State<ChatPage> {
       ),
       callback: (payload) {
         final status = payload.newRecord['Status'] as String?;
-        if (status == 'أكتملت' && mounted) {
+        // ── Listen for both manual completion ('أكتملت') and
+        //    auto-expiry set by _syncSessionStatuses ('أنتهت') ──
+        if ((status == 'أكتملت' || status == 'أنتهت') && mounted) {
           _showSessionEndedDialog();
         }
       },
@@ -338,7 +340,9 @@ class _ChatPageState extends State<ChatPage> {
 
   Future<void> _insertMessage(
       {required String text, required String? attachmentUrl}) async {
-    final now    = DateTime.now().toUtc().toIso8601String();
+    // NOTE: Use local time — both the device and Supabase are UTC+3.
+    // Do NOT call .toUtc() here; it would store timestamps 3 hours behind.
+    final now    = DateTime.now().toIso8601String();
     final tempId = 'opt_${DateTime.now().millisecondsSinceEpoch}';
 
     setState(() => messages.add({
@@ -628,8 +632,9 @@ class _ChatPageState extends State<ChatPage> {
                             await supabase.from('Review').insert({
                               'Rating':          selectedRating,
                               'Comment':         commentController.text.trim(),
+                              // NOTE: Review timestamps use local time to stay
+                              // consistent with the rest of the app (UTC+3).
                               'CreatedAt':       DateTime.now()
-                                  .toUtc()
                                   .toIso8601String(),
                               'ExpertID':        cleanExpertId,
                               'ExpertSessionID': _sessionId,

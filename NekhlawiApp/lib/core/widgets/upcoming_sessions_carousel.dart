@@ -41,7 +41,8 @@ class _UserSessionsCarouselState
   final _repo = ExpertSessionRepo();
 
   PageController? _pageController;
-  Timer? _timer;
+  Timer? _timer;       // auto-scroll
+  Timer? _syncTimer;   // ── periodic status sync ──
 
   Future<List<ExpertSessionItem>>? _future;
 
@@ -52,14 +53,28 @@ class _UserSessionsCarouselState
   void initState() {
     super.initState();
     _loadSessions();
+
+    // ── Re-sync session statuses every minute while widget is alive ──
+    // Catches cases where StartAt or EndAt passes while the user is
+    // already on the screen without needing a manual refresh.
+    _syncTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) _loadSessions();
+    });
   }
 
   // ── Auto-update session status based on current time ─────────────
   // Only updates sessions belonging to this user (as expert or user).
   // 'لم تبدأ' → 'بدأت'  : when now >= StartAt AND now < EndAt
   // 'بدأت'    → 'أنتهت' : when now >= EndAt
+  //
+  // NOTE: Both the device and Supabase operate on UTC+3 (local time).
+  // We must NOT call .toUtc() here — Supabase timestamps are stored as
+  // local (UTC+3), so comparing against a UTC 'now' would be 3 hours
+  // behind and cause sessions to appear stuck on 'لم تبدأ'.
   Future<void> _syncSessionStatuses() async {
     final supabase = Supabase.instance.client;
+
+    // Use local time — both the device and Supabase are UTC+3.
     final now = DateTime.now().toIso8601String();
 
     try {
@@ -122,6 +137,7 @@ class _UserSessionsCarouselState
   @override
   void dispose() {
     _timer?.cancel();
+    _syncTimer?.cancel();   // ── cancel periodic sync on dispose ──
     _pageController?.dispose();
     super.dispose();
   }
