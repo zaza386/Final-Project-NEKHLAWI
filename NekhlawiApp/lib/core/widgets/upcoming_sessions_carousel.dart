@@ -59,7 +59,8 @@ class _UserSessionsCarouselState
         userId: widget.userId,
         statuses: widget.statuses,
         isExpert: widget.isExpert,
-      );
+      )
+      .then((list) => list.reversed.toList());
     });
   }
 
@@ -333,7 +334,7 @@ class _SessionHomeCard extends StatelessWidget {
                           MaterialPageRoute(
                             builder: (_) => SessionInfoPage(
                               sessionId: session.expertSessionID,
-                              title: 'معلومات السشن',
+                              title: 'معلومات الجلسة',
                             ),
                           ),
                         );
