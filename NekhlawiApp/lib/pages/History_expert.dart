@@ -7,7 +7,7 @@ import 'analysis_result_page.dart';
 
 
 class ConsultationsPage2 extends StatefulWidget {
-  const ConsultationsPage2({super.key}); 
+  const ConsultationsPage2({super.key});
 
   @override
   State<ConsultationsPage2> createState() => _ConsultationsPageState();
@@ -28,52 +28,52 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
   }
 
   Future<void> _loadReviews() async {
-  final currentUser = supabase.auth.currentUser;
-  if (currentUser == null) return;
+    final currentUser = supabase.auth.currentUser;
+    if (currentUser == null) return;
 
-  if (!mounted) return;
-  setState(() => _isLoading = true);
+    if (!mounted) return;
+    setState(() => _isLoading = true);
 
-  try {
-    final expertProfile = await supabase
-        .from('ExpertProfile') 
-        .select('ExpertID')
-        .eq('ExpertID', currentUser.id) 
-        .single();
+    try {
+      final expertProfile = await supabase
+          .from('ExpertProfile')
+          .select('ExpertID')
+          .eq('ExpertID', currentUser.id)
+          .single();
 
-    final realExpertId = expertProfile['ExpertID'];
+      final realExpertId = expertProfile['ExpertID'];
 
-    final response = await supabase
-        .from('Review')
-        .select('ReviewID, Rating, Comment, CreatedAt')
-        .eq('ExpertID', realExpertId) 
-        .order('CreatedAt', ascending: false);
+      final response = await supabase
+          .from('Review')
+          .select('ReviewID, Rating, Comment, CreatedAt')
+          .eq('ExpertID', realExpertId)
+          .order('CreatedAt', ascending: false);
 
-    final list = List<Map<String, dynamic>>.from(response);
+      final list = List<Map<String, dynamic>>.from(response);
 
-    double avg = 0.0;
-    if (list.isNotEmpty) {
-      final total = list.fold<int>(
-        0,
-        (sum, r) => sum + ((r['Rating'] as int?) ?? 0),
-      );
-      avg = total / list.length;
-    }
+      double avg = 0.0;
+      if (list.isNotEmpty) {
+        final total = list.fold<int>(
+          0,
+              (sum, r) => sum + ((r['Rating'] as int?) ?? 0),
+        );
+        avg = total / list.length;
+      }
 
-    if (mounted) {
-      setState(() {
-        _reviews = list;
-        _averageRating = avg;
-        _isLoading = false;
-      });
-    }
-  } catch (e) {
-    debugPrint('Reviews error: $e');
-    if (mounted) {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _reviews = list;
+          _averageRating = avg;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Reviews error: $e');
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
-}
 
 
   String _formatDate(String? raw) {
@@ -301,7 +301,7 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
       mainAxisSize: MainAxisSize.min,
       children: List.generate(
         5,
-        (i) => Icon(
+            (i) => Icon(
           i < rating ? Icons.star : Icons.star_border,
           size: 16,
           color: Colors.amber,
@@ -341,99 +341,127 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
             String formattedDate =
                 "${createdAt.day}/${createdAt.month}/${createdAt.year}";
 
-            return ConsultationCard(
-              title:
-                  item['Title'] ??
-                  'تحليل نخلة #${item['AISessionID'].toString().substring(0, 5)}',
-              subtitle: 'تحليل ذكي بواسطة نخلاوي',
-              date: formattedDate,
-              time: "${createdAt.hour}:${createdAt.minute}",
-              isAi: true,
-              onTap: () async {
-                try {
-                  // 1. جلب بيانات التشخيص مع ربط الجداول (المرض والعلاج)
-                  final diagnosisData = await supabase
-                      .from('AIDiagnosis Table')
-                      .select('*, Disease(*, Treatment(*))')
-                      .eq('AISessionID', item['AISessionID'])
-                      .maybeSingle();
+            // session title retrieved from AISession Session Title col
+            final String sessionTitle =
+            (item['Session Title'] as String?)?.isNotEmpty == true
+                ? item['Session Title'] as String
+                : 'استشارة بدون عنوان';
 
-                  // 2. جلب رابط الصورة من جدول AISessionPicture (باستخدام عمود FileURL)
-                  final pictureData = await supabase
-                      .from('AISessionPicture')
-                      .select('FileURL')
-                      .eq('AISessionID', item['AISessionID'])
-                      .maybeSingle();
+            return FutureBuilder<Map<String, dynamic>?>(
+              // confidence retrieved from AIDiagnosis Table
+              future: supabase
+                  .from('AIDiagnosis Table')
+                  .select('Confidence')
+                  .eq('AISessionID', item['AISessionID'])
+                  .maybeSingle(),
+              builder: (context, confSnap) {
 
-                  if (diagnosisData != null && context.mounted) {
-                    // معالجة بيانات المرض (تحويل القائمة لماب)
-                    final diseaseSource =
-                        diagnosisData['Disease'] ?? diagnosisData['disease'];
-                    final Map<String, dynamic>? diseaseMap =
-                        (diseaseSource is List && diseaseSource.isNotEmpty)
-                        ? diseaseSource[0]
-                        : (diseaseSource is Map<String, dynamic>
-                              ? diseaseSource
-                              : null);
-
-                    // معالجة بيانات العلاج (تحويل القائمة لماب)
-                    final treatmentSource =
-                        diseaseMap?['Treatment'] ?? diseaseMap?['treatment'];
-                    final Map<String, dynamic>? treatmentMap =
-                        (treatmentSource is List && treatmentSource.isNotEmpty)
-                        ? treatmentSource[0]
-                        : (treatmentSource is Map<String, dynamic>
-                              ? treatmentSource
-                              : null);
-
-                    // تنظيف النسبة المئوية للتحليل
-                    String confStr =
-                        diagnosisData['Confidence']?.toString().replaceAll(
-                          '%',
-                          '',
-                        ) ??
-                        "0";
-                    double confVal = double.tryParse(confStr) ?? 0.0;
-
-                    // 3. الانتقال لصفحة النتائج وتمرير الرابط المجلوب FileURL
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => AnalysisResultPage(
-                          imageFile:
-                              null, // نرسل null لأننا نستخدم الرابطimageUrl
-                          imageUrl: pictureData != null
-                              ? pictureData['FileURL']
-                              : null,
-                          aiLabel: diseaseMap?['ArabicName'] ?? 'غير معروف',
-                          confidence: confVal,
-                          sessionId: item['AISessionID'].toString(),
-                          diseaseInfo: diseaseMap,
-                          treatmentInfo: treatmentMap,
-                        ),
-                      ),
-                    );
-                  } else {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            "عذراً، تفاصيل هذا التشخيص غير متوفرة في السجلات",
-                          ),
-                        ),
-                      );
-                    }
-                  }
-                } catch (e) {
-                  debugPrint("Error fetching details: $e");
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text("حدث خطأ أثناء تحميل البيانات: $e"),
-                      ),
-                    );
+                String? confidenceLabel;
+                if (confSnap.hasData && confSnap.data != null) {
+                  final raw =
+                      confSnap.data!['Confidence']?.toString().replaceAll('%', '') ?? '';
+                  final val = double.tryParse(raw);
+                  if (val != null) {
+                    confidenceLabel =
+                    'نسبة الثقة: ${val.toStringAsFixed(1)}%';
                   }
                 }
+
+                return ConsultationCard(
+                  title: sessionTitle,
+                  subtitle: confidenceLabel != null
+                      ? 'تحليل ذكي بواسطة نخلاوي\n$confidenceLabel'
+                      : 'تحليل ذكي بواسطة نخلاوي',
+                  date: formattedDate,
+                  time: "${createdAt.hour}:${createdAt.minute}",
+                  isAi: true,
+                  onTap: () async {
+                    try {
+                      // 1. جلب بيانات التشخيص مع ربط الجداول (المرض والعلاج)
+                      final diagnosisData = await supabase
+                          .from('AIDiagnosis Table')
+                          .select('*, Disease(*, Treatment(*))')
+                          .eq('AISessionID', item['AISessionID'])
+                          .maybeSingle();
+
+                      // 2. جلب رابط الصورة من جدول AISessionPicture (باستخدام عمود FileURL)
+                      final pictureData = await supabase
+                          .from('AISessionPicture')
+                          .select('FileURL')
+                          .eq('AISessionID', item['AISessionID'])
+                          .maybeSingle();
+
+                      if (diagnosisData != null && context.mounted) {
+                        // معالجة بيانات المرض (تحويل القائمة لماب)
+                        final diseaseSource =
+                            diagnosisData['Disease'] ?? diagnosisData['disease'];
+                        final Map<String, dynamic>? diseaseMap =
+                        (diseaseSource is List && diseaseSource.isNotEmpty)
+                            ? diseaseSource[0]
+                            : (diseaseSource is Map<String, dynamic>
+                            ? diseaseSource
+                            : null);
+
+                        // معالجة بيانات العلاج (تحويل القائمة لماب)
+                        final treatmentSource =
+                            diseaseMap?['Treatment'] ?? diseaseMap?['treatment'];
+                        final Map<String, dynamic>? treatmentMap =
+                        (treatmentSource is List && treatmentSource.isNotEmpty)
+                            ? treatmentSource[0]
+                            : (treatmentSource is Map<String, dynamic>
+                            ? treatmentSource
+                            : null);
+
+                        // تنظيف النسبة المئوية للتحليل
+                        String confStr =
+                            diagnosisData['Confidence']?.toString().replaceAll(
+                              '%',
+                              '',
+                            ) ??
+                                "0";
+                        double confVal = double.tryParse(confStr) ?? 0.0;
+
+                        // 3. الانتقال لصفحة النتائج وتمرير الرابط المجلوب FileURL
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AnalysisResultPage(
+                              imageFile:
+                              null, // نرسل null لأننا نستخدم الرابطimageUrl
+                              imageUrl: pictureData != null
+                                  ? pictureData['FileURL']
+                                  : null,
+                              aiLabel: diseaseMap?['ArabicName'] ?? 'غير معروف',
+                              confidence: confVal,
+                              sessionId: item['AISessionID'].toString(),
+                              diseaseInfo: diseaseMap,
+                              treatmentInfo: treatmentMap,
+                            ),
+                          ),
+                        );
+                      } else {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                "عذراً، تفاصيل هذا التشخيص غير متوفرة في السجلات",
+                              ),
+                            ),
+                          );
+                        }
+                      }
+                    } catch (e) {
+                      debugPrint("Error fetching details: $e");
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text("حدث خطأ أثناء تحميل البيانات: $e"),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                );
               },
             );
           },
