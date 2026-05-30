@@ -343,7 +343,7 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
 
             // session title retrieved from AISession Session Title col
             final String sessionTitle =
-            (item['Session Title'] as String?)?.isNotEmpty == true
+            (item['SessionTitle'] as String?)?.isNotEmpty == true
                 ? item['Session Title'] as String
                 : 'استشارة بدون عنوان';
 
