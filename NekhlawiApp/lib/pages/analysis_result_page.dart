@@ -271,7 +271,7 @@ class _AnalysisResultPageState extends State<AnalysisResultPage> {
                         child: Column(
                           children: [
                             const Text(
-                              "بستشير خبيراً",
+                              "بستشير خبير",
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
