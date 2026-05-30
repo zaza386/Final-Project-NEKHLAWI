@@ -75,7 +75,6 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
     }
   }
 
-
   String _formatDate(String? raw) {
     if (raw == null) return '';
     try {
@@ -232,7 +231,8 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
               final count = _reviews
                   .where((r) => (r['Rating'] as int?) == star)
                   .length;
-              final percent = _reviews.isEmpty ? 0.0 : count / _reviews.length;
+              final percent =
+              _reviews.isEmpty ? 0.0 : count / _reviews.length;
               return Row(
                 children: [
                   Text('$star', style: const TextStyle(fontSize: 10)),
@@ -260,17 +260,17 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
       itemCount: _reviews.length,
       itemBuilder: (context, index) {
         final review = _reviews[index];
-        final rating = (review['Rating'] as int?) ?? 0;
+        final rating  = (review['Rating']  as int?)    ?? 0;
         final comment = (review['Comment'] as String?) ?? '';
-        final date = _formatDate(review['CreatedAt']?.toString());
+        final date    = _formatDate(review['CreatedAt']?.toString());
 
         return Container(
-          margin: const EdgeInsets.only(bottom: 12),
+          margin:  const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFFF9F9F9),
+            color:        const Color(0xFFF9F9F9),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.black12),
+            border:       Border.all(color: Colors.black12),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -281,13 +281,15 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
                   _buildStars(rating.toDouble()),
                   Text(
                     date,
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    style: const TextStyle(
+                        fontSize: 11, color: Colors.grey),
                   ),
                 ],
               ),
               if (comment.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                Text(comment, style: const TextStyle(fontSize: 13)),
+                Text(comment,
+                    style: const TextStyle(fontSize: 13)),
               ],
             ],
           ),
@@ -303,7 +305,7 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
         5,
             (i) => Icon(
           i < rating ? Icons.star : Icons.star_border,
-          size: 16,
+          size:  16,
           color: Colors.amber,
         ),
       ),
@@ -328,7 +330,8 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
           return Center(child: Text("حدث خطأ: ${snapshot.error}"));
         }
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text("لا توجد استشارات ذكاء اصطناعي"));
+          return const Center(
+              child: Text("لا توجد استشارات ذكاء اصطناعي"));
         }
 
         final data = snapshot.data as List<dynamic>;
@@ -336,34 +339,57 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
         return ListView.builder(
           itemCount: data.length,
           itemBuilder: (context, index) {
-            final item = data[index];
-            DateTime createdAt = DateTime.parse(item['CreatedAt']);
+            final item = Map<String, dynamic>.from(data[index]);
+
+            // ── Debug: print all keys to find exact column name ──
+            debugPrint('AISession keys: ${item.keys.toList()}');
+            debugPrint('AISession data: $item');
+
+            DateTime createdAt = DateTime.parse(
+                item['CreatedAt']?.toString() ??
+                    DateTime.now().toIso8601String());
             String formattedDate =
                 "${createdAt.day}/${createdAt.month}/${createdAt.year}";
 
-            // session title retrieved from AISession Session Title col
-            final String sessionTitle =
-            (item['SessionTitle'] as String?)?.isNotEmpty == true
-                ? item['Session Title'] as String
+            // عنوان الجلسة — يجرب جميع أشكال اسم العمود المحتملة
+            final String sessionTitle = (item['Session Title'] ??
+                item['SessionTitle'] ??
+                item['session_title'] ??
+                item['title'] ??
+                item['Title'] ??
+                '')
+                .toString()
+                .trim()
+                .isNotEmpty
+                ? (item['Session Title'] ??
+                item['SessionTitle'] ??
+                item['session_title'] ??
+                item['title'] ??
+                item['Title'] ??
+                'استشارة بدون عنوان')
+                .toString()
                 : 'استشارة بدون عنوان';
 
             return FutureBuilder<Map<String, dynamic>?>(
-              // confidence retrieved from AIDiagnosis Table
+              // جلب نسبة الثقة من جدول AIDiagnosis Table
               future: supabase
                   .from('AIDiagnosis Table')
                   .select('Confidence')
-                  .eq('AISessionID', item['AISessionID'])
+                  .eq('AISessionID',
+                  item['AISessionID']?.toString() ?? '')
                   .maybeSingle(),
               builder: (context, confSnap) {
-
+                // تنظيف نسبة الثقة وتحويلها لنص معروض
                 String? confidenceLabel;
                 if (confSnap.hasData && confSnap.data != null) {
-                  final raw =
-                      confSnap.data!['Confidence']?.toString().replaceAll('%', '') ?? '';
+                  final raw = confSnap.data!['Confidence']
+                      ?.toString()
+                      .replaceAll('%', '') ??
+                      '';
                   final val = double.tryParse(raw);
                   if (val != null) {
                     confidenceLabel =
-                    'الدقة: ${val.toStringAsFixed(1)}%';
+                    'نسبة الثقة: ${val.toStringAsFixed(1)}%';
                   }
                 }
 
@@ -373,7 +399,8 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
                       ? 'تحليل ذكي بواسطة نخلاوي\n$confidenceLabel'
                       : 'تحليل ذكي بواسطة نخلاوي',
                   date: formattedDate,
-                  time: "${createdAt.hour}:${createdAt.minute}",
+                  time:
+                  "${createdAt.hour}:${createdAt.minute.toString().padLeft(2, '0')}",
                   isAi: true,
                   onTap: () async {
                     try {
@@ -381,45 +408,53 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
                       final diagnosisData = await supabase
                           .from('AIDiagnosis Table')
                           .select('*, Disease(*, Treatment(*))')
-                          .eq('AISessionID', item['AISessionID'])
+                          .eq('AISessionID',
+                          item['AISessionID']?.toString() ?? '')
                           .maybeSingle();
 
                       // 2. جلب رابط الصورة من جدول AISessionPicture (باستخدام عمود FileURL)
                       final pictureData = await supabase
                           .from('AISessionPicture')
                           .select('FileURL')
-                          .eq('AISessionID', item['AISessionID'])
+                          .eq('AISessionID',
+                          item['AISessionID']?.toString() ?? '')
                           .maybeSingle();
 
                       if (diagnosisData != null && context.mounted) {
                         // معالجة بيانات المرض (تحويل القائمة لماب)
-                        final diseaseSource =
-                            diagnosisData['Disease'] ?? diagnosisData['disease'];
+                        final diseaseSource = diagnosisData['Disease'] ??
+                            diagnosisData['disease'];
                         final Map<String, dynamic>? diseaseMap =
-                        (diseaseSource is List && diseaseSource.isNotEmpty)
-                            ? diseaseSource[0]
-                            : (diseaseSource is Map<String, dynamic>
-                            ? diseaseSource
+                        (diseaseSource is List &&
+                            diseaseSource.isNotEmpty)
+                            ? Map<String, dynamic>.from(
+                            diseaseSource[0])
+                            : (diseaseSource is Map
+                            ? Map<String, dynamic>.from(
+                            diseaseSource)
                             : null);
 
                         // معالجة بيانات العلاج (تحويل القائمة لماب)
                         final treatmentSource =
-                            diseaseMap?['Treatment'] ?? diseaseMap?['treatment'];
+                            diseaseMap?['Treatment'] ??
+                                diseaseMap?['treatment'];
                         final Map<String, dynamic>? treatmentMap =
-                        (treatmentSource is List && treatmentSource.isNotEmpty)
-                            ? treatmentSource[0]
-                            : (treatmentSource is Map<String, dynamic>
-                            ? treatmentSource
+                        (treatmentSource is List &&
+                            treatmentSource.isNotEmpty)
+                            ? Map<String, dynamic>.from(
+                            treatmentSource[0])
+                            : (treatmentSource is Map
+                            ? Map<String, dynamic>.from(
+                            treatmentSource)
                             : null);
 
                         // تنظيف النسبة المئوية للتحليل
-                        String confStr =
-                            diagnosisData['Confidence']?.toString().replaceAll(
-                              '%',
-                              '',
-                            ) ??
-                                "0";
-                        double confVal = double.tryParse(confStr) ?? 0.0;
+                        String confStr = diagnosisData['Confidence']
+                            ?.toString()
+                            .replaceAll('%', '') ??
+                            "0";
+                        double confVal =
+                            double.tryParse(confStr) ?? 0.0;
 
                         // 3. الانتقال لصفحة النتائج وتمرير الرابط المجلوب FileURL
                         Navigator.push(
@@ -428,13 +463,15 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
                             builder: (_) => AnalysisResultPage(
                               imageFile:
                               null, // نرسل null لأننا نستخدم الرابطimageUrl
-                              imageUrl: pictureData != null
-                                  ? pictureData['FileURL']
-                                  : null,
-                              aiLabel: diseaseMap?['ArabicName'] ?? 'غير معروف',
+                              imageUrl:
+                              pictureData?['FileURL']?.toString(),
+                              aiLabel: diseaseMap?['ArabicName']
+                                  ?.toString() ??
+                                  'غير معروف',
                               confidence: confVal,
-                              sessionId: item['AISessionID'].toString(),
-                              diseaseInfo: diseaseMap,
+                              sessionId:
+                              item['AISessionID']?.toString() ?? '',
+                              diseaseInfo:  diseaseMap,
                               treatmentInfo: treatmentMap,
                             ),
                           ),
@@ -455,7 +492,8 @@ class _ConsultationsPageState extends State<ConsultationsPage2> {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text("حدث خطأ أثناء تحميل البيانات: $e"),
+                            content:
+                            Text("حدث خطأ أثناء تحميل البيانات: $e"),
                           ),
                         );
                       }
