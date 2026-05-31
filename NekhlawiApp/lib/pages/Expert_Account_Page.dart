@@ -368,7 +368,7 @@ setState(() {
     );
   }
 
-  Future<void> _confirmDeleteAccount() async {
+  Future<void> confirmDeleteAccount() async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => Directionality(
@@ -376,7 +376,7 @@ setState(() {
         child: AlertDialog(
           title: const Text('تأكيد حذف الحساب'),
           content: const Text(
-              'هل أنت متأكد من حذف حسابك كخبير؟ هذا الإجراء لا يمكن التراجع عنه.'),
+              'هل أنت متأكد من حذف الحساب؟ هذا الإجراء لا يمكن التراجع عنه.'),
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
@@ -390,11 +390,24 @@ setState(() {
         ),
       ),
     );
-    if (ok == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('تم اختيار حذف الحساب (غير مربوط حالياً).')),
-      );
+    if (ok == true) {
+      try {
+        final userId = supabase.auth.currentUser!.id;
+        await supabase.from('User').delete().eq('UserID', userId);
+        await supabase.auth.signOut();
+        if (!mounted) return;
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginPage()),
+          (route) => false,
+        );
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
     }
   }
 
@@ -637,7 +650,7 @@ setState(() {
                                 _DangerTile(
                                   title: 'حذف الحساب',
                                   icon: Icons.delete_outline,
-                                  onTap: _confirmDeleteAccount,
+                                  onTap: confirmDeleteAccount,
                                 ),
                                 const SizedBox(height: 16),
                               ],
