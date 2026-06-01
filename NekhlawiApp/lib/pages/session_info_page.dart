@@ -45,19 +45,24 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
           .eq('ExpertSessionID', widget.sessionId)
           .single();
 
-      // ── Fetch payment amount separately ───────────────────────────
+      // ── Calculate amount from session duration x expert price ───
       String? amount;
       try {
-        final payment = await supabase
-            .from('Payment')
-            .select('Amount')
-            .eq('ExpertSessionID', widget.sessionId)
-            .maybeSingle();
-        if (payment != null) {
-          amount = payment['Amount']?.toString();
+        final startRaw = data['StartAt'] as String?;
+        final endRaw   = data['EndAt']   as String?;
+        const pricePerHour = 300;
+        if (startRaw != null && endRaw != null) {
+          final start    = DateTime.tryParse(startRaw);
+          final end      = DateTime.tryParse(endRaw);
+          if (start != null && end != null) {
+            final minutes  = end.difference(start).inMinutes;
+            final slots    = (minutes / 30).ceil();
+            final total    = slots * (pricePerHour ~/ 2);
+            amount = total.toString();
+          }
         }
       } catch (e) {
-        debugPrint('Error fetching payment: $e');
+        debugPrint('Error calculating amount: $e');
       }
 
       if (mounted) {
@@ -454,55 +459,6 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
         ),
 
         const SizedBox(height: 24),
-
-        // ── Expert action buttons (only when status is تحت المعاينة) ──
-        if (widget.isExpert && status == 'تحت المعاينة') ...[
-          _isUpdatingStatus
-              ? const CircularProgressIndicator(
-              color: Color(0xFF797F3D))
-              : Row(
-            children: [
-              // Accept button
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _acceptSession,
-                  icon:  const Icon(Icons.check_circle_outline,
-                      color: Colors.white),
-                  label: const Text('قبول الجلسة',
-                      style: TextStyle(color: Colors.white)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF797F3D),
-                    elevation:       0,
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 14),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Decline button
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _declineSession,
-                  icon:  const Icon(Icons.cancel_outlined,
-                      color: Colors.red),
-                  label: const Text('رفض الجلسة',
-                      style: TextStyle(color: Colors.red)),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.red),
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 14),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-        ],
-        // ─────────────────────────────────────────────────────────────
 
         // ── Info note ─────────────────────────────────────────────────
         Container(
