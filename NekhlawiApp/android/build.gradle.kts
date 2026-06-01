@@ -1,4 +1,4 @@
-ز llprojects {
+allprojects {
     repositories {
         google()
         mavenCentral()
