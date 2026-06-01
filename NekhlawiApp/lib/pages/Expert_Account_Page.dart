@@ -177,7 +177,8 @@ setState(() {
   phoneCtrl.text = userData?['Phone'] ?? '';
   avatarUrl = userData?['ProfilePicturePath']; // ← ADD THIS
 
-  final rawDate = userData?['CreatedAt'];
+// After:
+  final rawDate = userData?['CreatedAt'] ?? supabase.auth.currentUser?.createdAt;
   if (rawDate != null) {
     final dt = DateTime.tryParse(rawDate.toString());
     if (dt != null) {
