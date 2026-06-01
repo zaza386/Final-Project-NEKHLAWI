@@ -34,16 +34,70 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
   final yearsController = TextEditingController();
   final specialtyController = TextEditingController();
 
+  // Validation error messages
+  String? _nameError;
+  String? _phoneError;
+
   bool get isExpert => widget.role == 'expert';
 
   @override
+  void initState() {
+    super.initState();
+    nameController.addListener(_validateName);
+    phoneController.addListener(_validatePhone);
+  }
+
+  @override
   void dispose() {
+    nameController.removeListener(_validateName);
+    phoneController.removeListener(_validatePhone);
     nameController.dispose();
     phoneController.dispose();
     yearsController.dispose();
     specialtyController.dispose();
     super.dispose();
   }
+
+  // ── Validators ──────────────────────────────
+
+  void _validateName() {
+    final value = nameController.text.trim();
+    setState(() {
+      if (value.isEmpty) {
+        _nameError = 'الاسم مطلوب';
+      } else if (RegExp(r'[0-9]').hasMatch(value)) {
+        _nameError = 'الاسم لا يجب أن يحتوي على أرقام';
+      } else if (RegExp(r'[!@#\$%^&*()_+={}\[\]|\\:;"<>,.?/~`]')
+          .hasMatch(value)) {
+        _nameError = 'الاسم لا يجب أن يحتوي على رموز أو علامات خاصة';
+      } else {
+        _nameError = null;
+      }
+    });
+  }
+
+  void _validatePhone() {
+    final value = phoneController.text.trim();
+    setState(() {
+      if (value.isEmpty) {
+        _phoneError = 'رقم الجوال مطلوب';
+      } else if (!value.startsWith('05')) {
+        _phoneError = 'رقم الجوال يجب أن يبدأ بـ 05';
+      } else if (value.length != 10) {
+        _phoneError = 'رقم الجوال يجب أن يتكون من 10 أرقام';
+      } else if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+        _phoneError = 'رقم الجوال يجب أن يحتوي على أرقام فقط';
+      } else {
+        _phoneError = null;
+      }
+    });
+  }
+
+  bool get _isFormValid =>
+      _nameError == null &&
+      _phoneError == null &&
+      nameController.text.trim().isNotEmpty &&
+      phoneController.text.trim().isNotEmpty;
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -82,10 +136,20 @@ class _CompleteProfilePageState extends State<CompleteProfilePage> {
 
     setState(() => submitted = true);
 
+    // Run format validators (same as account pages)
+    _validateName();
+    _validatePhone();
+
     final missing = _missingFields();
 
     if (missing.isNotEmpty) {
       _showError('الحقول المطلوبة: ${missing.join(', ')}');
+      return;
+    }
+
+    if (!_isFormValid) {
+      final firstError = _nameError ?? _phoneError ?? 'يرجى تصحيح الأخطاء';
+      _showError(firstError);
       return;
     }
 
