@@ -39,7 +39,7 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
       final data = await supabase
           .from('ExpertSession')
           .select(
-        'ExpertSessionID, StartAt, EndAt, Status, BookedAt, '
+        'ExpertSessionID, StartAt, EndAt, Status, BookedAt, DeclineReason, '
             'ExpertProfile!ExpertID(Specialization, User!ExpertID(Name, ProfilePicturePath))',
       )
           .eq('ExpertSessionID', widget.sessionId)
@@ -418,6 +418,16 @@ class _SessionInfoPageState extends State<SessionInfoPage> {
                   Icons.bookmark_added_outlined,
                   'تاريخ الحجز',
                   _formatDateTime(bookedAt),
+                ),
+                const SizedBox(height: 12),
+              ],
+
+              // Decline reason row
+              if (status == '\u0645\u0631\u0641\u0648\u0636\u0629' && sessionData?['DeclineReason'] != null && (sessionData!['DeclineReason'] as String).isNotEmpty) ...[  
+                _invoiceRow(
+                  Icons.info_outline,
+                  '\u0633\u0628\u0628 \u0627\u0644\u0631\u0641\u0636',
+                  sessionData!['DeclineReason'] as String,
                 ),
                 const SizedBox(height: 12),
               ],
