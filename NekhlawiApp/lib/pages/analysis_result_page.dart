@@ -99,7 +99,6 @@ class _AnalysisResultPageState extends State<AnalysisResultPage> {
     try {
       final pdf = pw.Document();
 
-      // 💡 التعديل هنا: سحب الخط من الإنترنت مباشرة عشان يشتغل معك الحين بدون ما تلمسين الـ Assets
       final fontData = await NetworkAssetBundle(
         Uri.parse(
           'https://github.com/google/fonts/raw/main/ofl/amiri/Amiri-Regular.ttf',

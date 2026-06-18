@@ -149,7 +149,6 @@ class _AiConsultationDetailsPageState extends State<AiConsultationDetailsPage> {
                         style: TextStyle(color: darkColor, fontSize: 20, fontWeight: FontWeight.bold)
                     ),
                     const Spacer(),
-                    // زر الفلاش الذي طلبته
                     GestureDetector(
                       onTap: _toggleFlash,
                       child: Container(

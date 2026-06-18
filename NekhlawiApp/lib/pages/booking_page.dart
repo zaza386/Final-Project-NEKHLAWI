@@ -7,9 +7,7 @@ import 'stripe_payment_sheet.dart';
 
 final supabase = Supabase.instance.client;
 
-// ─────────────────────────────────────────────
-// DATA MODELS
-// ─────────────────────────────────────────────
+
 
 class ExpertModel {
   final String id;
@@ -60,9 +58,6 @@ class TimeSlot {
   }
 }
 
-// ─────────────────────────────────────────────
-// BOOKING PAGE
-// ─────────────────────────────────────────────
 
 class BookingPage extends StatefulWidget {
   final String expertId;
